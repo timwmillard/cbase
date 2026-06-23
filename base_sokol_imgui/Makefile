@@ -8,4 +8,4 @@ build:
 	@cmake -B build
 
 run: all
-	@./build/base_sokol
+	@./build/imgui_demo
