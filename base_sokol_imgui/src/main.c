@@ -10,6 +10,8 @@
 
 static struct {
     sg_pass_action pass_action;
+
+    bool show_demo_window;
 } state = {0};
 
 void init(void)
@@ -28,6 +30,8 @@ void init(void)
             .clear_value = {0.2, 0.2, 0.2, 1.0},
         },
     };
+
+    state.show_demo_window = true;
 }
 
 void save()
@@ -44,6 +48,10 @@ void gui_draw()
         save();
     igInputText("string", buf, 512, 0, 0, 0);
     igSliderFloat("float", &f, 0.0f, 1.0f, 0, 0);
+
+    if (state.show_demo_window) {
+        igShowDemoWindow(&state.show_demo_window);
+    }
 }
 
 void frame(void)
