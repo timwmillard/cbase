@@ -9,3 +9,7 @@ build:
 
 run: all
 	@./build/raylib_demo
+
+clean:
+	@rm -rf build
+

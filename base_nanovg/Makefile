@@ -9,3 +9,7 @@ build:
 
 run: all
 	@./build/nanovg_demo
+
+clean:
+	@rm -rf build
+

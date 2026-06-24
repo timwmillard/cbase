@@ -9,3 +9,7 @@ build:
 
 run: all
 	@./build/sokol_demo
+
+clean:
+	@rm -rf build
+

@@ -9,3 +9,7 @@ build:
 
 run: all
 	@./build/imgui_demo
+
+clean:
+	@rm -rf build
+
