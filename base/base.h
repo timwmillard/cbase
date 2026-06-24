@@ -305,7 +305,7 @@ char *arena_sprintf(arena *a, const char *format, ...)
 string string_view(const char *cstr) {
     usize len = strlen(cstr);
     return (string){
-        .data = cstr,
+        .data = (char*)cstr,
         .len = len,
     };
 }
@@ -318,23 +318,33 @@ string string_view_n(const char *bytes, usize len) {
 }
 
 string string_from(arena *a, const char *fmt, ...) {
-    (void)a; (void)fmt;
-    return (string){0}; // TODO: implement
+    va_list args;
+    va_start(args, fmt);
+    string s = string_vfrom(a, fmt, args);
+    va_end(args);
+    return s;
 }
 
 string string_vfrom(arena *a, const char *fmt, va_list args) {
-    (void)a; (void)fmt; (void)args;
-    return (string){0}; // TODO: implement
+    char *cstr = arena_vsprintf(a, fmt, args);
+    usize len = strlen(cstr);
+    return (string){
+        .data = cstr,
+        .len = len,
+    };
 }
 
 string string_from_n(arena *a, const char *bytes, usize len) {
-    (void)a; (void)bytes; (void)len;
-    return (string){0}; // TODO: implement
+    char *buf = (char*)arena_alloc(a, len + 1);
+    strncpy(buf, bytes, len);
+    return (string){
+        .data = buf,
+        .len = len,
+    };
 }
 
 string string_dup(arena *a, string s) {
-    (void)a; (void)s;
-    return (string){0}; // TODO: implement
+    return string_from_n(a, s.data, s.len);
 }
 
 const char *string_cstr(arena *a, string s) {
