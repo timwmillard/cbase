@@ -293,4 +293,191 @@ char *arena_sprintf(arena *a, const char *format, ...)
     return result;
 }
 
+// -----------------------------------------------------------------------------
+// string
+// -----------------------------------------------------------------------------
+
+// Constructors
+string string_view(const char *cstr) {
+    (void)cstr;
+    return (string){0}; // TODO: implement
+}
+
+string string_view_n(const char *bytes, usize len) {
+    (void)bytes; (void)len;
+    return (string){0}; // TODO: implement
+}
+
+string string_from(arena *a, const char *fmt, ...) {
+    (void)a; (void)fmt;
+    return (string){0}; // TODO: implement
+}
+
+string string_vfrom(arena *a, const char *fmt, va_list args) {
+    (void)a; (void)fmt; (void)args;
+    return (string){0}; // TODO: implement
+}
+
+string string_from_n(arena *a, const char *bytes, usize len) {
+    (void)a; (void)bytes; (void)len;
+    return (string){0}; // TODO: implement
+}
+
+string string_dup(arena *a, string s) {
+    (void)a; (void)s;
+    return (string){0}; // TODO: implement
+}
+
+const char *string_cstr(arena *a, string s) {
+    (void)a; (void)s;
+    return NULL; // TODO: implement
+}
+
+// Slicing / inspection
+string string_slice(string s, isize start, isize end) {
+    (void)s; (void)start; (void)end;
+    return (string){0}; // TODO: implement
+}
+
+string string_trim(string s) {
+    (void)s;
+    return (string){0}; // TODO: implement
+}
+
+string string_trim_left(string s) {
+    (void)s;
+    return (string){0}; // TODO: implement
+}
+
+string string_trim_right(string s) {
+    (void)s;
+    return (string){0}; // TODO: implement
+}
+
+bool string_eq(string a, string b) {
+    (void)a; (void)b;
+    return false; // TODO: implement
+}
+
+bool string_starts_with(string s, string prefix) {
+    (void)s; (void)prefix;
+    return false; // TODO: implement
+}
+
+bool string_ends_with(string s, string suffix) {
+    (void)s; (void)suffix;
+    return false; // TODO: implement
+}
+
+bool string_contains(string s, string needle) {
+    (void)s; (void)needle;
+    return false; // TODO: implement
+}
+
+isize string_index_of(string s, string needle) {
+    (void)s; (void)needle;
+    return -1; // TODO: implement
+}
+
+isize string_index_of_char(string s, char c) {
+    (void)s; (void)c;
+    return -1; // TODO: implement
+}
+
+// Transforms
+string string_upper(arena *a, string s) {
+    (void)a; (void)s;
+    return (string){0}; // TODO: implement
+}
+
+string string_lower(arena *a, string s) {
+    (void)a; (void)s;
+    return (string){0}; // TODO: implement
+}
+
+string string_concat(arena *a, string a1, string a2) {
+    (void)a; (void)a1; (void)a2;
+    return (string){0}; // TODO: implement
+}
+
+string string_replace(arena *a, string s, string from, string to) {
+    (void)a; (void)s; (void)from; (void)to;
+    return (string){0}; // TODO: implement
+}
+
+// Split / join
+string_array string_split(arena *a, string s, string delim) {
+    (void)a; (void)s; (void)delim;
+    return (string_array){0}; // TODO: implement
+}
+
+string string_join(arena *a, string_array parts, string sep) {
+    (void)a; (void)parts; (void)sep;
+    return (string){0}; // TODO: implement
+}
+
+// -----------------------------------------------------------------------------
+// string_builder
+// -----------------------------------------------------------------------------
+
+string_builder sb_init(arena *a) {
+    (void)a;
+    return (string_builder){0}; // TODO: implement
+}
+
+string_builder sb_init_cap(arena *a, usize cap) {
+    (void)a; (void)cap;
+    return (string_builder){0}; // TODO: implement
+}
+
+string_builder sb_init_fixed(char *buf, usize cap) {
+    (void)buf; (void)cap;
+    return (string_builder){0}; // TODO: implement
+}
+
+void sb_reserve(string_builder *sb, usize cap) {
+    (void)sb; (void)cap;
+    // TODO: implement
+}
+
+void sb_push(string_builder *sb, char c) {
+    (void)sb; (void)c;
+    // TODO: implement
+}
+
+void sb_append(string_builder *sb, string s) {
+    (void)sb; (void)s;
+    // TODO: implement
+}
+
+void sb_append_cstr(string_builder *sb, const char *cstr) {
+    (void)sb; (void)cstr;
+    // TODO: implement
+}
+
+void sb_appendf(string_builder *sb, const char *fmt, ...) {
+    (void)sb; (void)fmt;
+    // TODO: implement
+}
+
+void sb_vappendf(string_builder *sb, const char *fmt, va_list args) {
+    (void)sb; (void)fmt; (void)args;
+    // TODO: implement
+}
+
+void sb_reset(string_builder *sb) {
+    (void)sb;
+    // TODO: implement
+}
+
+string sb_string(string_builder *sb) {
+    (void)sb;
+    return (string){0}; // TODO: implement
+}
+
+const char *sb_cstr(string_builder *sb) {
+    (void)sb;
+    return NULL; // TODO: implement
+}
+
 #endif
