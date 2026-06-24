@@ -201,6 +201,10 @@ const char *sb_cstr(string_builder *sb);                // null-terminated view
 
 #include <ctype.h>
 
+// -----------------------------------------------------------------------------
+// arena
+// -----------------------------------------------------------------------------
+
 arena_region *_arena_new_region(usize size) {
     usize region_cap = ARENA_REGION_DEFAULT_SIZE_BYTES / sizeof(uintptr_t);
     if (region_cap < size) region_cap = size;
