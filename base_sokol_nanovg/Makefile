@@ -8,4 +8,4 @@ build:
 	@cmake -B build
 
 run: all
-	@./build/sokol_demo
+	@./build/nanovg_demo
