@@ -303,13 +303,18 @@ char *arena_sprintf(arena *a, const char *format, ...)
 
 // Constructors
 string string_view(const char *cstr) {
-    (void)cstr;
-    return (string){0}; // TODO: implement
+    usize len = strlen(cstr);
+    return (string){
+        .data = cstr,
+        .len = len,
+    };
 }
 
 string string_view_n(const char *bytes, usize len) {
-    (void)bytes; (void)len;
-    return (string){0}; // TODO: implement
+    return (string){
+        .data = (char*)bytes,
+        .len = len,
+    };
 }
 
 string string_from(arena *a, const char *fmt, ...) {
