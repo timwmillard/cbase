@@ -201,6 +201,7 @@ const char *sb_cstr(string_builder *sb);                // null-terminated view
 
 #include <string.h>
 #include <ctype.h>
+#include <stdio.h>
 
 // -----------------------------------------------------------------------------
 // arena
@@ -407,60 +408,121 @@ bool string_eq(string a, string b) {
 }
 
 bool string_starts_with(string s, string prefix) {
-    (void)s; (void)prefix;
-    return false; // TODO: implement
+    if (prefix.len > s.len) return false;
+    return memcmp(s.data, prefix.data, prefix.len) == 0;
 }
 
 bool string_ends_with(string s, string suffix) {
-    (void)s; (void)suffix;
-    return false; // TODO: implement
+    if (suffix.len > s.len) return false;
+    return memcmp(s.data + (s.len - suffix.len), suffix.data, suffix.len) == 0;
 }
 
 bool string_contains(string s, string needle) {
-    (void)s; (void)needle;
-    return false; // TODO: implement
+    return string_index_of(s, needle) >= 0;
 }
 
 isize string_index_of(string s, string needle) {
-    (void)s; (void)needle;
-    return -1; // TODO: implement
+    if (needle.len == 0) return 0;            // empty needle matches at the start
+    if (needle.len > s.len) return -1;
+    for (usize i = 0; i + needle.len <= s.len; i++)
+        if (memcmp(s.data + i, needle.data, needle.len) == 0) return (isize)i;
+    return -1;
 }
 
 isize string_index_of_char(string s, char c) {
-    (void)s; (void)c;
-    return -1; // TODO: implement
+    for (usize i = 0; i < s.len; i++)
+        if (s.data[i] == c) return (isize)i;
+    return -1;
 }
 
 // Transforms
 string string_upper(arena *a, string s) {
-    (void)a; (void)s;
-    return (string){0}; // TODO: implement
+    char *buf = (char*)arena_alloc(a, s.len + 1);
+    for (usize i = 0; i < s.len; i++)
+        buf[i] = (char)toupper((unsigned char)s.data[i]);
+    buf[s.len] = '\0';
+    return (string){ .data = buf, .len = s.len };
 }
 
 string string_lower(arena *a, string s) {
-    (void)a; (void)s;
-    return (string){0}; // TODO: implement
+    char *buf = (char*)arena_alloc(a, s.len + 1);
+    for (usize i = 0; i < s.len; i++)
+        buf[i] = (char)tolower((unsigned char)s.data[i]);
+    buf[s.len] = '\0';
+    return (string){ .data = buf, .len = s.len };
 }
 
 string string_concat(arena *a, string a1, string a2) {
-    (void)a; (void)a1; (void)a2;
-    return (string){0}; // TODO: implement
+    usize len = a1.len + a2.len;
+    char *buf = (char*)arena_alloc(a, len + 1);
+    memcpy(buf, a1.data, a1.len);
+    memcpy(buf + a1.len, a2.data, a2.len);
+    buf[len] = '\0';
+    return (string){ .data = buf, .len = len };
 }
 
 string string_replace(arena *a, string s, string from, string to) {
-    (void)a; (void)s; (void)from; (void)to;
-    return (string){0}; // TODO: implement
+    if (from.len == 0) return string_dup(a, s);   // nothing to match; avoid looping
+    string_builder sb = sb_init(a);
+    usize i = 0;
+    while (i < s.len) {
+        if (i + from.len <= s.len && memcmp(s.data + i, from.data, from.len) == 0) {
+            sb_append(&sb, to);
+            i += from.len;
+        } else {
+            sb_push(&sb, s.data[i]);
+            i++;
+        }
+    }
+    return sb_string(&sb);
 }
 
 // Split / join
 string_array string_split(arena *a, string s, string delim) {
-    (void)a; (void)s; (void)delim;
-    return (string_array){0}; // TODO: implement
+    string_array arr = { .items = NULL, .count = 0, .arena = a };
+
+    if (delim.len == 0) {                          // no delimiter => whole string
+        arr.items = (string*)arena_alloc(a, sizeof(string));
+        arr.items[0] = s;
+        arr.count = 1;
+        return arr;
+    }
+
+    // First pass: count segments (delimiters + 1).
+    usize count = 1;
+    for (usize i = 0; i + delim.len <= s.len; ) {
+        if (memcmp(s.data + i, delim.data, delim.len) == 0) {
+            count++;
+            i += delim.len;
+        } else {
+            i++;
+        }
+    }
+
+    // Second pass: fill in slices that point INTO s (no copy).
+    arr.items = (string*)arena_alloc(a, sizeof(string) * count);
+    arr.count = count;
+    usize idx = 0, start = 0, i = 0;
+    while (i + delim.len <= s.len) {
+        if (memcmp(s.data + i, delim.data, delim.len) == 0) {
+            arr.items[idx++] = (string){ .data = s.data + start, .len = i - start };
+            i += delim.len;
+            start = i;
+        } else {
+            i++;
+        }
+    }
+    arr.items[idx] = (string){ .data = s.data + start, .len = s.len - start };
+    return arr;
 }
 
 string string_join(arena *a, string_array parts, string sep) {
-    (void)a; (void)parts; (void)sep;
-    return (string){0}; // TODO: implement
+    string_builder sb = sb_init(a);
+    for (usize i = 0; i < parts.count; i++) {
+        if (i > 0) sb_append(&sb, sep);
+        sb_append(&sb, parts.items[i]);
+    }
+    return sb_string(&sb);
 }
 
 // -----------------------------------------------------------------------------
@@ -468,63 +530,76 @@ string string_join(arena *a, string_array parts, string sep) {
 // -----------------------------------------------------------------------------
 
 string_builder sb_init(arena *a) {
-    (void)a;
-    return (string_builder){0}; // TODO: implement
+    return (string_builder){ .data = NULL, .len = 0, .cap = 0, .arena = a };
 }
 
 string_builder sb_init_cap(arena *a, usize cap) {
-    (void)a; (void)cap;
-    return (string_builder){0}; // TODO: implement
+    string_builder sb = sb_init(a);
+    sb_reserve(&sb, cap);
+    return sb;
 }
 
 string_builder sb_init_fixed(char *buf, usize cap) {
-    (void)buf; (void)cap;
-    return (string_builder){0}; // TODO: implement
+    return (string_builder){ .data = buf, .len = 0, .cap = cap, .arena = NULL };
 }
 
 void sb_reserve(string_builder *sb, usize cap) {
-    (void)sb; (void)cap;
-    // TODO: implement
+    if (cap <= sb->cap) return;
+    // Fixed buffers (no arena) cannot grow.
+    assert(sb->arena != NULL && "string_builder fixed buffer overflow");
+    usize newcap = sb->cap ? sb->cap : 16;
+    while (newcap < cap) newcap *= 2;
+    sb->data = (char*)arena_realloc(sb->arena, sb->data, sb->len, newcap);
+    sb->cap = newcap;
 }
 
 void sb_push(string_builder *sb, char c) {
-    (void)sb; (void)c;
-    // TODO: implement
+    sb_reserve(sb, sb->len + 1);
+    sb->data[sb->len++] = c;
 }
 
 void sb_append(string_builder *sb, string s) {
-    (void)sb; (void)s;
-    // TODO: implement
+    if (s.len == 0) return;
+    sb_reserve(sb, sb->len + s.len);
+    memcpy(sb->data + sb->len, s.data, s.len);
+    sb->len += s.len;
 }
 
 void sb_append_cstr(string_builder *sb, const char *cstr) {
-    (void)sb; (void)cstr;
-    // TODO: implement
+    sb_append(sb, string_view(cstr));
 }
 
 void sb_appendf(string_builder *sb, const char *fmt, ...) {
-    (void)sb; (void)fmt;
-    // TODO: implement
+    va_list args;
+    va_start(args, fmt);
+    sb_vappendf(sb, fmt, args);
+    va_end(args);
 }
 
 void sb_vappendf(string_builder *sb, const char *fmt, va_list args) {
-    (void)sb; (void)fmt; (void)args;
-    // TODO: implement
+    va_list copy;
+    va_copy(copy, args);
+    int n = vsnprintf(NULL, 0, fmt, copy);
+    va_end(copy);
+    if (n <= 0) return;
+    // +1 so vsnprintf has room for its NUL; len only advances by n.
+    sb_reserve(sb, sb->len + (usize)n + 1);
+    vsnprintf(sb->data + sb->len, (usize)n + 1, fmt, args);
+    sb->len += (usize)n;
 }
 
 void sb_reset(string_builder *sb) {
-    (void)sb;
-    // TODO: implement
+    sb->len = 0;
 }
 
 string sb_string(string_builder *sb) {
-    (void)sb;
-    return (string){0}; // TODO: implement
+    return (string){ .data = sb->data, .len = sb->len };
 }
 
 const char *sb_cstr(string_builder *sb) {
-    (void)sb;
-    return NULL; // TODO: implement
+    sb_reserve(sb, sb->len + 1);
+    sb->data[sb->len] = '\0';
+    return sb->data;
 }
 
 #endif
