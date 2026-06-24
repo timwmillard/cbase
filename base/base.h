@@ -399,8 +399,11 @@ string string_trim_right(string s) {
 }
 
 bool string_eq(string a, string b) {
-    (void)a; (void)b;
-    return false; // TODO: implement
+    if (a.len != b.len) return false;
+    usize i = 0;
+    for (usize i = 0; i < a.len; i++)
+        if (a.data[i] != b.data[i]) return false;
+    return true;
 }
 
 bool string_starts_with(string s, string prefix) {
