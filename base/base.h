@@ -199,6 +199,7 @@ const char *sb_cstr(string_builder *sb);                // null-terminated view
 // >>implementation
 #ifdef BASE_IMPLEMENTATION
 
+#include <string.h>
 #include <ctype.h>
 
 // -----------------------------------------------------------------------------
@@ -400,7 +401,6 @@ string string_trim_right(string s) {
 
 bool string_eq(string a, string b) {
     if (a.len != b.len) return false;
-    usize i = 0;
     for (usize i = 0; i < a.len; i++)
         if (a.data[i] != b.data[i]) return false;
     return true;
