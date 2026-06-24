@@ -301,6 +301,14 @@ char *arena_sprintf(arena *a, const char *format, ...)
 // string
 // -----------------------------------------------------------------------------
 
+// Nits / design notes
+//
+// - string_slice signedness (line 358): start += s.len mixes isize/usize. It works via modular wraparound, but cast for clarity: start += (isize)s.len. Also you clamp end but not a too-large positive start; it's harmless (the end < start →
+// end = start guard forces len = 0), but the .data pointer ends up past the buffer. Clamping start to s.len too would be tidier.
+// - string_view const-cast (line 308): (char*)cstr discards const. That's inherent to the single char *data design (your S() macro does it too), and fine as long as the immutability contract holds — just know that writing through a view
+// over a literal is UB.
+// - string_vfrom double length pass (line 328): arena_vsprintf already computed n via vsnprintf(NULL,0,...) then throws it away, and you recompute with strlen. Minor; only worth it if you want arena_vsprintf to hand back the length.
+
 // Constructors
 string string_view(const char *cstr) {
     usize len = strlen(cstr);
@@ -336,7 +344,8 @@ string string_vfrom(arena *a, const char *fmt, va_list args) {
 
 string string_from_n(arena *a, const char *bytes, usize len) {
     char *buf = (char*)arena_alloc(a, len + 1);
-    strncpy(buf, bytes, len);
+    memcpy(buf, bytes, len);
+    buf[len] = '\0';
     return (string){
         .data = buf,
         .len = len,
@@ -349,7 +358,8 @@ string string_dup(arena *a, string s) {
 
 const char *string_cstr(arena *a, string s) {
     char *buf = (char*)arena_alloc(a, s.len + 1);
-    strncpy(buf, s.data, s.len);
+    memcpy(buf, s.data, s.len);
+    buf[s.len] = '\0';
     return buf;
 }
 
