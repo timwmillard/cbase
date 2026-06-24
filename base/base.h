@@ -377,18 +377,25 @@ string string_slice(string s, isize start, isize end) {
 }
 
 string string_trim(string s) {
-    (void)s;
-    return (string){0}; // TODO: implement
+    return string_trim_left(string_trim_right(s));
 }
 
 string string_trim_left(string s) {
-    (void)s;
-    return (string){0}; // TODO: implement
+    usize i = 0;
+    while (i < s.len && isspace(s.data[i])) i++;
+    return (string){
+        .data = s.data + i,
+        .len = s.len - i
+    };
 }
 
 string string_trim_right(string s) {
-    (void)s;
-    return (string){0}; // TODO: implement
+    usize len = s.len;
+    while (len > 0 && isspace(s.data[len - 1])) len--;
+    return (string){
+        .data = s.data,
+        .len = len
+    };
 }
 
 bool string_eq(string a, string b) {
