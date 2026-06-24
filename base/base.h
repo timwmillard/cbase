@@ -12,10 +12,12 @@
 #ifndef BASE_H
 #define BASE_H
 
+#include <stdlib.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <assert.h>
 
 typedef uint8_t  u8;
 typedef size_t   usize;
@@ -67,8 +69,8 @@ typedef struct arena {
 
 void *arena_alloc(arena *a, usize size_bytes);
 void *arena_realloc(arena *a, void *oldptr, usize oldsz, usize newsz);
-void  arena_reset(arena *a);
-void  arena_release(arena *a);
+void arena_reset(arena *a);
+void arena_release(arena *a);
 char *arena_sprintf(arena *a, const char *format, ...);
 char *arena_vsprintf(arena *a, const char *format, va_list args);
 
@@ -196,4 +198,99 @@ const char *sb_cstr(string_builder *sb);                // null-terminated view
 //
 // >>implementation
 #ifdef BASE_IMPLEMENTATION
+
+#include <ctype.h>
+
+arena_region *_arena_new_region(usize size) {
+    usize region_cap = ARENA_REGION_DEFAULT_SIZE_BYTES / sizeof(uintptr_t);
+    if (region_cap < size) region_cap = size;
+    usize size_bytes = sizeof(uptr)*region_cap;
+    arena_region *r = (arena_region*)malloc(size_bytes);
+    assert(r);
+    r->next = NULL;
+    r->len = 0;
+    r->cap = region_cap - sizeof(arena_region) / sizeof(uptr);
+    return r;
+}
+
+void _arena_free_region(arena_region *r) {
+    free(r);
+}
+
+void *arena_alloc(arena *a, usize size_bytes) {
+    usize size = (size_bytes + sizeof(uptr) - 1)/sizeof(uptr);
+
+    if (a->end == NULL) {
+        assert(a->start == NULL);
+        a->end = _arena_new_region(size);
+        a->start = a->end;
+    }
+
+    while (a->end->len + size > a->end->cap && a->end->next != NULL) {
+        a->end = a->end->next;
+    }
+
+    if (a->end->len + size > a->end->cap) {
+        assert(a->end->next == NULL);
+        a->end->next = _arena_new_region(size);
+        a->end = a->end->next;
+    }
+
+    void *result = &a->end->data[a->end->len];
+    a->end->len += size;
+    return result;
+}
+
+void *arena_realloc(arena *a, void *oldptr, usize oldsz, usize newsz) {
+    if (newsz <= oldsz) return oldptr;
+    void *newptr = arena_alloc(a, newsz);
+    char *newptr_char = (char*)newptr;
+    char *oldptr_char = (char*)oldptr;
+    for (usize i = 0; i < oldsz; ++i) {
+        newptr_char[i] = oldptr_char[i];
+    }
+    return newptr;
+}
+
+void arena_reset(arena *a) {
+    for (arena_region *r = a->start; r != NULL; r = r->next)
+        r->len = 0;
+    a->end = a->start;
+}
+
+void arena_release(arena *a) {
+    arena_region *r = a->start;
+    while (r) {
+        arena_region *r0 = r;
+        r = r->next;
+        _arena_free_region(r0);
+    }
+    a->start = NULL;
+    a->end = NULL;
+}
+
+char *arena_vsprintf(arena *a, const char *format, va_list args)
+{
+    va_list args_copy;
+    va_copy(args_copy, args);
+    int n = vsnprintf(NULL, 0, format, args_copy);
+    va_end(args_copy);
+
+    assert(n >= 0);
+    char *result = (char*)arena_alloc(a, n + 1);
+    vsnprintf(result, n + 1, format, args);
+
+    return result;
+}
+
+char *arena_sprintf(arena *a, const char *format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    char *result = arena_vsprintf(a, format, args);
+    va_end(args);
+
+    return result;
+}
+
 #endif
