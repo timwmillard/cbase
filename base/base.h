@@ -355,8 +355,15 @@ const char *string_cstr(arena *a, string s) {
 
 // Slicing / inspection
 string string_slice(string s, isize start, isize end) {
-    (void)s; (void)start; (void)end;
-    return (string){0}; // TODO: implement
+    if (start < 0) start += s.len;
+    if (end   < 0) end   += s.len;
+    if (start < 0) start = 0;
+    if (end > (isize)s.len) end = s.len;
+    if (end < start) end = start;          // empty slice, not negative len
+    return (string){
+        .data = &s.data[start],
+        .len  = (usize)(end - start),
+    };
 }
 
 string string_trim(string s) {
