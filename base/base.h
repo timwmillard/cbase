@@ -348,8 +348,9 @@ string string_dup(arena *a, string s) {
 }
 
 const char *string_cstr(arena *a, string s) {
-    (void)a; (void)s;
-    return NULL; // TODO: implement
+    char *buf = (char*)arena_alloc(a, s.len + 1);
+    strncpy(buf, s.data, s.len);
+    return buf;
 }
 
 // Slicing / inspection
