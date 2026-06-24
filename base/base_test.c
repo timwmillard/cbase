@@ -242,7 +242,7 @@ void test_string_cstr() {
 /* string_slice: positive and negative indices, clamping */
 void test_string_slice() {
     const char *test_name = "string_slice";
-    string s = string_view("hello world");
+    string s = S("hello world");
     ASSERT_STR(string_slice(s, 6, 11), "world");
     ASSERT_STR(string_slice(s, -5, 11), "world");   /* -5 == len-5 == 6 */
     ASSERT_STR(string_slice(s, 0, 5), "hello");
@@ -254,20 +254,20 @@ void test_string_slice() {
 /* string_trim family */
 void test_string_trim() {
     const char *test_name = "string_trim";
-    ASSERT_STR(string_trim(string_view("  hello  ")), "hello");
-    ASSERT_STR(string_trim(string_view("hello")), "hello");
-    ASSERT(string_trim(string_view("   ")).len == 0, "all-space trims to empty");
-    ASSERT_STR(string_trim_left(string_view("  hello  ")), "hello  ");
-    ASSERT_STR(string_trim_right(string_view("  hello  ")), "  hello");
+    ASSERT_STR(string_trim(S("  hello  ")), "hello");
+    ASSERT_STR(string_trim(S("hello")), "hello");
+    ASSERT(string_trim(S("   ")).len == 0, "all-space trims to empty");
+    ASSERT_STR(string_trim_left(S("  hello  ")), "hello  ");
+    ASSERT_STR(string_trim_right(S("  hello  ")), "  hello");
     PASS(test_name);
 }
 
 /* string_eq */
 void test_string_eq() {
     const char *test_name = "string_eq";
-    ASSERT(string_eq(string_view("hello"), S("hello")), "equal strings compare equal");
-    ASSERT(!string_eq(string_view("hello"), S("world")), "different content not equal");
-    ASSERT(!string_eq(string_view("hello"), S("hell")), "different length not equal");
+    ASSERT(string_eq(S("hello"), S("hello")), "equal strings compare equal");
+    ASSERT(!string_eq(S("hello"), S("world")), "different content not equal");
+    ASSERT(!string_eq(S("hello"), S("hell")), "different length not equal");
     ASSERT(string_eq(S(""), S("")), "empty equals empty");
     PASS(test_name);
 }
@@ -275,7 +275,7 @@ void test_string_eq() {
 /* string_starts_with / string_ends_with */
 void test_string_starts_ends_with() {
     const char *test_name = "string_starts_ends_with";
-    string s = string_view("hello world");
+    string s = S("hello world");
     ASSERT(string_starts_with(s, S("hello")), "starts with \"hello\"");
     ASSERT(!string_starts_with(s, S("world")), "does not start with \"world\"");
     ASSERT(string_ends_with(s, S("world")), "ends with \"world\"");
@@ -288,7 +288,7 @@ void test_string_starts_ends_with() {
 /* string_contains */
 void test_string_contains() {
     const char *test_name = "string_contains";
-    string s = string_view("hello world");
+    string s = S("hello world");
     ASSERT(string_contains(s, S("lo wo")), "contains interior substring");
     ASSERT(string_contains(s, S("hello")), "contains leading substring");
     ASSERT(!string_contains(s, S("xyz")), "does not contain \"xyz\"");
@@ -298,7 +298,7 @@ void test_string_contains() {
 /* string_index_of / string_index_of_char */
 void test_string_index_of() {
     const char *test_name = "string_index_of";
-    string s = string_view("hello world");
+    string s = S("hello world");
     ASSERT(string_index_of(s, S("world")) == 6, "\"world\" at index 6");
     ASSERT(string_index_of(s, S("hello")) == 0, "\"hello\" at index 0");
     ASSERT(string_index_of(s, S("xyz")) == -1, "missing substring returns -1");
@@ -314,7 +314,7 @@ void test_string_index_of() {
 void test_string_upper_lower() {
     const char *test_name = "string_upper_lower";
     arena a = {0};
-    string s = string_view("Hello World");
+    string s = S("Hello World");
     ASSERT_STR(string_upper(&a, s), "HELLO WORLD");
     ASSERT_STR(string_lower(&a, s), "hello world");
     arena_release(&a);
@@ -333,7 +333,7 @@ void test_string_concat() {
 void test_string_replace() {
     const char *test_name = "string_replace";
     arena a = {0};
-    string s = string_replace(&a, string_view("one fish two fish"), S("fish"), S("cat"));
+    string s = string_replace(&a, S("one fish two fish"), S("fish"), S("cat"));
     ASSERT_STR(s, "one cat two cat");
     arena_release(&a);
     PASS(test_name);
@@ -346,13 +346,13 @@ void test_string_replace() {
 void test_string_split() {
     const char *test_name = "string_split";
     arena a = {0};
-    string_array arr = string_split(&a, string_view("one,two,three"), S(","));
+    string_array arr = string_split(&a, S("one,two,three"), S(","));
     ASSERT(arr.count == 3, "split into 3 parts");
     ASSERT_STR(arr.items[0], "one");
     ASSERT_STR(arr.items[1], "two");
     ASSERT_STR(arr.items[2], "three");
     /* no delimiter present: single element */
-    string_array arr2 = string_split(&a, string_view("hello"), S(","));
+    string_array arr2 = string_split(&a, S("hello"), S(","));
     ASSERT(arr2.count == 1, "no delimiter yields single element");
     ASSERT_STR(arr2.items[0], "hello");
     arena_release(&a);
@@ -362,7 +362,7 @@ void test_string_split() {
 void test_string_join() {
     const char *test_name = "string_join";
     arena a = {0};
-    string_array arr = string_split(&a, string_view("one,two,three"), S(","));
+    string_array arr = string_split(&a, S("one,two,three"), S(","));
     string joined = string_join(&a, arr, S(", "));
     ASSERT_STR(joined, "one, two, three");
     arena_release(&a);
