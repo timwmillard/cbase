@@ -1,0 +1,230 @@
+[
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build",
+  "command": "/usr/bin/cc  -I/Users/tim/cprogs/cbase/base_ecewo/. -I/Users/tim/cprogs/cbase/base_ecewo/deps -I/Users/tim/cprogs/cbase/base_ecewo/deps/ecewo/include -I/Users/tim/cprogs/cbase/base_ecewo/build/deps/ecewo/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/llhttp-src/include -I/Users/tim/cprogs/cbase/base_ecewo/deps/ecewo-static/src -I/Users/tim/cprogs/cbase/base_ecewo/build/deps/ecewo-static/include -I/Users/tim/cprogs/cbase/base_ecewo/deps/ecewo-fs -I/Users/tim/cprogs/cbase/base_ecewo/build/deps/ecewo-fs/include -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -o CMakeFiles/ecewo_demo.dir/src/main.c.o -c /Users/tim/cprogs/cbase/base_ecewo/src/main.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/src/main.c",
+  "output": "CMakeFiles/ecewo_demo.dir/src/main.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/fs-poll.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/fs-poll.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/fs-poll.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/fs-poll.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/idna.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/idna.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/idna.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/idna.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/inet.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/inet.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/inet.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/inet.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/random.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/random.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/random.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/random.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/strscpy.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/strscpy.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/strscpy.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/strscpy.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/strtok.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/strtok.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/strtok.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/strtok.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/thread-common.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/thread-common.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/thread-common.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/thread-common.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/threadpool.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/threadpool.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/threadpool.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/threadpool.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/timer.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/timer.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/timer.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/timer.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/uv-common.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/uv-common.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/uv-common.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/uv-common.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/uv-data-getter-setters.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/uv-data-getter-setters.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/uv-data-getter-setters.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/uv-data-getter-setters.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/version.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/version.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/version.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/version.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/unix/async.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/async.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/async.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/unix/async.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/unix/core.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/core.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/core.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/unix/core.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/unix/dl.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/dl.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/dl.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/unix/dl.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/unix/fs.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/fs.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/fs.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/unix/fs.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/unix/getaddrinfo.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/getaddrinfo.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/getaddrinfo.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/unix/getaddrinfo.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/unix/getnameinfo.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/getnameinfo.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/getnameinfo.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/unix/getnameinfo.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/unix/loop-watcher.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/loop-watcher.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/loop-watcher.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/unix/loop-watcher.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/unix/loop.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/loop.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/loop.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/unix/loop.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/unix/pipe.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/pipe.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/pipe.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/unix/pipe.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/unix/poll.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/poll.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/poll.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/unix/poll.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/unix/process.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/process.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/process.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/unix/process.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/unix/random-devurandom.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/random-devurandom.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/random-devurandom.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/unix/random-devurandom.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/unix/signal.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/signal.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/signal.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/unix/signal.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/unix/stream.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/stream.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/stream.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/unix/stream.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/unix/tcp.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/tcp.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/tcp.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/unix/tcp.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/unix/thread.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/thread.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/thread.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/unix/thread.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/unix/tty.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/tty.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/tty.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/unix/tty.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/unix/udp.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/udp.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/udp.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/unix/udp.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/unix/proctitle.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/proctitle.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/proctitle.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/unix/proctitle.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/unix/bsd-ifaddrs.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/bsd-ifaddrs.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/bsd-ifaddrs.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/unix/bsd-ifaddrs.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/unix/kqueue.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/kqueue.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/kqueue.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/unix/kqueue.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/unix/random-getentropy.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/random-getentropy.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/random-getentropy.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/unix/random-getentropy.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/unix/darwin-proctitle.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/darwin-proctitle.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/darwin-proctitle.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/unix/darwin-proctitle.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/unix/darwin.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/darwin.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/darwin.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/unix/darwin.c.o"
+},
+{
+  "directory": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build",
+  "command": "/usr/bin/cc -D_DARWIN_UNLIMITED_SELECT=1 -D_DARWIN_USE_64_BIT_INODE=1 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/include -I/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src -O2 -g -DNDEBUG -std=gnu11 -arch arm64 -fvisibility=hidden -Wstrict-prototypes -Wextra -Wall -Wno-unused-parameter -fno-strict-aliasing -o CMakeFiles/uv_a.dir/src/unix/fsevents.c.o -c /Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/fsevents.c",
+  "file": "/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-src/src/unix/fsevents.c",
+  "output": "_deps/libuv-build/CMakeFiles/uv_a.dir/src/unix/fsevents.c.o"
+}
+]

@@ -1,0 +1,253 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'include/**'
+      - 'CMakeLists.txt'
+      - 'tests/**'
+      - 'vendor/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'include/**'
+      - 'CMakeLists.txt'
+      - 'tests/**'
+      - 'vendor/**'
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  linux-gcc-build-test:
+    name: Linux (GCC)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake build-essential
+    
+    - name: Configure CMake
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+          -DECEWO_BUILD_TESTS=ON
+    
+    - name: Build
+      run: cmake --build build --config ${{env.BUILD_TYPE}} -j$(nproc)
+    
+    - name: Run tests
+      working-directory: build
+      run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure --verbose
+    
+    - name: Upload test results
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: linux-test-results
+        path: build/Testing/Temporary/
+
+  linux-clang-build-test:
+    name: Linux (Clang)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake clang clang-tidy
+
+    - name: Configure CMake
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+          -DCMAKE_C_COMPILER=clang \
+          -DECEWO_BUILD_TESTS=ON
+
+    - name: Build
+      run: cmake --build build --config ${{env.BUILD_TYPE}} -j$(nproc)
+
+    - name: Run tests
+      working-directory: build
+      run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure --verbose
+
+    - name: Run clang-tidy
+      run: |
+        find src src/utils -type f -name "*.c" | xargs clang-tidy -p build --quiet
+
+    - name: Upload test results
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: linux-clang-test-results
+        path: build/Testing/Temporary/
+
+  macos-build-test:
+    name: macOS
+    runs-on: macos-latest
+    timeout-minutes: 5
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Cache CMake dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          build/_deps
+        key: ${{ runner.os }}-cmake-deps-${{ hashFiles('**/CMakeLists.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-cmake-deps-
+        
+    - name: Install dependencies
+      run: brew install cmake
+    
+    - name: Configure network for GitHub access
+      run: |
+        echo "Resolving GitHub IPs..."
+        nslookup github.com || true
+        curl -I https://github.com 2>&1 | head -n 5 || true
+        sudo dscacheutil -flushcache
+        sudo killall -HUP mDNSResponder 2>/dev/null || true
+        sleep 2
+    
+    - name: Configure CMake
+      run: |
+        MAX_ATTEMPTS=3
+        ATTEMPT=0
+        
+        until [ $ATTEMPT -ge $MAX_ATTEMPTS ]; do
+          ATTEMPT=$((ATTEMPT+1))
+          echo "Attempt $ATTEMPT of $MAX_ATTEMPTS..."
+          
+          if cmake -B build \
+            -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+            -DECEWO_BUILD_TESTS=ON; then
+            echo "CMake configuration successful!"
+            exit 0
+          fi
+          
+          if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
+            echo "CMake failed, waiting 15 seconds before retry..."
+            sleep 15
+          fi
+        done
+        
+        echo "CMake configuration failed after $MAX_ATTEMPTS attempts"
+        exit 1
+    
+    - name: Build
+      run: cmake --build build --config ${{env.BUILD_TYPE}} -j$(sysctl -n hw.ncpu)
+    
+    - name: Kill any process using test port
+      run: |
+        lsof -ti:8888 | xargs kill -9 || true
+        sleep 2
+      continue-on-error: true
+
+    - name: Run tests
+      working-directory: build
+      run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure --verbose
+    
+    - name: Upload test results
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: macos-test-results
+        path: build/Testing/Temporary/
+
+  windows-ucrt64-build-test:
+    name: Windows (MinGW-w64 UCRT64)
+    runs-on: windows-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        shell: msys2 {0}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        update: true
+        msystem: UCRT64
+        install: >-
+          mingw-w64-ucrt-x86_64-toolchain
+          mingw-w64-ucrt-x86_64-cmake
+          mingw-w64-ucrt-x86_64-ninja
+    
+    - name: Configure CMake
+      run: |
+        cmake -G Ninja -B build \
+          -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+          -DECEWO_BUILD_TESTS=ON
+    
+    - name: Build
+      run: cmake --build build --config ${{env.BUILD_TYPE}} --parallel
+    
+    - name: Kill any process using test port
+      run: |
+        netstat -ano | findstr :8888 | awk '{print $5}' | xargs -r taskkill //PID //F || true
+      continue-on-error: true
+      shell: bash
+
+    - name: Run tests
+      working-directory: build
+      run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure --verbose
+    
+    - name: Upload test results
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-ucrt64-test-results
+        path: build/Testing/Temporary/
+
+  valgrind:
+    name: Valgrind
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake build-essential valgrind
+    
+    - name: Configure CMake (Debug)
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE=Debug \
+          -DECEWO_BUILD_TESTS=ON \
+          -DCTEST_MEMORYCHECK_COMMAND=valgrind \
+          -DCTEST_MEMORYCHECK_COMMAND_OPTIONS="--leak-check=full;--show-leak-kinds=definite,indirect;--error-exitcode=1"
+    
+    - name: Build
+      run: cmake --build build --config Debug
+    
+    - name: Run tests with Valgrind
+      working-directory: build
+      run: |
+        ctest -C Debug \
+          --output-on-failure \
+          --verbose \
+          -T memcheck \
+          --timeout 300

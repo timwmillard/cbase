@@ -1,0 +1,3 @@
+/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-subbuild/CMakeFiles/libuv-populate.dir
+/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-subbuild/CMakeFiles/edit_cache.dir
+/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-subbuild/CMakeFiles/rebuild_cache.dir

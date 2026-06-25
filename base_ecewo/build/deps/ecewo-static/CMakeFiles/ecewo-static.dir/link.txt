@@ -1,0 +1,2 @@
+/usr/bin/ar qc libecewo-static.a "CMakeFiles/ecewo-static.dir/src/ecewo-static.c.o"
+/usr/bin/ranlib libecewo-static.a

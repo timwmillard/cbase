@@ -1,0 +1,11 @@
+build
+build-asan-ubsan
+build-asan
+build-ubsan
+build-msan
+build-tsan
+build-valgrind
+build-fuzz
+build-dist
+fuzz/corpus
+fuzz/reg-corpus

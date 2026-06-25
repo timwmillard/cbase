@@ -1,0 +1,12 @@
+{
+	"InstallScripts" : 
+	[
+		"/Users/tim/cprogs/cbase/base_ecewo/build/cmake_install.cmake",
+		"/Users/tim/cprogs/cbase/base_ecewo/build/deps/ecewo-static/cmake_install.cmake",
+		"/Users/tim/cprogs/cbase/base_ecewo/build/deps/ecewo-fs/cmake_install.cmake",
+		"/Users/tim/cprogs/cbase/base_ecewo/build/deps/ecewo/cmake_install.cmake",
+		"/Users/tim/cprogs/cbase/base_ecewo/build/_deps/libuv-build/cmake_install.cmake",
+		"/Users/tim/cprogs/cbase/base_ecewo/build/_deps/llhttp-build/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
