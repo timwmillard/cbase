@@ -9,4 +9,3 @@
 
 #define SOKOL_NANOVG_IMPL
 #include "sokol_nanovg.h"
-
