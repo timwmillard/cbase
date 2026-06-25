@@ -1,2 +1,0 @@
-/usr/bin/ar qc libllhttp.a CMakeFiles/llhttp_static.dir/src/llhttp.c.o CMakeFiles/llhttp_static.dir/src/http.c.o CMakeFiles/llhttp_static.dir/src/api.c.o
-/usr/bin/ranlib libllhttp.a

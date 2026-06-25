@@ -1,2 +1,0 @@
-/usr/bin/ar qc libecewo-fs.a "CMakeFiles/ecewo-fs.dir/ecewo-fs.c.o"
-/usr/bin/ranlib libecewo-fs.a

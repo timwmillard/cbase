@@ -1,1 +1,0 @@
-/usr/bin/cc -O2 -g -DNDEBUG -arch arm64 -Wl,-search_paths_first -Wl,-headerpad_max_install_names -Wl,-no_warn_duplicate_libraries CMakeFiles/ecewo_demo.dir/src/main.c.o -o ecewo_demo  deps/ecewo/libecewo.a deps/ecewo-static/libecewo-static.a deps/ecewo-fs/libecewo-fs.a deps/ecewo/libecewo.a _deps/libuv-build/libuv.a -lpthread -lm _deps/llhttp-build/libllhttp.a
