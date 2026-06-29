@@ -45,12 +45,7 @@ typedef long double f28;
 #define ARENA_REGION_DEFAULT_SIZE_BYTES 4096
 #endif
 
-typedef struct arena_region {
-   struct arena_region *next;
-   usize len;
-   usize cap;
-   uptr data[];
-} arena_region;
+typedef struct arena_region arena_region;
 
 typedef struct arena {
    arena_region *start;
@@ -190,6 +185,13 @@ const char *sb_cstr(string_builder *sb); // null-terminated view
 // -----------------------------------------------------------------------------
 // arena
 // -----------------------------------------------------------------------------
+
+struct arena_region {
+   arena_region *next;
+   usize len;
+   usize cap;
+   uptr data[];
+};
 
 static arena_region *arena_new_region(usize size) {
    usize region_cap = ARENA_REGION_DEFAULT_SIZE_BYTES / sizeof(uptr);
