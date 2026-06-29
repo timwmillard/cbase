@@ -17,14 +17,21 @@ typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
-typedef __uint128_t u128;
 
 typedef int8_t i8;
 typedef int16_t i16;
 typedef int32_t i32;
 typedef int64_t i64;
-typedef __int128_t i128;
 typedef unsigned int uint;
+
+// 128-bit integers are a GCC/Clang extension, absent on MSVC and on targets
+// without native 128-bit support. __SIZEOF_INT128__ is defined only where the
+// type actually exists; gate use of u128/i128 on BASE_HAS_INT128.
+#if defined(__SIZEOF_INT128__)
+#define BASE_HAS_INT128 1
+typedef __uint128_t u128;
+typedef __int128_t i128;
+#endif
 
 typedef size_t usize;
 typedef uintptr_t uptr;
@@ -57,8 +64,12 @@ void *arena_calloc(arena *a, usize size_bytes); // zeroed
 void *arena_realloc(arena *a, void *oldptr, usize oldsz, usize newsz);
 void arena_reset(arena *a);
 void arena_release(arena *a);
-char *arena_sprintf(arena *a, const char *format, ...);
-char *arena_vsprintf(arena *a, const char *format, va_list args);
+
+// Allocate-and-format into the arena, returning a NUL-terminated C string.
+// (Unlike libc sprintf, the arena owns the buffer, so it is returned rather
+// than passed in. For pointer+length in one value, use string_from below.)
+char *arena_sprintf(arena *a, const char *fmt, ...);
+char *arena_vsprintf(arena *a, const char *fmt, va_list args);
 
 // Temp (scratch) scopes — checkpoint the arena, do throwaway work, then roll
 // back to the mark, reclaiming everything allocated in between. Anything you
@@ -387,23 +398,17 @@ void arena_temp_end(arena_temp t) {
    a->end = t.region;
 }
 
-char *arena_vsprintf(arena *a, const char *format, va_list args) {
-   va_list args_copy;
-   va_copy(args_copy, args);
-   int n = vsnprintf(NULL, 0, format, args_copy);
-   va_end(args_copy);
-
-   assert(n >= 0);
-   char *result = (char *)arena_alloc(a, n + 1);
-   vsnprintf(result, n + 1, format, args);
-
-   return result;
+// Thin C-string wrapper over the string_vfrom primitive (which keeps the length
+// vsnprintf already computed). The arena-owned buffer is genuinely mutable; the
+// const on string.data is only the string layer's immutability contract.
+char *arena_vsprintf(arena *a, const char *fmt, va_list args) {
+   return (char *)string_vfrom(a, fmt, args).data;
 }
 
-char *arena_sprintf(arena *a, const char *format, ...) {
+char *arena_sprintf(arena *a, const char *fmt, ...) {
    va_list args;
-   va_start(args, format);
-   char *result = arena_vsprintf(a, format, args);
+   va_start(args, fmt);
+   char *result = arena_vsprintf(a, fmt, args);
    va_end(args);
 
    return result;
@@ -441,12 +446,21 @@ string string_from(arena *a, const char *fmt, ...) {
    return s;
 }
 
+// The formatting primitive: vsnprintf tells us the length, so we keep it rather
+// than strlen the result. arena_vsprintf/arena_sprintf wrap this.
 string string_vfrom(arena *a, const char *fmt, va_list args) {
-   char *cstr = arena_vsprintf(a, fmt, args);
-   usize len = strlen(cstr);
+   va_list args_copy;
+   va_copy(args_copy, args);
+   int n = vsnprintf(NULL, 0, fmt, args_copy);
+   va_end(args_copy);
+
+   assert(n >= 0);
+   char *buf = (char *)arena_alloc(a, (usize)n + 1);
+   vsnprintf(buf, (usize)n + 1, fmt, args);
+
    return (string){
-       .data = cstr,
-       .len = len,
+       .data = buf,
+       .len = (usize)n,
    };
 }
 
