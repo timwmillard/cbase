@@ -8,7 +8,7 @@ build:
 	@cmake -B build
 
 run: all
-	@./build/base_demo
+	@./build/sql_demo
 
 clean:
 	@rm -rf build
