@@ -231,6 +231,108 @@ void test_arena_new_array_zero(void) {
 }
 
 /* ================================================================== */
+/* list: growable dynamic array                                       */
+/* ================================================================== */
+
+typedef LIST(int) int_list;
+
+/* append grows from empty, preserves order, and tracks count */
+void test_list_append(void) {
+   const char *test_name = "list_append";
+   arena a = {0};
+   int_list xs = list_init(&a);
+
+   ASSERT(xs.items == NULL && xs.len == 0 && xs.cap == 0,
+          "list starts empty");
+
+   for (int i = 0; i < 100; i++)
+      list_append(&xs, i * 10);
+
+   ASSERT(xs.len == 100, "len reflects all appends");
+   ASSERT(xs.cap >= 100, "cap grew to fit");
+   ASSERT(xs.items != NULL, "backing storage allocated");
+
+   int in_order = 1;
+   for (int i = 0; i < 100; i++)
+      if (xs.items[i] != i * 10)
+         in_order = 0;
+   ASSERT(in_order, "items preserved in append order");
+
+   arena_release(&a);
+   PASS(test_name);
+}
+
+/* capacity grows by doubling from LIST_INIT_CAP */
+void test_list_growth(void) {
+   const char *test_name = "list_growth";
+   arena a = {0};
+   int_list xs = list_init(&a);
+
+   list_append(&xs, 1);
+   ASSERT(xs.cap == LIST_INIT_CAP, "first append reserves LIST_INIT_CAP");
+
+   while (xs.len < LIST_INIT_CAP)
+      list_append(&xs, (int)xs.len);
+   ASSERT(xs.cap == LIST_INIT_CAP, "no growth until full");
+
+   list_append(&xs, 999); /* trips the growth */
+   ASSERT(xs.cap == LIST_INIT_CAP * 2, "cap doubles when full");
+
+   arena_release(&a);
+   PASS(test_name);
+}
+
+/* list_reserve pre-sizes capacity without changing count */
+void test_list_reserve(void) {
+   const char *test_name = "list_reserve";
+   arena a = {0};
+   int_list xs = list_init(&a);
+
+   list_reserve(&xs, 50);
+   ASSERT(xs.cap >= 50, "reserve grows cap to fit");
+   ASSERT(xs.len == 0, "reserve does not change len");
+
+   usize cap_before = xs.cap;
+   int *items_before = xs.items;
+   for (int i = 0; i < 50; i++)
+      list_append(&xs, i);
+   ASSERT(xs.cap == cap_before, "no realloc within reserved cap");
+   ASSERT(xs.items == items_before, "backing pointer stable when reserved");
+
+   list_reserve(&xs, 10); /* smaller than current: no-op */
+   ASSERT(xs.cap == cap_before, "reserve below cap is a no-op");
+
+   arena_release(&a);
+   PASS(test_name);
+}
+
+/* list_init constructs an empty list; list_reserve pre-sizes it */
+void test_list_init(void) {
+   const char *test_name = "list_init";
+   arena a = {0};
+
+   int_list xs = list_init(&a);
+   ASSERT(xs.items == NULL && xs.len == 0 && xs.cap == 0, "list_init is empty");
+   ASSERT(xs.arena == &a, "list_init wires up the arena");
+
+   /* pre-allocate with list_reserve, then fill without regrowth */
+   int_list ys = list_init(&a);
+   list_reserve(&ys, 32);
+   ASSERT(ys.items != NULL, "reserve pre-allocates storage");
+   ASSERT(ys.cap >= 32, "reserve gives capacity for 32 items");
+   ASSERT(ys.len == 0, "reserve leaves the list empty");
+
+   int *items_before = ys.items;
+   for (int i = 0; i < 32; i++)
+      list_append(&ys, i);
+   ASSERT(ys.items == items_before, "no realloc within reserved cap");
+   ASSERT(ys.len == 32, "all appends land in reserved storage");
+
+   arena_release(&a);
+   PASS(test_name);
+}
+
+/* ================================================================== */
 /* string: constructors / views                                       */
 /* ================================================================== */
 
@@ -422,13 +524,13 @@ void test_string_split(void) {
    const char *test_name = "string_split";
    arena a = {0};
    string_array arr = string_split(&a, S("one,two,three"), S(","));
-   ASSERT(arr.count == 3, "split into 3 parts");
+   ASSERT(arr.len == 3, "split into 3 parts");
    ASSERT_STR(arr.items[0], "one");
    ASSERT_STR(arr.items[1], "two");
    ASSERT_STR(arr.items[2], "three");
    /* no delimiter present: single element */
    string_array arr2 = string_split(&a, S("hello"), S(","));
-   ASSERT(arr2.count == 1, "no delimiter yields single element");
+   ASSERT(arr2.len == 1, "no delimiter yields single element");
    ASSERT_STR(arr2.items[0], "hello");
    arena_release(&a);
    PASS(test_name);
@@ -512,6 +614,13 @@ int main(void) {
    test_reset();
    test_arena_new_array();
    test_arena_new_array_zero();
+
+   printf(COLOR_BOLD "\nlist tests\n" COLOR_RESET "\n");
+
+   test_list_append();
+   test_list_growth();
+   test_list_reserve();
+   test_list_init();
 
    printf(COLOR_BOLD "\nstring tests\n" COLOR_RESET "\n");
 

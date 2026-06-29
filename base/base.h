@@ -68,6 +68,73 @@ char *arena_vsprintf(arena *a, const char *format, va_list args);
 #define arena_array(a, T, n) ((T *)arena_calloc((a), sizeof(T) * (usize)(n)))
 
 // ---------------------------------------------------------------------------
+// list — growable dynamic array, backed by an arena.
+// ---------------------------------------------------------------------------
+// A "list" is any struct with these four fields:
+//
+//      T     *items;  // backing storage (grows as needed)
+//      usize  len;    // number of items in use
+//      usize  cap;    // number of items allocated
+//      arena *arena;  // arena the storage grows into
+//
+// Use LIST(T) to declare one for a given element type:
+//
+//   typedef LIST(int)    int_list;
+//   typedef LIST(string) string_list;
+//
+// Unlike a `string`/slice (a borrowed view) or a fixed `*_array`, a list owns
+// growable storage. Append doubles capacity in the arena when full. Because the
+// arena never frees the old buffer, each growth leaves the previous block dead
+// until the arena is reset — doubling keeps that waste bounded and appends
+// amortized O(1).
+//
+//   int_list xs = list_init(&a);
+//   list_append(&xs, 42);
+//   for (usize i = 0; i < xs.len; i++) use(xs.items[i]);
+
+// Declare a list type with element type T.
+//   typedef LIST(int) int_list;
+#define LIST(T)                                                                \
+   struct {                                                                    \
+      T *items;                                                                \
+      usize len;                                                               \
+      usize cap;                                                               \
+      arena *arena;                                                            \
+   }
+
+#ifndef LIST_INIT_CAP
+#define LIST_INIT_CAP 8
+#endif
+
+// Initialize an empty list (use in a declaration; the brace form is not an
+// expression). To pre-allocate capacity, follow with list_reserve:
+//   int_list xs = list_init(&a);
+//   list_reserve(&xs, 16); // optional: avoid regrowth for ~16 items
+#define list_init(a) {.arena = (a)}
+
+// Ensure capacity for at least `n` items (no-op if already large enough).
+#define list_reserve(lst, n)                                                   \
+   do {                                                                        \
+      usize need_ = (n);                                                       \
+      if (need_ > (lst)->cap) {                                                \
+         usize cap_ = (lst)->cap ? (lst)->cap : LIST_INIT_CAP;                 \
+         while (cap_ < need_)                                                  \
+            cap_ *= 2;                                                         \
+         (lst)->items = arena_realloc((lst)->arena, (lst)->items,              \
+                                      (lst)->cap * sizeof(*(lst)->items),      \
+                                      cap_ * sizeof(*(lst)->items));           \
+         (lst)->cap = cap_;                                                    \
+      }                                                                        \
+   } while (0)
+
+// Append one item, growing the backing storage in the list's arena as needed.
+#define list_append(lst, item)                                                 \
+   do {                                                                        \
+      list_reserve((lst), (lst)->len + 1);                                     \
+      (lst)->items[(lst)->len++] = (item);                                     \
+   } while (0)
+
+// ---------------------------------------------------------------------------
 // string — immutable string slices over an arena allocator.
 // ---------------------------------------------------------------------------
 // Design (the "String8" / single-type model):
@@ -142,7 +209,7 @@ string string_replace(arena *a, string s, string from, string to);
 
 typedef struct {
    string *items;
-   usize count;
+   usize len;
    arena *arena;
 } string_array;
 
@@ -498,12 +565,12 @@ string string_replace(arena *a, string s, string from, string to) {
 
 // Split / join
 string_array string_split(arena *a, string s, string delim) {
-   string_array arr = {.items = NULL, .count = 0, .arena = a};
+   string_array arr = {.items = NULL, .len = 0, .arena = a};
 
    if (delim.len == 0) { // no delimiter => whole string
       arr.items = (string *)arena_alloc(a, sizeof(string));
       arr.items[0] = s;
-      arr.count = 1;
+      arr.len = 1;
       return arr;
    }
 
@@ -520,7 +587,7 @@ string_array string_split(arena *a, string s, string delim) {
 
    // Second pass: fill in slices that point INTO s (no copy).
    arr.items = (string *)arena_alloc(a, sizeof(string) * count);
-   arr.count = count;
+   arr.len = count;
    usize idx = 0, start = 0, i = 0;
    while (i + delim.len <= s.len) {
       if (memcmp(s.data + i, delim.data, delim.len) == 0) {
@@ -537,7 +604,7 @@ string_array string_split(arena *a, string s, string delim) {
 
 string string_join(arena *a, string_array parts, string sep) {
    string_builder sb = sb_init(a);
-   for (usize i = 0; i < parts.count; i++) {
+   for (usize i = 0; i < parts.len; i++) {
       if (i > 0)
          sb_append(&sb, sep);
       sb_append(&sb, parts.items[i]);
