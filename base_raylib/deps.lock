@@ -4,7 +4,777 @@ return {
   raylib = {
     commit = "dbc56a87da87d973a9c5baa4e7438a9d20121d28",
     dest = "deps/raylib",
-    tree_sha256 = "5eec63a0880da27e95e59bea17d4f418764ad99700ae29b696d7032e67b86f56",
+    files = {
+      {
+        path = "deps/raylib/CMakeLists.txt",
+        sha256 = "66c4dcfcdb20754e57cfa8eee23473d300c95405512417b09e41652b5b5263bd",
+      },
+      {
+        path = "deps/raylib/CMakeOptions.txt",
+        sha256 = "4f58628ebdcde3a8075ca5a10871ea2901ddf1f0b4486ca9a29b76b3d0c4b844",
+      },
+      {
+        path = "deps/raylib/LICENSE",
+        sha256 = "882a5a819cf562aa3583aae3af3f2211dda15c63de9fc8cc4b399a2f9e78d799",
+      },
+      {
+        path = "deps/raylib/README.md",
+        sha256 = "ee20031006f9a6f4fa08d9ebf9007aeb4404195b0794dcbdd060519389f6573d",
+      },
+      {
+        path = "deps/raylib/cmake/AddIfFlagCompiles.cmake",
+        sha256 = "e496b4a805d2c2ee10eb78df785c97f31afbcad13b39800c2989170ebee4b7cd",
+      },
+      {
+        path = "deps/raylib/cmake/CompileDefinitions.cmake",
+        sha256 = "068806d90e22a29e08e7cca18451ba776c79fa4676fa35c8dd5f68492129a402",
+      },
+      {
+        path = "deps/raylib/cmake/CompilerFlags.cmake",
+        sha256 = "1e3f4d8b8e79e0c443563e3d12d6408ece9ce89db2f1c6ca077efadd9116d660",
+      },
+      {
+        path = "deps/raylib/cmake/EnumOption.cmake",
+        sha256 = "fbd863ea42a9c25e3374366afb6c84e395ae094bb1e8c6dd41ec76da70b299d6",
+      },
+      {
+        path = "deps/raylib/cmake/GlfwImport.cmake",
+        sha256 = "533dc29c0392035afe1790c8bb35d1b5a7dc83d9eae12fcc0a24ee31535b845f",
+      },
+      {
+        path = "deps/raylib/cmake/InstallConfigurations.cmake",
+        sha256 = "7e487327d51af642cba99b14b77c48464c0b5662d5ec255a7290438e6cec3337",
+      },
+      {
+        path = "deps/raylib/cmake/JoinPaths.cmake",
+        sha256 = "0890d2c52576f9cd77b8eca220b476e7bf70bbbc93f5d9ec9714cbd92e2d3381",
+      },
+      {
+        path = "deps/raylib/cmake/LibraryConfigurations.cmake",
+        sha256 = "d325845a807cb18e5585327cf29660750d15c07637fe7cacc8d88b1687ce3618",
+      },
+      {
+        path = "deps/raylib/cmake/LibraryPathToLinkerFlags.cmake",
+        sha256 = "bde8c030b112905a09005e2c7014de9a8f260a81d390defa5856d31ebd5e7ad8",
+      },
+      {
+        path = "deps/raylib/cmake/PackConfigurations.cmake",
+        sha256 = "391fb9e1360671486b8b3b84d97af1b11efaba0cda0cd39643fcc86d9d33a13b",
+      },
+      {
+        path = "deps/raylib/cmake/ParseConfigHeader.cmake",
+        sha256 = "d582c7729e3b42a45c7ccfce0fcf477b0afaff51e1255cb1d2627472abb764b3",
+      },
+      {
+        path = "deps/raylib/cmake/PopulateConfigVariablesLocally.cmake",
+        sha256 = "a518db55ec16853a84c90217ed160c020c7f8d35b7e9801d1785fc59339620d6",
+      },
+      {
+        path = "deps/raylib/cmake/Uninstall.cmake",
+        sha256 = "db0bf5ec965ed312269f25057c56d7b5ca64e74da6c40e8153c01dbbffd3cefe",
+      },
+      {
+        path = "deps/raylib/cmake/raylib-config-version.cmake",
+        sha256 = "fd409ca1a9c8a4633e687acb717d4392853f84ff4dc0b55209bc4bb2797dcd7d",
+      },
+      {
+        path = "deps/raylib/cmake/raylib-config.cmake",
+        sha256 = "902c1a30de149e838b8114dea67e9d3fc5ccd0811f989ded4368f3e30b2eb7fd",
+      },
+      {
+        path = "deps/raylib/raylib.pc.in",
+        sha256 = "3c09e1606046a874d56f77b52330005e09d34f89c8cf87af34314187116a6ef1",
+      },
+      {
+        path = "deps/raylib/src/CMakeLists.txt",
+        sha256 = "c4438de5db90fe00ccf7b62dbfcc4128fa08b9f1ef6306b62f019e1c50fc9d51",
+      },
+      {
+        path = "deps/raylib/src/Makefile",
+        sha256 = "91b091069276eaa062eff235e6990c9810ad64f0a199fb1586505b8713294e49",
+      },
+      {
+        path = "deps/raylib/src/config.h",
+        sha256 = "0495bce56ae6e1cd5c4e3e1e635fec8915c551e41ee3b62c7841537bed3878d7",
+      },
+      {
+        path = "deps/raylib/src/external/RGFW/RGFW.h",
+        sha256 = "f41c3b1b1229d7d7abee9e0c9ed4ee85bc1c17431ff334320a9c14ce3fee877e",
+      },
+      {
+        path = "deps/raylib/src/external/RGFW/deps/minigamepad.h",
+        sha256 = "2772200b92b75eb35ec8c186b37c97c37b4adf8b4696a51a1ae9479e13cb4e5b",
+      },
+      {
+        path = "deps/raylib/src/external/RGFW/deps/wayland/pointer-constraints-unstable-v1.xml",
+        sha256 = "f980fac900ba1dcfbbe97f588fc17b893926bd2b57624563653a1bfe4d035948",
+      },
+      {
+        path = "deps/raylib/src/external/RGFW/deps/wayland/pointer-warp-v1.xml",
+        sha256 = "1389e89c68c6f6d231fd2dcda57fa9c75c5230d0ac1deffa8d80a7648e197e66",
+      },
+      {
+        path = "deps/raylib/src/external/RGFW/deps/wayland/relative-pointer-unstable-v1.xml",
+        sha256 = "ab4930dd3084f732b6fdd12ee6dbd0a112a758ed8a57b170366391dbeb1a22ff",
+      },
+      {
+        path = "deps/raylib/src/external/RGFW/deps/wayland/xdg-decoration-unstable-v1.xml",
+        sha256 = "73101094eedd2295ac48972a2562d6f99881fee68f3d4d403675837434ab7c70",
+      },
+      {
+        path = "deps/raylib/src/external/RGFW/deps/wayland/xdg-output-unstable-v1.xml",
+        sha256 = "363d547c3eefe8959160cac903ff90b311d4b183005557d73640d9df2cfd7f79",
+      },
+      {
+        path = "deps/raylib/src/external/RGFW/deps/wayland/xdg-shell.xml",
+        sha256 = "5084e76386f6c3959bee957a784c57de204be0de3f57533ce07b4be0617b171a",
+      },
+      {
+        path = "deps/raylib/src/external/RGFW/deps/wayland/xdg-toplevel-icon-v1.xml",
+        sha256 = "791dbfed89280c1b8031689955a03e9b2da55601be3c5854a6198e38cea4978f",
+      },
+      {
+        path = "deps/raylib/src/external/cgltf.h",
+        sha256 = "efb169dee911696b5d35fc8e3f7ea0c56d679debc529eba9ca6aa6443ba9d5e9",
+      },
+      {
+        path = "deps/raylib/src/external/cgltf_write.h",
+        sha256 = "42199ef8b43d6784dde2ac6ea70b0b1053ec6b19136670687a189ce5df840084",
+      },
+      {
+        path = "deps/raylib/src/external/dirent.h",
+        sha256 = "0fdc24e938e17e7c6b905e1566731f2f76d133245e740edf6b39518deefb257e",
+      },
+      {
+        path = "deps/raylib/src/external/dr_flac.h",
+        sha256 = "a35468f278f17cf9538ce189debf76a5854a77e139980f7b5185d67566a0c837",
+      },
+      {
+        path = "deps/raylib/src/external/dr_mp3.h",
+        sha256 = "0a7b99037523d2bf56959cf9fdc186ecd4cfa318d8b55b6591ac0bfb2f708e1a",
+      },
+      {
+        path = "deps/raylib/src/external/dr_wav.h",
+        sha256 = "c69816d0e0ac6cab3df8bf2f42df451d4531c2bfa34f7d7a69e959e6ed399038",
+      },
+      {
+        path = "deps/raylib/src/external/fix_win32_compatibility.h",
+        sha256 = "757f38386affb5d17c77ce9489b49da2f99852a825cd124852cc216b83208425",
+      },
+      {
+        path = "deps/raylib/src/external/glad.h",
+        sha256 = "220b47282d4aee2c9cd2cba21943c29c0684f1bd489ff66d36d7ea1d2e9418c3",
+      },
+      {
+        path = "deps/raylib/src/external/glad_gles2.h",
+        sha256 = "28755a633621b393045c67f750a2903b856364992f7b643a33436895bc227321",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/.mailmap",
+        sha256 = "ed6914588dbbfc8802834cee0acb601ee960edbfaec6f713bd93124702e8395b",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/CMake/GenerateMappings.cmake",
+        sha256 = "19f7b491f65c7d14f61c9d497af8dc83e4bb4fa9e079f7d56c0028ca17cf55f0",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/CMake/Info.plist.in",
+        sha256 = "19fe6a501764fc2f37f998a53d6422c1a64ea16c8e7c844153c617ab4cf6142b",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/CMake/cmake_uninstall.cmake.in",
+        sha256 = "e720f60e30bf9dcd6eafa092d3a8fe9eea48e038ce8a0cd8b41b5fc96ab69faf",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/CMake/glfw3.pc.in",
+        sha256 = "90616f3779a2d7491e644b61d44a478b7c9cdfa06c3b8cb44c2ef2e515fc8008",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/CMake/glfw3Config.cmake.in",
+        sha256 = "0d266f3f8b0ae324404dc36a8ca8af01b5bf58d15b1ce806e9e318e895e9b755",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/CMake/i686-w64-mingw32-clang.cmake",
+        sha256 = "9cf42de30ad84095801b2dff752df930c692680089d8f47c77f9445cdacece24",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/CMake/i686-w64-mingw32.cmake",
+        sha256 = "f26d94a113c02bba7cded9715bcf51a9d04ba40d497ccffc05b4ef256aa8399f",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/CMake/modules/FindEpollShim.cmake",
+        sha256 = "3689ad05d6b6460d2b5313130d3cb474ab195f6698690737582d3ee98cb4c942",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/CMake/modules/FindOSMesa.cmake",
+        sha256 = "0ab39cf837f390904cb4bf68db853346b53fa5d4dc047f554f188b44b4454643",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/CMake/x86_64-w64-mingw32-clang.cmake",
+        sha256 = "7f2ea33c57c8726be2a1dfac703d2a4f7c3993c3345ce5c927f0fa1474fc2083",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/CMake/x86_64-w64-mingw32.cmake",
+        sha256 = "e68df045d9aa039fef4f984a7c8e48cd6ac3df8960adc960f6e45674d3f6cee3",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/CMakeLists.txt",
+        sha256 = "9febf64a1d8cabfdb77c8cd5812232c65f58b8ad96271ef2975bde5058bdc344",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/CONTRIBUTORS.md",
+        sha256 = "3a196513663e7dac03434550ee923514fe5d147088ca087af38c0894a6f01bb3",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/LICENSE.md",
+        sha256 = "149704059b5d0bf551637e50042dd4de9c2cae921021f6636298911e3a5f9462",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/README.md",
+        sha256 = "db7e58b69359179469b6e1e586672868890fcbc26265a447c6e588f983820d31",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/deps/getopt.c",
+        sha256 = "170fbc3e023f7a4499b3407c3633f8d4a2d8bcba9d8f3d90a44cc2316d75378d",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/deps/getopt.h",
+        sha256 = "17999999aa29bca7239fee8d1c2fc98fb85682dc38d4f793b46e084f777401bd",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/deps/glad/gl.h",
+        sha256 = "372d175f3d334c59357828f01893fb140605ded6a285bf2977dcb0b9ee3b39ea",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/deps/glad/gles2.h",
+        sha256 = "fc72c16afbcb8fdf4f6465a0894b6c3148ebf44328363bd69f5ba0d6c2ea8ca7",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/deps/glad/vulkan.h",
+        sha256 = "e9a5eb14a8cd7d7b5e8d57ab4431e21086d4d8f9f6c8e4958938aee5c9311b2b",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/deps/mingw/_mingw_dxhelper.h",
+        sha256 = "f3145fbc30022e781a9836d72bd3a628a45495bda5b48f90983e9ae7ebe94b82",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/deps/mingw/dinput.h",
+        sha256 = "72316ef3309b6a9b60d16f064a84fc5af6efd84546d69ac557b117bc398e3aab",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/deps/mingw/xinput.h",
+        sha256 = "4f78d7a9df66252a02342dc874b786ed666f9c32b523ae3734d44d87e09fc0e7",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/deps/wayland/fractional-scale-v1.xml",
+        sha256 = "5941de5d28f427ecdadddc8623a6f6af0a30b0ab4726847236ba7a7652b81316",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/deps/wayland/idle-inhibit-unstable-v1.xml",
+        sha256 = "c2ac9f002c6669ca6c02eb9b587b8e9108e3ce6deab4a2de58b576f4f864ca38",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/deps/wayland/pointer-constraints-unstable-v1.xml",
+        sha256 = "92553c58baa04931afcd409a9d947518b70bc986b847ccb1ef74f377779b0b5d",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/deps/wayland/relative-pointer-unstable-v1.xml",
+        sha256 = "ab4930dd3084f732b6fdd12ee6dbd0a112a758ed8a57b170366391dbeb1a22ff",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/deps/wayland/viewporter.xml",
+        sha256 = "b327b824ff2799032aa852d9607f8db8f0f672474444812a3b0997d87aa5dd0b",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/deps/wayland/wayland.xml",
+        sha256 = "053bdb354709893dbfb5cee4ee6fbb3eadb4fed78e6d761bb7dc8f30513d6541",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/deps/wayland/xdg-activation-v1.xml",
+        sha256 = "d8418be2d5738d50aff788bef1c7574f33f26659aa045447ff2ef9b78c58fe01",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/deps/wayland/xdg-decoration-unstable-v1.xml",
+        sha256 = "88e2d60f7ca8df5e034b816fb8a4b3f0b2abd6fc07b4ee6ca058a72404ea6904",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/deps/wayland/xdg-shell.xml",
+        sha256 = "b72112a7a1f9b2ad94ffa59468753ced568d6e7b2069df94a9d437e488b8506e",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/include/GLFW/glfw3.h",
+        sha256 = "aa370985f6b493bbe0358a36ab49f5780a6397c0209c6d98a62143dea595b73c",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/include/GLFW/glfw3native.h",
+        sha256 = "40035881fdc02a9ab265c2086338f749a0411e1c15b68fada678fa34e8bd8958",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/CMakeLists.txt",
+        sha256 = "2cb9fd73457e14a751f12fac3556c576fcffb54e25c462b5aeb7fe76d4d94aae",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/cocoa_init.m",
+        sha256 = "666d656c1eb0b0023d7c57e2ec7326956a93f950977473eb7723364416ef4029",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/cocoa_joystick.h",
+        sha256 = "88fb37c0b8bbfea19343e75cfa7090eef7bed67c93bcd789af356ee6c2401210",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/cocoa_joystick.m",
+        sha256 = "eddd49dc3862a4e16be208c36e540f52fe7f987acf315c4d969eaa6ec32f09b0",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/cocoa_monitor.m",
+        sha256 = "296f1bc18f7f27677d33392282b543cc6275d4ff4dc39e08526331d0281d016e",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/cocoa_platform.h",
+        sha256 = "b4d608d7fe69fe147ba600aee4700a9e0b40be225ae9abd698f711fdbf944320",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/cocoa_time.c",
+        sha256 = "a0094a28331172292a7c506935ee01adb0184d18e89e038ea471094781dd0ce4",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/cocoa_time.h",
+        sha256 = "596db814eaead6d4cf304fa6ae30688362ce98c9ee551eb3871c3cc166876804",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/cocoa_window.m",
+        sha256 = "a7572261f4c1c42c3d020dc0116b12d4c9f9c44161e186ea72e6b03ea1610f7b",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/context.c",
+        sha256 = "d4e1a2fe8b1242c54c9bcfb83f8f469101661a5d7829f7eb867f3d85f288057c",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/egl_context.c",
+        sha256 = "ba4b555886b61d9fe845802127740985531067baa2b16a152e7766e36b4aaffe",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/glfw.rc.in",
+        sha256 = "14f50b28f6d801c6a99549376face170970023ac139a33e4555affecfebe24f1",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/glx_context.c",
+        sha256 = "e04e784373d59a3f3b08e3de15c8fbfef61c22b9325a2f3d9922a21cc4dd504e",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/init.c",
+        sha256 = "61ac2188518cae852bc2bfe0c0f2363dad365f8166099a3aa78a3c9ff8504654",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/input.c",
+        sha256 = "f5efbc7ec6a38a6c462cd2311dbe51616a4810c4dc8d1a2f735195e5cf72c753",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/internal.h",
+        sha256 = "cc6e93eac5b9957c99bc90e95c34d62f184395345de33e554ab77c23a1148ae0",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/linux_joystick.c",
+        sha256 = "4e9b95479d3df624d3a5de2b9d708f418cf7e0870c5f05ff2f1a1f88ec84e608",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/linux_joystick.h",
+        sha256 = "af4e596d0ed1e7eed2699b6567d6ed46157f7c9887bfef15aad5ca15b2a17590",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/mappings.h",
+        sha256 = "5a92ef84daf0e6d7b540aae488bd69986f7068d88322fb6159c2e76a0a468876",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/mappings.h.in",
+        sha256 = "4fba82df496c86a2364733716f214e5f73fbc40376a93e667cda9d877e085c79",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/monitor.c",
+        sha256 = "1671bbe37502419f08b8072e80a13a78494feea6c008ccb2727ebd44a43afd6a",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/nsgl_context.m",
+        sha256 = "a0d683795265b18cd183be6a185742e44b866ee80c21d7fcc4ad4363c16d2832",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/null_init.c",
+        sha256 = "041b02232d5378e9a3ac3fd12da1e91f8276ef1459303e2094ee820e675a3dd1",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/null_joystick.c",
+        sha256 = "5da9465db10034b81b87c3722328bff7dfc3b4a94670cce71672b7d464fd6820",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/null_joystick.h",
+        sha256 = "ccd7bec0a32632b0fc81d1c085bba3b89e01a9dc4b6b28cde9ea394909fc700d",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/null_monitor.c",
+        sha256 = "12face8cf2462b5590d8f1ac5502184e0246696f5d5b117dddca3dfbb5658759",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/null_platform.h",
+        sha256 = "a93596d5f503d0378de4c347f55d0cd63aad471022a09e3c474f516416520c0e",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/null_window.c",
+        sha256 = "23c6335ab4338d739d4d9f6ddea0283e7ae58fd0ddf2b7ad1e4b9d381b51bcdc",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/osmesa_context.c",
+        sha256 = "2bb65aa05606a7bb652ee59fb481c45abb223795163fe9c57d808de3e082b09b",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/platform.c",
+        sha256 = "e80d556c9679c9d82719bc2b0469a711a01f9218492efbdf88e18a64f19b7dcd",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/platform.h",
+        sha256 = "14498e12db44b36f695d5cacd2ca2763fd6d6c4d2c5ef3fdcfa103e79d54b49b",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/posix_module.c",
+        sha256 = "e78e668d01a15695b1d44da660daf8c0fd1696cce1c9b5cca0a2e4e41d67dbe1",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/posix_poll.c",
+        sha256 = "0432a56fef57a1cd39bee3c0c5120e17991ff8aa56ce8ce39ff1bdac425ce02a",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/posix_poll.h",
+        sha256 = "4aaeb5ddcc8e8b617463d07d769264d359c8c508a5a9cc9a02b4b49f8dadb3a5",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/posix_thread.c",
+        sha256 = "898502d86490e8c2e401a3de7a63e7c9566aa99333d676c5c4aaca69b35022b3",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/posix_thread.h",
+        sha256 = "10e4679442f9650ec2f423572537a0326e972b8f0c02cfb5fb76c3cd107733cd",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/posix_time.c",
+        sha256 = "548431aa62bc3ead2a82c1f049fd53659b7a92c8702abaa9d9176a0583edadb2",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/posix_time.h",
+        sha256 = "eccea70e4ada8f6c0fcca9eeb5de01781d2422d28bfe63e795aeb74a7400125c",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/vulkan.c",
+        sha256 = "5948e9f0b347640473d23f7dfd94cea82375149639f2cbd288491747312d3a33",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/wgl_context.c",
+        sha256 = "48c2cad35265f7311146182ec4ad811f551929cb6847ef3a0653abbedec88bf8",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/win32_init.c",
+        sha256 = "87ab2b407b742ca6e9a65e8cb88cc941b19d44b5e33a1fedc06015779b4ab3e6",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/win32_joystick.c",
+        sha256 = "b9c95eed4eeed6eb64864fa031349de83e3421ab7a6c3dcd86cf80fd6b1ad8b1",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/win32_joystick.h",
+        sha256 = "41cd05e7477314241c5aca9b840682a4ba4b82c358d401612ab83e5bce167c39",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/win32_module.c",
+        sha256 = "58f0b4a96584b6ad582e90974b07ecbe9ed8d402cadbe54383afbb0ba37d6a0b",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/win32_monitor.c",
+        sha256 = "4645c2972d8dbf9e11e287b05333f6db585615541217e3dd5d61e9f9fca32e97",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/win32_platform.h",
+        sha256 = "f7b39efe79c9731762c9dd9848431e795a66fccc871d7ae72930c5e1aeed7c4c",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/win32_thread.c",
+        sha256 = "92ee8a23a6a729c2cff69975d2dfc46d019a2be0494d17b705495cd3042dcd36",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/win32_thread.h",
+        sha256 = "cefdd801463eb6901e3ebae02b8204e87e44bd06b2bdc562794dc890886ecc97",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/win32_time.c",
+        sha256 = "16c54578192e06205a0dbe675ffc93f73df1d971ace8e81ad2a0ba868c99c4e6",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/win32_time.h",
+        sha256 = "dabfeb7478945930cb6c4ded23cfe76f6e6577b68523c5d8ac2acb1b63b35b21",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/win32_window.c",
+        sha256 = "b7ab5cfb53bb86688033699859399f2a90433e08e6d1aa2dba19c15be8db7fb6",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/window.c",
+        sha256 = "c102fd119fd7423ca0cebd17c1fba722d7fe149ef689f09962f6ff79c82dd289",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/wl_init.c",
+        sha256 = "57e6a61e4d1cacaa9b9348cfe1bc58f378356fa901dd275005612da043b598cc",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/wl_monitor.c",
+        sha256 = "47161326acd583a0787a37927535ffdbe03561923f40a316d9f02b40c28ec16b",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/wl_platform.h",
+        sha256 = "fb13b006ad8e13df67a8c267e880324f6f131e1d5cba8b072061e91efa30ee71",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/wl_window.c",
+        sha256 = "aee24f61801c2633d4b1218b7152ce3fd02c61285d6663a895f64df012e354a3",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/x11_init.c",
+        sha256 = "6c3cfc5c9910bb5ec95776426cfc702146a3f0c25ded3ed15519e446c720c04c",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/x11_monitor.c",
+        sha256 = "cd1c15c5fc684a58472ded4cbad3509f383c6d6611b4437d8469b54feedbdaab",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/x11_platform.h",
+        sha256 = "c35ff50d31c47eee88a7613b8ff47611d6bd892657545b6d44b1911dc7b7466a",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/x11_window.c",
+        sha256 = "f983abbfaa1b503e62a71a15a98f2aef7ac4cde9411bb260d4fd0a759af0499a",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/xkb_unicode.c",
+        sha256 = "57ddc9155229a445c1f6e1542fe3ddce8d4ad0c5d5f7f0c3da476d58fb5f650c",
+      },
+      {
+        path = "deps/raylib/src/external/glfw/src/xkb_unicode.h",
+        sha256 = "b80f53223f42108f4ff0fc51cb8e94c2c9b3ba87888760842958bf43bd4cd19a",
+      },
+      {
+        path = "deps/raylib/src/external/jar_mod.h",
+        sha256 = "53146606a02771fb6ce39b0582d1e14d274981ff589540d09f582af5caee0f62",
+      },
+      {
+        path = "deps/raylib/src/external/jar_xm.h",
+        sha256 = "bb3385539985c36d7ea1b719e494890f339ce0c019c3dc73c03a242dd2ed1999",
+      },
+      {
+        path = "deps/raylib/src/external/m3d.h",
+        sha256 = "6f4a44c016b4d18cc996126af9a722672bdb0b45ec48d3879f426efc51c88149",
+      },
+      {
+        path = "deps/raylib/src/external/miniaudio.h",
+        sha256 = "c029554572ae71a94b7825ef1ab9bd7e646344a79e2e852a03f8b18e428c1443",
+      },
+      {
+        path = "deps/raylib/src/external/par_shapes.h",
+        sha256 = "d91d7bcddb6241f9938fb973eda5384f77c4e262ee25ee39954bf5641f4fa46e",
+      },
+      {
+        path = "deps/raylib/src/external/qoa.h",
+        sha256 = "ab501e91f4afd18c811e689713e5fd3956030562bf80cda784d304af17133f01",
+      },
+      {
+        path = "deps/raylib/src/external/qoaplay.c",
+        sha256 = "328a9b0882149db0e0c66ce3e148419b3ff2f2041411fbf8b1c944bcd5db8f6e",
+      },
+      {
+        path = "deps/raylib/src/external/qoi.h",
+        sha256 = "7de6fca1a285b1c20d38f2723dec8b774eb9f144edb9710800a95feeea09375a",
+      },
+      {
+        path = "deps/raylib/src/external/rlsw.h",
+        sha256 = "c878af1036f0f20ad716be61f0f2269f33626fc101fd4ef36dd8c664b49836e9",
+      },
+      {
+        path = "deps/raylib/src/external/rltexgpu.h",
+        sha256 = "ac6f2c6dae8f1571bbbc6bac2f244033594de5f578dbe16e1837be3dde459e17",
+      },
+      {
+        path = "deps/raylib/src/external/rprand.h",
+        sha256 = "ed59fe484f25a64c1a8fbefedce7d6809c1418a7ae657f3c97ec4ecff65679f2",
+      },
+      {
+        path = "deps/raylib/src/external/sdefl.h",
+        sha256 = "a239c851da08bd9ca4613a298ba6596a67109984c60976246eadef5ad9907a08",
+      },
+      {
+        path = "deps/raylib/src/external/sinfl.h",
+        sha256 = "9d8911f11e6f8eaf71fe1fb8ecbff9402fe4f63a3771143d223dc9cccdc82255",
+      },
+      {
+        path = "deps/raylib/src/external/stb_image.h",
+        sha256 = "594c2fe35d49488b4382dbfaec8f98366defca819d916ac95becf3e75f4200b3",
+      },
+      {
+        path = "deps/raylib/src/external/stb_image_resize2.h",
+        sha256 = "173e654634f6ccaad98f603e686ea212eec1fe8ea6d2a5e5e8056efa10ae3880",
+      },
+      {
+        path = "deps/raylib/src/external/stb_image_write.h",
+        sha256 = "cbd5f0ad7a9cf4468affb36354a1d2338034f2c12473cf1a8e32053cb6914a05",
+      },
+      {
+        path = "deps/raylib/src/external/stb_perlin.h",
+        sha256 = "17e688447a02776fe667e0b6a5d1155bf85c827a83f787ae2d44f57699274960",
+      },
+      {
+        path = "deps/raylib/src/external/stb_rect_pack.h",
+        sha256 = "6388366a30de57c1b4c29b6eed4ed1c7d758fc1443d2dd95cfce943370bb3aa1",
+      },
+      {
+        path = "deps/raylib/src/external/stb_truetype.h",
+        sha256 = "899e3c67ccf08c15ad333a47f1f0bc5972a1f0486f2a8fc88d9eccbfdd9d6477",
+      },
+      {
+        path = "deps/raylib/src/external/stb_vorbis.c",
+        sha256 = "4c7cb2ff1f7011e9d67950446b7eb9ca044f2e464d76bfbb0b84dd2e23e65636",
+      },
+      {
+        path = "deps/raylib/src/external/tinyobj_loader_c.h",
+        sha256 = "29ffdfe9dc1449fce4c69f23ff0691792a873f9db2ec4756456459a549a51049",
+      },
+      {
+        path = "deps/raylib/src/external/vox_loader.h",
+        sha256 = "72c248fdfdc4461045da5d40a63e1be1ff6207bccaa0417ea70a84d7765d4f43",
+      },
+      {
+        path = "deps/raylib/src/external/win32_clipboard.h",
+        sha256 = "9c3f1bd7c7c202b2e1866a86927d03472416df36c59844dd2af7c3546c239ab3",
+      },
+      {
+        path = "deps/raylib/src/minshell.html",
+        sha256 = "262e472efbb7175be9f0ce5c3f63f6780ab710522782876aebaaf8d7f6573887",
+      },
+      {
+        path = "deps/raylib/src/platforms/rcore_android.c",
+        sha256 = "8e3484b85a87a26cad3978c1d422fbc1d4fbf77f17280c222c18757c8a55c981",
+      },
+      {
+        path = "deps/raylib/src/platforms/rcore_desktop_glfw.c",
+        sha256 = "c2a2ea9a4ade6ca80ad3fcf266c7d370353910d94b15336e8cf5954a3fc70379",
+      },
+      {
+        path = "deps/raylib/src/platforms/rcore_desktop_rgfw.c",
+        sha256 = "a77d111199d105fd89272ce9ad851227c58e93d100e39c423e4ac66892fdfe38",
+      },
+      {
+        path = "deps/raylib/src/platforms/rcore_desktop_sdl.c",
+        sha256 = "ecb4b39f502afef8adc469e1f06160efb7baee00ae09a176926bdf44e2227ab0",
+      },
+      {
+        path = "deps/raylib/src/platforms/rcore_desktop_win32.c",
+        sha256 = "8045e7927b589c75e9e7a06ac67b35a4bc3ad74cdf2764d6798bab441f290c04",
+      },
+      {
+        path = "deps/raylib/src/platforms/rcore_drm.c",
+        sha256 = "2373da1bf69d90edb20024e02f90dc5a13ef875ed2e9cde5786ef770ca1778b6",
+      },
+      {
+        path = "deps/raylib/src/platforms/rcore_memory.c",
+        sha256 = "1f7f92694d696c81e631638d477354a275e1daf41dac31a89622aae1a66e2809",
+      },
+      {
+        path = "deps/raylib/src/platforms/rcore_template.c",
+        sha256 = "a93ef14adad7170402d1e9c32cacdf129f4ea4d11b13de189d2951e5c26aa525",
+      },
+      {
+        path = "deps/raylib/src/platforms/rcore_web.c",
+        sha256 = "874bf1465970dbdb9e6a8103f3f4fba3df730697ee7cbb47e04ef7fd3ddb4ece",
+      },
+      {
+        path = "deps/raylib/src/platforms/rcore_web_emscripten.c",
+        sha256 = "c72f64887d8d2206131f0b81a6d973ae63056c0ebd7a6d4c4dd3ef61ed654851",
+      },
+      {
+        path = "deps/raylib/src/raudio.c",
+        sha256 = "2a5b42a701fd872dbf6a9715964344ce44b891bdcd7643122774d5cac9589812",
+      },
+      {
+        path = "deps/raylib/src/raylib.dll.rc",
+        sha256 = "a8555fa6b10efef1a34d7deeb14ac3872e75a7fb18c23e207a94e42c88cef9c8",
+      },
+      {
+        path = "deps/raylib/src/raylib.dll.rc.data",
+        sha256 = "4a739042882d55082a7266c76a2430827ef5a3aba05038114efd973db46ebcb3",
+      },
+      {
+        path = "deps/raylib/src/raylib.h",
+        sha256 = "047e7255f93f8c34039cab906ad76136706b5c7b4c5b5b065d84141963ee9b6b",
+      },
+      {
+        path = "deps/raylib/src/raylib.ico",
+        sha256 = "ad5b43ecc3849eeab9ef2025e81a4971ccc310a9a338035c3eeb24db14121bb6",
+      },
+      {
+        path = "deps/raylib/src/raylib.rc",
+        sha256 = "265c41939f581bb1a3482401f293839260b18aecd23a14ffc8e1c5327638dbd2",
+      },
+      {
+        path = "deps/raylib/src/raylib.rc.data",
+        sha256 = "764a73cc789125d0046677f10ef9b545965019e1a81b65aaf9a862340934f9d6",
+      },
+      {
+        path = "deps/raylib/src/raymath.h",
+        sha256 = "2b8b88f5b3f748e3cf8bdbfb8b7da23a76c755dc40f9c6e455bfc09b3669d028",
+      },
+      {
+        path = "deps/raylib/src/rcamera.h",
+        sha256 = "d5b02c7d2a523f88c7f4248047be5292a085c9e47a71b460c43575e218f96293",
+      },
+      {
+        path = "deps/raylib/src/rcore.c",
+        sha256 = "502c3656661d07aa117a1f4b97dbfdd4a9b12cda6ee8eb4ab7afd31b657b5dd2",
+      },
+      {
+        path = "deps/raylib/src/rgestures.h",
+        sha256 = "a5ec0b887dac651f4ee751d3d10a84271978a57d73ac7d8f03a1c1f4aa61aaca",
+      },
+      {
+        path = "deps/raylib/src/rglfw.c",
+        sha256 = "170bced41aa595a7289ef12c716fbe4f05eff2d410500f0199dbfdecce80cc73",
+      },
+      {
+        path = "deps/raylib/src/rlgl.h",
+        sha256 = "1c9b802c219971dbf2ba9725fb8cea3f14616c039891810a2d31aa442aea4be3",
+      },
+      {
+        path = "deps/raylib/src/rmodels.c",
+        sha256 = "be6ec5e09ded21d89f1cf39ef09e3833da0000009997905eb29dc34ea5741b02",
+      },
+      {
+        path = "deps/raylib/src/rshapes.c",
+        sha256 = "1dc7e4bca33f7083d11dcdf21c8973bf08fa3b9321bce7c10d4232ca0456bb0e",
+      },
+      {
+        path = "deps/raylib/src/rtext.c",
+        sha256 = "a98a5b0b62128ac76fa493aed59a7f283cb7a9de0c8c86a8da73ac84984f36b3",
+      },
+      {
+        path = "deps/raylib/src/rtextures.c",
+        sha256 = "90e41879349d58a779c101dbf78e5b5cf8d46241590268a74e6156ad33312e4c",
+      },
+      {
+        path = "deps/raylib/src/shell.html",
+        sha256 = "149173b941ed6febc64eeff1e97c9f22efe7e3965085562835da75a6d4b5c20b",
+      },
+    },
+    spec_files = {
+      "src/**",
+      "cmake/**",
+      "CMakeLists.txt",
+      "CMakeOptions.txt",
+      "README.md",
+      "LICENSE",
+      "raylib.pc.in",
+    },
     url = "https://github.com/raysan5/raylib.git",
   },
 }
