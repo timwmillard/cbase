@@ -191,7 +191,7 @@ const char *sb_cstr(string_builder *sb); // null-terminated view
 // arena
 // -----------------------------------------------------------------------------
 
-arena_region *_arena_new_region(usize size) {
+static arena_region *arena_new_region(usize size) {
    usize region_cap = ARENA_REGION_DEFAULT_SIZE_BYTES / sizeof(uptr);
    if (region_cap < size)
       region_cap = size;
@@ -204,7 +204,7 @@ arena_region *_arena_new_region(usize size) {
    return r;
 }
 
-void _arena_free_region(arena_region *r) {
+static void arena_free_region(arena_region *r) {
    free(r);
 }
 
@@ -213,7 +213,7 @@ void *arena_alloc(arena *a, usize size_bytes) {
 
    if (a->end == NULL) {
       assert(a->start == NULL);
-      a->end = _arena_new_region(size);
+      a->end = arena_new_region(size);
       a->start = a->end;
    }
 
@@ -223,7 +223,7 @@ void *arena_alloc(arena *a, usize size_bytes) {
 
    if (a->end->len + size > a->end->cap) {
       assert(a->end->next == NULL);
-      a->end->next = _arena_new_region(size);
+      a->end->next = arena_new_region(size);
       a->end = a->end->next;
    }
 
@@ -255,7 +255,7 @@ void arena_release(arena *a) {
    while (r) {
       arena_region *r0 = r;
       r = r->next;
-      _arena_free_region(r0);
+      arena_free_region(r0);
    }
    a->start = NULL;
    a->end = NULL;
