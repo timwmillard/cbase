@@ -213,6 +213,9 @@ typedef struct {
    arena *arena;
 } string_array;
 
+// Growable list of strings (see the `list` section: list_init/append/reserve).
+typedef LIST(string) string_list;
+
 string_array string_split(arena *a, string s, string delim);
 string string_join(arena *a, string_array parts, string sep);
 
