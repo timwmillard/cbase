@@ -82,8 +82,8 @@ typedef struct {
    usize len;
 } string;
 
-// printf helpers — printf(FMT_STR "\n", STR_ARG(s));
-#define FMT_STR    "%.*s"
+// printf helpers — printf(STR_FMT "\n", STR_ARG(s));
+#define STR_FMT    "%.*s"
 #define STR_ARG(s) (int)(s).len, (s).data
 
 // Build a `string` from a C string LITERAL at compile time, no copy.
