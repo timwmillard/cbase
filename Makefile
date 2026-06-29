@@ -1,5 +1,6 @@
 
 all:
+	$(MAKE) -C lib
 	$(MAKE) -C base
 	$(MAKE) -C base_ecewo
 	$(MAKE) -C base_imgui
@@ -9,6 +10,7 @@ all:
 	$(MAKE) -C base_sokol
 
 clean:
+	$(MAKE) -C lib clean
 	$(MAKE) -C base clean
 	$(MAKE) -C base_ecewo clean
 	$(MAKE) -C base_imgui clean
