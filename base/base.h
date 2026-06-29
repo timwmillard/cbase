@@ -33,7 +33,7 @@ typedef ptrdiff_t isize;
 
 typedef float f32;
 typedef double f64;
-typedef long double f28;
+typedef long double f128;
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 
