@@ -168,7 +168,7 @@ void arena_temp_end(arena_temp t);
 //   middle of a buffer). Use string_cstr() / sb_cstr() when you need a C str.
 
 typedef struct {
-   char *data;
+   const char *data; // immutable; never written through (see string_builder)
    usize len;
 } string;
 
@@ -178,7 +178,7 @@ typedef struct {
 
 // Build a `string` from a C string LITERAL at compile time, no copy.
 //   string s = S("hello");
-#define S(lit) ((string){(char *)(lit), sizeof(lit) - 1})
+#define S(lit) ((string){(lit), sizeof(lit) - 1})
 
 // Views — borrow existing bytes, no allocation, no copy.
 string string_view(const char *cstr);               // strlen-terminated
@@ -287,15 +287,22 @@ struct arena_region {
 };
 
 static arena_region *arena_new_region(usize size) {
+   // region_cap counts uptr words for the WHOLE block (header + data). The
+   // header occupies header_words; usable capacity is region_cap -
+   // header_words. We must size the block so usable cap >= the requested
+   // `size`, otherwise a single oversized request overflows the region it's
+   // placed in.
+   usize header_words =
+       (sizeof(arena_region) + sizeof(uptr) - 1) / sizeof(uptr);
    usize region_cap = ARENA_REGION_DEFAULT_SIZE_BYTES / sizeof(uptr);
-   if (region_cap < size)
-      region_cap = size;
+   if (region_cap < size + header_words)
+      region_cap = size + header_words;
    usize size_bytes = sizeof(uptr) * region_cap;
    arena_region *r = (arena_region *)malloc(size_bytes);
    assert(r);
    r->next = NULL;
    r->len = 0;
-   r->cap = region_cap - sizeof(arena_region) / sizeof(uptr);
+   r->cap = region_cap - header_words;
    return r;
 }
 
@@ -406,34 +413,22 @@ char *arena_sprintf(arena *a, const char *format, ...) {
 // string
 // -----------------------------------------------------------------------------
 
-// Nits / design notes
-//
-// - string_slice signedness (line 358): start += s.len mixes isize/usize. It
-// works via modular wraparound, but cast for clarity: start += (isize)s.len.
-// Also you clamp end but not a too-large positive start; it's harmless (the end
-// < start → end = start guard forces len = 0), but the .data pointer ends up
-// past the buffer. Clamping start to s.len too would be tidier.
-// - string_view const-cast (line 308): (char*)cstr discards const. That's
-// inherent to the single char *data design (your S() macro does it too), and
-// fine as long as the immutability contract holds — just know that writing
-// through a view over a literal is UB.
-// - string_vfrom double length pass (line 328): arena_vsprintf already computed
-// n via vsnprintf(NULL,0,...) then throws it away, and you recompute with
-// strlen. Minor; only worth it if you want arena_vsprintf to hand back the
-// length.
-
 // Constructors
+
+// A view borrows `cstr` without copying. `string.data` is const, so the view
+// cannot be written through -- matching the immutability contract. To get a
+// mutable, owned copy, use string_from_n or string_dup.
 string string_view(const char *cstr) {
    usize len = strlen(cstr);
    return (string){
-       .data = (char *)cstr,
+       .data = cstr,
        .len = len,
    };
 }
 
 string string_view_n(const char *bytes, usize len) {
    return (string){
-       .data = (char *)bytes,
+       .data = bytes,
        .len = len,
    };
 }
@@ -484,6 +479,8 @@ string string_slice(string s, isize start, isize end) {
       end += s.len;
    if (start < 0)
       start = 0;
+   if (start > (isize)s.len)
+      start = (isize)s.len; // keep &s.data[start] in-bounds (one past end ok)
    if (end > (isize)s.len)
       end = s.len;
    if (end < start)
