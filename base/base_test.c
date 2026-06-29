@@ -287,8 +287,7 @@ void test_list_append(void) {
    arena a = {0};
    int_list xs = list_init(&a);
 
-   ASSERT(xs.items == NULL && xs.len == 0 && xs.cap == 0,
-          "list starts empty");
+   ASSERT(xs.items == NULL && xs.len == 0 && xs.cap == 0, "list starts empty");
 
    for (int i = 0; i < 100; i++)
       list_append(&xs, i * 10);
