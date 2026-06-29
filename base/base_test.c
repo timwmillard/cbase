@@ -35,7 +35,7 @@ static int _failed = 0;
 /* ================================================================== */
 
 /* basic alloc returns non-null and is writable */
-void test_alloc_basic() {
+void test_alloc_basic(void) {
    const char *test_name = "alloc basic";
    arena a = {0};
    u8 *mem = arena_alloc(&a, 1024);
@@ -48,7 +48,7 @@ void test_alloc_basic() {
 }
 
 /* multiple allocations don't overlap */
-void test_alloc_no_overlap() {
+void test_alloc_no_overlap(void) {
    const char *test_name = "alloc no overlap";
    arena a = {0};
    u8 *a1 = arena_alloc(&a, 64);
@@ -65,7 +65,7 @@ void test_alloc_no_overlap() {
 }
 
 /* returned pointers are word-aligned */
-void test_alloc_alignment() {
+void test_alloc_alignment(void) {
    const char *test_name = "alloc alignment";
    arena a = {0};
    /* vary sizes to stress alignment of subsequent allocs */
@@ -82,7 +82,7 @@ void test_alloc_alignment() {
 }
 
 /* force region growth by exceeding the default region size */
-void test_alloc_multi_region() {
+void test_alloc_multi_region(void) {
    const char *test_name = "alloc multi region";
    arena a = {0};
    int total = (ARENA_REGION_DEFAULT_SIZE_BYTES / 512) * 4;
@@ -96,7 +96,7 @@ void test_alloc_multi_region() {
 }
 
 /* single allocation larger than the default region size */
-void test_alloc_large() {
+void test_alloc_large(void) {
    const char *test_name = "alloc large";
    arena a = {0};
    usize big = ARENA_REGION_DEFAULT_SIZE_BYTES * 4;
@@ -110,7 +110,7 @@ void test_alloc_large() {
 }
 
 /* realloc grows and copies existing data */
-void test_realloc_grow() {
+void test_realloc_grow(void) {
    const char *test_name = "realloc grow";
    arena a = {0};
    char *p = arena_alloc(&a, 16);
@@ -123,7 +123,7 @@ void test_realloc_grow() {
 }
 
 /* realloc with newsz <= oldsz returns the same pointer unchanged */
-void test_realloc_no_shrink() {
+void test_realloc_no_shrink(void) {
    const char *test_name = "realloc no shrink";
    arena a = {0};
    char *p = arena_alloc(&a, 64);
@@ -134,7 +134,7 @@ void test_realloc_no_shrink() {
 }
 
 /* release zeroes the arena; it can be reused immediately after */
-void test_release_and_reuse() {
+void test_release_and_reuse(void) {
    const char *test_name = "release and reuse";
    arena a = {0};
    for (int i = 0; i < 50; i++)
@@ -148,7 +148,7 @@ void test_release_and_reuse() {
 }
 
 /* reset keeps regions but resets len; memory can be reused without malloc */
-void test_reset() {
+void test_reset(void) {
    const char *test_name = "reset";
    arena a = {0};
    for (int i = 0; i < 50; i++)
@@ -168,7 +168,7 @@ void test_reset() {
 /* ================================================================== */
 
 /* S: compile-time literal view, length via sizeof */
-void test_S_macro() {
+void test_S_macro(void) {
    const char *test_name = "S_macro";
    string s = S("hello");
    ASSERT(s.len == 5, "len is 5");
@@ -179,7 +179,7 @@ void test_S_macro() {
 }
 
 /* string_view: non-owning view of a C string, len via strlen */
-void test_string_view() {
+void test_string_view(void) {
    const char *test_name = "string_view";
    const char *lit = "hello";
    string s = string_view(lit);
@@ -189,7 +189,7 @@ void test_string_view() {
 }
 
 /* string_view_n: non-owning view of n bytes (not null-terminated) */
-void test_string_view_n() {
+void test_string_view_n(void) {
    const char *test_name = "string_view_n";
    const char *lit = "hello world";
    string s = string_view_n(lit, 5);
@@ -200,7 +200,7 @@ void test_string_view_n() {
 }
 
 /* string_from: formatted, arena-owned copy */
-void test_string_from() {
+void test_string_from(void) {
    const char *test_name = "string_from";
    arena a = {0};
    string s = string_from(&a, "hello %d", 42);
@@ -210,7 +210,7 @@ void test_string_from() {
 }
 
 /* string_from_n: copy n bytes into arena */
-void test_string_from_n() {
+void test_string_from_n(void) {
    const char *test_name = "string_from_n";
    arena a = {0};
    string s = string_from_n(&a, "hello world", 5);
@@ -220,7 +220,7 @@ void test_string_from_n() {
 }
 
 /* string_dup: independent copy of an existing slice */
-void test_string_dup() {
+void test_string_dup(void) {
    const char *test_name = "string_dup";
    arena a = {0};
    string view = string_view("hello");
@@ -232,7 +232,7 @@ void test_string_dup() {
 }
 
 /* string_cstr: null-terminated copy for C APIs */
-void test_string_cstr() {
+void test_string_cstr(void) {
    const char *test_name = "string_cstr";
    arena a = {0};
    string s = string_view_n("hello world", 5); /* slice, not terminated */
@@ -247,7 +247,7 @@ void test_string_cstr() {
 /* ================================================================== */
 
 /* string_slice: positive and negative indices, clamping */
-void test_string_slice() {
+void test_string_slice(void) {
    const char *test_name = "string_slice";
    string s = S("hello world");
    ASSERT_STR(string_slice(s, 6, 11), "world");
@@ -260,7 +260,7 @@ void test_string_slice() {
 }
 
 /* string_trim family */
-void test_string_trim() {
+void test_string_trim(void) {
    const char *test_name = "string_trim";
    ASSERT_STR(string_trim(S("  hello  ")), "hello");
    ASSERT_STR(string_trim(S("hello")), "hello");
@@ -271,7 +271,7 @@ void test_string_trim() {
 }
 
 /* string_eq */
-void test_string_eq() {
+void test_string_eq(void) {
    const char *test_name = "string_eq";
    ASSERT(string_eq(S("hello"), S("hello")), "equal strings compare equal");
    ASSERT(!string_eq(S("hello"), S("world")), "different content not equal");
@@ -281,7 +281,7 @@ void test_string_eq() {
 }
 
 /* string_starts_with / string_ends_with */
-void test_string_starts_ends_with() {
+void test_string_starts_ends_with(void) {
    const char *test_name = "string_starts_ends_with";
    string s = S("hello world");
    ASSERT(string_starts_with(s, S("hello")), "starts with \"hello\"");
@@ -294,7 +294,7 @@ void test_string_starts_ends_with() {
 }
 
 /* string_contains */
-void test_string_contains() {
+void test_string_contains(void) {
    const char *test_name = "string_contains";
    string s = S("hello world");
    ASSERT(string_contains(s, S("lo wo")), "contains interior substring");
@@ -304,7 +304,7 @@ void test_string_contains() {
 }
 
 /* string_index_of / string_index_of_char */
-void test_string_index_of() {
+void test_string_index_of(void) {
    const char *test_name = "string_index_of";
    string s = S("hello world");
    ASSERT(string_index_of(s, S("world")) == 6, "\"world\" at index 6");
@@ -319,7 +319,7 @@ void test_string_index_of() {
 /* string: transforms (allocate)                                      */
 /* ================================================================== */
 
-void test_string_upper_lower() {
+void test_string_upper_lower(void) {
    const char *test_name = "string_upper_lower";
    arena a = {0};
    string s = S("Hello World");
@@ -329,7 +329,7 @@ void test_string_upper_lower() {
    PASS(test_name);
 }
 
-void test_string_concat() {
+void test_string_concat(void) {
    const char *test_name = "string_concat";
    arena a = {0};
    string s = string_concat(&a, S("hello "), S("world"));
@@ -338,7 +338,7 @@ void test_string_concat() {
    PASS(test_name);
 }
 
-void test_string_replace() {
+void test_string_replace(void) {
    const char *test_name = "string_replace";
    arena a = {0};
    string s = string_replace(&a, S("one fish two fish"), S("fish"), S("cat"));
@@ -351,7 +351,7 @@ void test_string_replace() {
 /* string: split / join                                               */
 /* ================================================================== */
 
-void test_string_split() {
+void test_string_split(void) {
    const char *test_name = "string_split";
    arena a = {0};
    string_array arr = string_split(&a, S("one,two,three"), S(","));
@@ -367,7 +367,7 @@ void test_string_split() {
    PASS(test_name);
 }
 
-void test_string_join() {
+void test_string_join(void) {
    const char *test_name = "string_join";
    arena a = {0};
    string_array arr = string_split(&a, S("one,two,three"), S(","));
@@ -381,7 +381,7 @@ void test_string_join() {
 /* string_builder                                                     */
 /* ================================================================== */
 
-void test_sb_append() {
+void test_sb_append(void) {
    const char *test_name = "sb_append";
    arena a = {0};
    string_builder sb = sb_init(&a);
@@ -395,7 +395,7 @@ void test_sb_append() {
    PASS(test_name);
 }
 
-void test_sb_appendf() {
+void test_sb_appendf(void) {
    const char *test_name = "sb_appendf";
    arena a = {0};
    string_builder sb = sb_init_cap(&a, 8);
@@ -406,7 +406,7 @@ void test_sb_appendf() {
    PASS(test_name);
 }
 
-void test_sb_reset() {
+void test_sb_reset(void) {
    const char *test_name = "sb_reset";
    arena a = {0};
    string_builder sb = sb_init(&a);
@@ -420,7 +420,7 @@ void test_sb_reset() {
 }
 
 /* sb_init_fixed: fixed buffer, no arena, must not grow past cap */
-void test_sb_fixed() {
+void test_sb_fixed(void) {
    const char *test_name = "sb_fixed";
    char buf[16];
    string_builder sb = sb_init_fixed(buf, sizeof(buf));
