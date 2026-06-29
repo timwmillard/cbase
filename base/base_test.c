@@ -163,6 +163,73 @@ void test_reset(void) {
    PASS(test_name);
 }
 
+/* arena_new / arena_array: correct size, typed, writable */
+void test_arena_new_array(void) {
+   const char *test_name = "arena_new_array";
+   arena a = {0};
+
+   typedef struct {
+      int x;
+      double y;
+   } point;
+
+   point *p = arena_new(&a, point);
+   ASSERT(p != NULL, "arena_new returns non-null");
+   ASSERT(((uptr)p % sizeof(uptr)) == 0, "arena_new result is word-aligned");
+   p->x = 7;
+   p->y = 1.5;
+   ASSERT(p->x == 7 && p->y == 1.5, "struct is writable");
+
+   point *xs = arena_array(&a, point, 16);
+   ASSERT(xs != NULL, "arena_array returns non-null");
+   for (int i = 0; i < 16; i++) {
+      xs[i].x = i;
+      xs[i].y = (double)i;
+   }
+   ASSERT(xs[0].x == 0 && xs[15].x == 15, "array is writable end to end");
+   ASSERT((uptr)p != (uptr)xs, "distinct allocations don't alias");
+
+   arena_release(&a);
+   PASS(test_name);
+}
+
+/* arena_new / arena_array always return zeroed memory */
+void test_arena_new_array_zero(void) {
+   const char *test_name = "arena_new_array_zero";
+   arena a = {0};
+
+   /* dirty the arena so a fresh zeroed alloc has something to overwrite */
+   u8 *dirty = arena_alloc(&a, 256);
+   memset(dirty, 0xcb, 256);
+   arena_reset(&a);
+
+   typedef struct {
+      int x;
+      int y;
+      char tag[8];
+   } rec;
+
+   rec *r = arena_new(&a, rec);
+   ASSERT(r != NULL, "arena_new returns non-null");
+   ASSERT(r->x == 0 && r->y == 0, "scalar fields zeroed");
+   int tag_zero = 1;
+   for (size_t i = 0; i < sizeof(r->tag); i++)
+      if (r->tag[i] != 0)
+         tag_zero = 0;
+   ASSERT(tag_zero, "array field zeroed");
+
+   u8 *bytes = arena_array(&a, u8, 128);
+   ASSERT(bytes != NULL, "arena_array returns non-null");
+   int all_zero = 1;
+   for (int i = 0; i < 128; i++)
+      if (bytes[i] != 0)
+         all_zero = 0;
+   ASSERT(all_zero, "all 128 bytes are zero");
+
+   arena_release(&a);
+   PASS(test_name);
+}
+
 /* ================================================================== */
 /* string: constructors / views                                       */
 /* ================================================================== */
@@ -443,6 +510,8 @@ int main(void) {
    test_realloc_no_shrink();
    test_release_and_reuse();
    test_reset();
+   test_arena_new_array();
+   test_arena_new_array_zero();
 
    printf(COLOR_BOLD "\nstring tests\n" COLOR_RESET "\n");
 

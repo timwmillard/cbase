@@ -52,12 +52,20 @@ typedef struct arena {
    arena_region *end;
 } arena;
 
-void *arena_alloc(arena *a, usize size_bytes);
+void *arena_alloc(arena *a, usize size_bytes);  // uninitialized
+void *arena_calloc(arena *a, usize size_bytes); // zeroed
 void *arena_realloc(arena *a, void *oldptr, usize oldsz, usize newsz);
 void arena_reset(arena *a);
 void arena_release(arena *a);
 char *arena_sprintf(arena *a, const char *format, ...);
 char *arena_vsprintf(arena *a, const char *format, va_list args);
+
+// Typed allocation helpers. Both return zeroed memory (the common case). If you
+// want uninitialized memory, call arena_alloc directly.
+//   Foo *f  = arena_new(a, Foo);       // one zeroed Foo
+//   Foo *xs = arena_array(a, Foo, 16); // 16 zeroed Foo
+#define arena_new(a, T)      ((T *)arena_calloc((a), sizeof(T)))
+#define arena_array(a, T, n) ((T *)arena_calloc((a), sizeof(T) * (usize)(n)))
 
 // ---------------------------------------------------------------------------
 // string — immutable string slices over an arena allocator.
@@ -232,6 +240,12 @@ void *arena_alloc(arena *a, usize size_bytes) {
    void *result = &a->end->data[a->end->len];
    a->end->len += size;
    return result;
+}
+
+void *arena_calloc(arena *a, usize size_bytes) {
+   void *p = arena_alloc(a, size_bytes);
+   memset(p, 0, size_bytes);
+   return p;
 }
 
 void *arena_realloc(arena *a, void *oldptr, usize oldsz, usize newsz) {
