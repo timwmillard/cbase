@@ -60,6 +60,21 @@ void arena_release(arena *a);
 char *arena_sprintf(arena *a, const char *format, ...);
 char *arena_vsprintf(arena *a, const char *format, va_list args);
 
+// Temp (scratch) scopes — checkpoint the arena, do throwaway work, then roll
+// back to the mark, reclaiming everything allocated in between. Anything you
+// want to keep must be allocated in a DIFFERENT (outer) arena.
+//   arena_temp t = arena_temp_begin(scratch);
+//   ... allocate transient data in `scratch` ...
+//   arena_temp_end(t); // reclaims it all
+typedef struct {
+   arena *arena;
+   arena_region *region; // a->end at mark time
+   usize len;            // region->len at mark time
+} arena_temp;
+
+arena_temp arena_temp_begin(arena *a);
+void arena_temp_end(arena_temp t);
+
 // Typed allocation helpers. Both return zeroed memory (the common case). If you
 // want uninitialized memory, call arena_alloc directly.
 //   Foo *f  = arena_new(a, Foo);       // one zeroed Foo
@@ -345,6 +360,24 @@ void arena_release(arena *a) {
    }
    a->start = NULL;
    a->end = NULL;
+}
+
+arena_temp arena_temp_begin(arena *a) {
+   return (arena_temp){
+       .arena = a, .region = a->end, .len = a->end ? a->end->len : 0};
+}
+
+void arena_temp_end(arena_temp t) {
+   arena *a = t.arena;
+   if (t.region == NULL) { // arena was empty at the mark
+      arena_reset(a);
+      return;
+   }
+   // regions filled after the mark go back to empty (kept for reuse)
+   for (arena_region *r = t.region->next; r != NULL; r = r->next)
+      r->len = 0;
+   t.region->len = t.len; // partial rewind within the mark's region
+   a->end = t.region;
 }
 
 char *arena_vsprintf(arena *a, const char *format, va_list args) {

@@ -163,6 +163,51 @@ void test_reset(void) {
    PASS(test_name);
 }
 
+/* temp scope rewinds the arena to the mark, reclaiming scratch allocations */
+void test_arena_temp(void) {
+   const char *test_name = "arena_temp";
+   arena a = {0};
+
+   void *keep = arena_alloc(&a, 64); /* allocated before the mark */
+
+   arena_temp t = arena_temp_begin(&a);
+   for (int i = 0; i < 100; i++)
+      arena_alloc(&a, 256); /* scratch, spanning multiple regions */
+   ASSERT(a.start != a.end, "scratch work grew into new regions");
+
+   arena_temp_end(t);
+
+   /* after rewind, end is back on the first region and scratch is reclaimed */
+   ASSERT(a.start == a.end, "rewind returns end to the mark's region");
+   void *reused = arena_alloc(&a, 256);
+   ASSERT(reused != keep, "next alloc is distinct from the pre-mark alloc");
+   ASSERT((uptr)reused >= (uptr)keep, "alloc resumes at/after the mark");
+   ASSERT(a.start->len > 0, "arena still holds the pre-mark allocation");
+
+   /* the whole arena is still usable and can be released cleanly */
+   arena_release(&a);
+   ASSERT(a.start == NULL && a.end == NULL, "release after temp works");
+   PASS(test_name);
+}
+
+/* temp_begin on an empty arena: end rewinds it back to empty */
+void test_arena_temp_empty(void) {
+   const char *test_name = "arena_temp_empty";
+   arena a = {0};
+
+   arena_temp t = arena_temp_begin(&a); /* nothing allocated yet */
+   for (int i = 0; i < 10; i++)
+      arena_alloc(&a, 128);
+   arena_temp_end(t);
+
+   ASSERT(a.start == a.end, "rewind returns end to the first region");
+   ASSERT(a.start == NULL || a.start->len == 0,
+          "all allocations since the empty mark are reclaimed");
+
+   arena_release(&a);
+   PASS(test_name);
+}
+
 /* arena_new / arena_array: correct size, typed, writable */
 void test_arena_new_array(void) {
    const char *test_name = "arena_new_array";
@@ -612,6 +657,8 @@ int main(void) {
    test_realloc_no_shrink();
    test_release_and_reuse();
    test_reset();
+   test_arena_temp();
+   test_arena_temp_empty();
    test_arena_new_array();
    test_arena_new_array_zero();
 
