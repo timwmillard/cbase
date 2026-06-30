@@ -26,21 +26,15 @@ add_custom_target(generate_queries DEPENDS
     ${CMAKE_SOURCE_DIR}/src/models.h
 )
 
-# Build the bin2c embedder into the build folder
-set(BIN2C_BIN ${CMAKE_BINARY_DIR}/bin2c)
-add_custom_command(
-    OUTPUT ${BIN2C_BIN}
-    COMMAND ${CMAKE_C_COMPILER} -O2 -o ${BIN2C_BIN} ${CMAKE_SOURCE_DIR}/tool/bin2c.c
-    DEPENDS ${CMAKE_SOURCE_DIR}/tool/bin2c.c
-    COMMENT "Building bin2c embedder"
-)
+# Build the embedc tool (standalone) and embed schema.sql into schema.h as a
+# null-terminated C string (schema_data / schema_len).
+add_subdirectory(tool/embedc)
 
-# Embed schema.sql into schema.h
-add_custom_command(
+embedc_generate(
+    INPUT  ${CMAKE_SOURCE_DIR}/sql/schema.sql
     OUTPUT ${CMAKE_SOURCE_DIR}/src/schema.h
-    COMMAND ${BIN2C_BIN} ${CMAKE_SOURCE_DIR}/sql/schema.sql ${CMAKE_SOURCE_DIR}/src/schema.h schema
-    DEPENDS ${BIN2C_BIN} ${CMAKE_SOURCE_DIR}/sql/schema.sql
-    COMMENT "Embedding schema.sql into schema.h with bin2c"
+    NAME   schema
+    TEXT
 )
 add_custom_target(generate_schema DEPENDS
     ${CMAKE_SOURCE_DIR}/src/schema.h

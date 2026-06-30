@@ -20,7 +20,8 @@ return {
         dir = '.',
         flatten = false,
         files = {
-            'tool/bin2c/bin2c.c',
+            'tool/embedc/embedc.c',
+            'tool/embedc/CMakeLists.txt',
             'tool/sql2c/sql2c.c',
             'tool/sql2c/CMakeLists.txt',
         },
