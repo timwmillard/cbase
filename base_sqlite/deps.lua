@@ -14,6 +14,7 @@ return {
     },
     {
         'timwmillard/cbase',
+        dev = '..',
         name = 'cbase-tool',
         dir = '.',
         flatten = false,

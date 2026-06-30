@@ -16,20 +16,17 @@ return {
     url = "https://github.com/timwmillard/cbase.git",
   },
   ["cbase-tool"] = {
-    commit = "0c3c2ccd91d6d1b84faa3a52d9f9174b4cdf3e30",
     dest = ".",
+    dev = "..",
     files = {
       {
         path = "tool/bin2c/bin2c.c",
-        sha256 = "75b0ae93832fa0986f3624eba81b4994f5474d924ceb91370d185e07cb3fda66",
       },
       {
         path = "tool/sql2c/CMakeLists.txt",
-        sha256 = "71c8031cac9168448b4ba76be9a6ab76a7ff18ac78c85d126a0714e587cebebc",
       },
       {
         path = "tool/sql2c/sql2c.c",
-        sha256 = "aa7e0f43cbc20268da803ae74b3afd66b397eae021a278b288d04e0b3c12db8f",
       },
     },
     spec_files = {
