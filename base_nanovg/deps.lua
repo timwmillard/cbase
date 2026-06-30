@@ -1,5 +1,9 @@
 return {
-    config = { dir = 'deps' },
+    config = {
+        dir = 'deps',
+        subdir = false,
+        flatten = true,
+    },
     {
         'vinnyhorgan/nanovg',
         submodules = true,

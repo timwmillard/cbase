@@ -30,8 +30,8 @@ add_definitions(${BACKEND})
 
 add_executable(${PROJECT_NAME}
     src/main.c
-    deps/deps.c
-    deps/deps.cpp
+    src/deps.c
+    src/deps.cpp
     deps/cimgui/cimgui.cpp
     deps/cimgui/imgui/imgui.cpp
     deps/cimgui/imgui/imgui_draw.cpp

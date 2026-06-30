@@ -1,7 +1,11 @@
 return {
-    config = { dir = 'deps' },
+    config = {
+        dir = 'deps',
+    },
     {
         'floooh/sokol',
+        subdir = false,
+        flatten = true,
         files = {
             'sokol_app.h', 'sokol_gfx.h', 'sokol_glue.h',
             'sokol_log.h',
@@ -12,7 +16,7 @@ return {
         "cimgui/cimgui",
         branch = "docking_inter",
         submodules = true,
-        dest = "deps/cimgui",
+        subdir = true,
         flatten = false,
         files = {
             "cimconfig.h", "cimgui.h", "cimgui.cpp",

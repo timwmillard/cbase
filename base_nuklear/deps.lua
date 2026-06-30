@@ -1,5 +1,9 @@
 return {
-    config = { dir = 'deps' },
+    config = {
+        dir = 'deps',
+        subdir = false,
+        flatten = true,
+    },
     {
         'floooh/sokol',
         files = {

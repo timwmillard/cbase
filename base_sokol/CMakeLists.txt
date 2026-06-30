@@ -39,7 +39,7 @@ add_custom_target(shader DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/shader_glsl.h)
 
 add_executable(${PROJECT_NAME}
     src/main.c
-    deps/deps.c
+    src/deps.c
 )
 
 add_dependencies(${PROJECT_NAME} shader)

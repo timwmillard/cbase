@@ -28,7 +28,7 @@ add_definitions(${BACKEND})
 
 add_executable(${PROJECT_NAME}
     src/main.c
-    deps/deps.c
+    src/deps.c
     deps/nanovg.c
 )
 

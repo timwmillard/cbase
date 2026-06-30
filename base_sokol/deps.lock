@@ -18,6 +18,11 @@ return {
         sha256 = "6ecc6b6f5def33c30aac09bc266633b73979d767eefa8e0c379f2eeacc7ae067",
       },
     },
+    spec_files = {
+      "sokol_app.h",
+      "sokol_gfx.h",
+      "sokol_glue.h",
+    },
     url = "https://github.com/floooh/sokol.git",
   },
 }

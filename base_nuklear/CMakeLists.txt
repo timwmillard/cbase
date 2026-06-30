@@ -28,7 +28,7 @@ add_definitions(${BACKEND})
 
 add_executable(${PROJECT_NAME}
     src/main.c
-    deps/deps.c
+    src/deps.c
 )
 
 target_link_libraries(${PROJECT_NAME} ${PLATFORM_LIBS})

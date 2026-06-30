@@ -3,7 +3,6 @@ return {
     {
         'raysan5/raylib',
         tag = '6.0',
-        flatten = false,
         dest = 'deps/raylib',
         files = {
             'src/**',
