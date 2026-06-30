@@ -5,32 +5,20 @@ set(CMAKE_C_STANDARD 11)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Build the sql2c code generator into the build folder
-set(SQL2C_BIN ${CMAKE_BINARY_DIR}/sql2c)
-add_custom_command(
-    OUTPUT ${SQL2C_BIN}
-    COMMAND go build -o ${SQL2C_BIN} .
-    DEPENDS
-        ${CMAKE_SOURCE_DIR}/tool/sql2c/main.go
-        ${CMAKE_SOURCE_DIR}/tool/sql2c/go.mod
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tool/sql2c
-    COMMENT "Building sql2c code generator"
-)
+# Build the sql2c code generator (standalone tool), pointed at our sqlite.
+set(SQL2C_SQLITE_C ${CMAKE_SOURCE_DIR}/deps/sqlite3.c CACHE FILEPATH "")
+set(SQL2C_SQLITE_INCLUDE ${CMAKE_SOURCE_DIR}/deps CACHE PATH "")
+add_subdirectory(tool/sql2c)
 
-# Generate SQL queries with sql2c
-add_custom_command(
-    OUTPUT
-        ${CMAKE_SOURCE_DIR}/src/queries.h
-        ${CMAKE_SOURCE_DIR}/src/queries.c
-        ${CMAKE_SOURCE_DIR}/src/models.h
-    COMMAND ${SQL2C_BIN} -config config.yaml
-    DEPENDS
-        ${SQL2C_BIN}
-        ${CMAKE_SOURCE_DIR}/sql/schema.sql
-        ${CMAKE_SOURCE_DIR}/sql/queries.sql
-        ${CMAKE_SOURCE_DIR}/sql/config.yaml
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/sql
-    COMMENT "Generating queries.h, queries.c, models.h with sql2c"
+# Generate models.h / queries.h / queries.c from the schema + queries.
+sql2c_generate(
+    CONFIG  ${CMAKE_SOURCE_DIR}/sql/config.txt
+    WORKDIR ${CMAKE_SOURCE_DIR}/sql
+    OUTPUTS ${CMAKE_SOURCE_DIR}/src/queries.h
+            ${CMAKE_SOURCE_DIR}/src/queries.c
+            ${CMAKE_SOURCE_DIR}/src/models.h
+    DEPENDS ${CMAKE_SOURCE_DIR}/sql/schema.sql
+            ${CMAKE_SOURCE_DIR}/sql/queries.sql
 )
 add_custom_target(generate_queries DEPENDS
     ${CMAKE_SOURCE_DIR}/src/queries.h

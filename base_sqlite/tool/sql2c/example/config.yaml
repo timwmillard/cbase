@@ -1,6 +1,0 @@
-schema: schema.sql
-queries: queries.sql
-output: gen/queries.h
-struct-style: pascal
-field-style: pascal
-func-style: snake

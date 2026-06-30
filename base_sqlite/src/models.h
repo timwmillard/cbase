@@ -82,6 +82,46 @@ static inline sql_nulltext to_sql_nulltext(char *text, bool null) {
     };
 }
 
+// ============ Allocator ============
+
+// A single-function allocator: the owning query wrappers copy result rows
+// (and their text/blob bytes) into whatever this points at. Cleanup is the
+// caller's job (e.g. reset/release an arena); there is no per-row free.
+typedef struct sql_allocator {
+    void *(*alloc)(void *ctx, size_t size);
+    void *ctx;
+} sql_allocator;
+
+static inline sql_text sql_dup_text(sql_allocator a, sql_text s) {
+    if (s.data == NULL) return s;
+    sql_byte *p = a.alloc(a.ctx, s.len + 1);
+    memcpy(p, s.data, s.len);
+    p[s.len] = 0;
+    return (sql_text){ .data = p, .len = s.len };
+}
+
+static inline sql_nulltext sql_dup_nulltext(sql_allocator a, sql_nulltext s) {
+    if (s.null || s.data == NULL) return s;
+    char *p = a.alloc(a.ctx, s.len + 1);
+    memcpy(p, s.data, s.len);
+    p[s.len] = 0;
+    return (sql_nulltext){ .data = p, .len = s.len, .null = false };
+}
+
+static inline sql_blob sql_dup_blob(sql_allocator a, sql_blob s) {
+    if (s.data == NULL) return s;
+    sql_byte *p = a.alloc(a.ctx, s.len);
+    memcpy(p, s.data, s.len);
+    return (sql_blob){ .data = p, .len = s.len };
+}
+
+static inline sql_nullblob sql_dup_nullblob(sql_allocator a, sql_nullblob s) {
+    if (s.null || s.data == NULL) return s;
+    sql_byte *p = a.alloc(a.ctx, s.len);
+    memcpy(p, s.data, s.len);
+    return (sql_nullblob){ .data = p, .len = s.len, .null = false };
+}
+
 // ============ Table Structs ============
 
 typedef struct {
