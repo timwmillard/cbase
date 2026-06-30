@@ -1,0 +1,41 @@
+return {
+    config = {
+        dir = 'deps',
+    },
+    {
+        'floooh/sokol',
+        subdir = false,
+        flatten = true,
+        files = {
+            'sokol_app.h', 'sokol_gfx.h', 'sokol_glue.h',
+            'sokol_log.h',
+            'util/sokol_imgui.h'
+        },
+    },
+    {
+        "cimgui/cimgui",
+        branch = "docking_inter",
+        submodules = true,
+        subdir = true,
+        flatten = false,
+        files = {
+            "cimconfig.h", "cimgui.h", "cimgui.cpp",
+            "imgui/imconfig.h", "imgui/imgui.h", "imgui/imgui.cpp", "imgui/imgui_demo.cpp",
+            "imgui/imgui_draw.cpp", "imgui/imgui_internal.h", "imgui/imgui_tables.cpp",
+            "imgui/imgui_widgets.cpp", "imgui/imstb_rectpack.h", "imgui/imstb_textedit.h",
+            "imgui/imstb_truetype.h",
+        },
+    },
+    {
+        'cimgui/cimplot',
+        submodules = true,
+        subdir = true,
+        flatten = false,
+        files = {
+            "cimplot.h", "cimplot.cpp",
+            'implot/implot.h', 'implot/implot.cpp',
+            'implot/implot_items.cpp', 'implot/implot_internal.h',
+            'implot/implot_demo.cpp',
+        },
+    },
+}
