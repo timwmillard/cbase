@@ -6,6 +6,7 @@ return {
     },
     {
         'timwmillard/cbase',
+        dev = '..',
         files = { 'lib/base.h' },
     },
     {
