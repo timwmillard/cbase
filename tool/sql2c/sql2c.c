@@ -1046,7 +1046,7 @@ static void emit_deepcopy(Gen *g, StrBuf *sb, Query *q, const char *target, cons
 
 static const char *slice_type(Gen *g, const char *result_type) {
    StrBuf sb = {0};
-   sb_printf(&sb, "%sSlice", result_type);
+   sb_printf(&sb, "%sList", result_type);
    char *r = arena_strdup(g->a, sb.data);
    sb_free(&sb);
    return r;
@@ -1130,7 +1130,7 @@ static void emit_header(Gen *g, StrBuf *sb, Query *qs, int nq, const char *outpu
    // Result slices for :many wrappers (deduped by result type).
    const char *seen[256];
    int nseen = 0;
-   sb_puts(sb, "// ============ Result Slices ============\n\n");
+   sb_puts(sb, "// ============ Result Lists ============\n\n");
    for (int i = 0; i < nq; i++) {
       if (qs[i].kind != Q_MANY) continue;
       int dup = 0;

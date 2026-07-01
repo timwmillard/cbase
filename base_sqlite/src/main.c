@@ -6,12 +6,13 @@
 #include "sqlite3.h"
 
 // Adapt base.h's arena to the generated sql_allocator interface.
-static void *arena_alloc_fn(void *ctx, size_t n) { return arena_alloc((arena *)ctx, n); }
+static void *arena_alloc_fn(void *ctx, size_t n) {
+   return arena_alloc((arena *)ctx, n);
+}
 
 static void print_person(Person *person, void *ctx) {
    (void)ctx;
-   printf("Person{id=%lld, name=%.*s, age=%lld}\n",
-          (long long)person->id,
+   printf("Person{id=%lld, name=%.*s, age=%lld}\n", (long long)person->id,
           (int)person->name.len, (char *)person->name.data,
           (long long)person->age);
 }
@@ -41,17 +42,18 @@ int main(int argc, char *argv[]) {
 
    CreatePersonParams tim = {.name = to_sql_text("Tim"), .age = 42};
    CreatePersonParams ada = {.name = to_sql_text("Ada"), .age = 36};
-   create_person(alloc, db, &tim); // owning wrapper (returned row unused here)
-   create_person(alloc, db, &ada);
+   createPerson(alloc, db, &tim); // owning wrapper (returned row unused here)
+   createPerson(alloc, db, &ada);
 
    // Callback primitive: stream a single row.
    printf("-- get_person(1) --\n");
-   get_person_cb(db, 1, print_person, NULL);
+   getPerson_cb(db, 1, print_person, NULL);
 
    // Arena wrapper: an owned slice that outlives the statement.
-   PersonSlice people = get_people(alloc, db);
+   PersonList people = getPeople(alloc, db);
    printf("-- get_people (%zu) --\n", people.len);
-   for (size_t i = 0; i < people.len; i++) print_person(&people.items[i], NULL);
+   for (size_t i = 0; i < people.len; i++)
+      print_person(&people.items[i], NULL);
 
    arena_release(&scratch);
    sqlite3_close(db);
