@@ -33,26 +33,26 @@ typedef struct {
 
 // insert into person (name, age) values (:name, :age) returning *;
 int createPerson_cb(sqlite3 *db, CreatePersonParams *params, void (*cb)(Person*, void*), void *ctx);
-Person *createPerson(sql_allocator a, sqlite3 *db, CreatePersonParams *params);
+Person *createPerson(sql_allocator a, sqlite3 *db, CreatePersonParams *params, int *rc);
 // select * from person where id = :id;
 int getPerson_cb(sqlite3 *db, sql_int64 id, void (*cb)(Person*, void*), void *ctx);
-Person *getPerson(sql_allocator a, sqlite3 *db, sql_int64 id);
+Person *getPerson(sql_allocator a, sqlite3 *db, sql_int64 id, int *rc);
 // select * from person;
 int getPeople_cb(sqlite3 *db, void (*cb)(Person*, void*), void *ctx);
-PersonList getPeople(sql_allocator a, sqlite3 *db);
+PersonList getPeople(sql_allocator a, sqlite3 *db, int *rc);
 // delete from person where id = :id;
 int deletePerson(sqlite3 *db, sql_int64 id);
 // insert into pet (name, owner_id) values (:name, :owner_id) returning *;
 int createPet_cb(sqlite3 *db, CreatePetParams *params, void (*cb)(Pet*, void*), void *ctx);
-Pet *createPet(sql_allocator a, sqlite3 *db, CreatePetParams *params);
+Pet *createPet(sql_allocator a, sqlite3 *db, CreatePetParams *params, int *rc);
 // select * from pet where id = :id;
 int getPet_cb(sqlite3 *db, sql_int64 id, void (*cb)(Pet*, void*), void *ctx);
-Pet *getPet(sql_allocator a, sqlite3 *db, sql_int64 id);
+Pet *getPet(sql_allocator a, sqlite3 *db, sql_int64 id, int *rc);
 // select * from pet where owner_id = :owner_id;
 int getPetsByOwner_cb(sqlite3 *db, sql_int64 owner_id, void (*cb)(Pet*, void*), void *ctx);
-PetList getPetsByOwner(sql_allocator a, sqlite3 *db, sql_int64 owner_id);
+PetList getPetsByOwner(sql_allocator a, sqlite3 *db, sql_int64 owner_id, int *rc);
 // update pet set name = :name where id = :id returning *;
 int updatePet_cb(sqlite3 *db, UpdatePetParams *params, void (*cb)(Pet*, void*), void *ctx);
-Pet *updatePet(sql_allocator a, sqlite3 *db, UpdatePetParams *params);
+Pet *updatePet(sql_allocator a, sqlite3 *db, UpdatePetParams *params, int *rc);
 
 #endif // QUERIES_H

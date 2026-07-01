@@ -28,7 +28,6 @@ int main(int argc, char *argv[]) {
       return rc;
    }
 
-   // Schema is embedded from sql/schema.sql via bin2c (schema.h).
    char *errmsg = NULL;
    rc = sqlite3_exec(db, (const char *)schema_data, NULL, NULL, &errmsg);
    if (rc != SQLITE_OK) {
@@ -42,15 +41,25 @@ int main(int argc, char *argv[]) {
 
    CreatePersonParams tim = {.name = to_sql_text("Tim"), .age = 42};
    CreatePersonParams ada = {.name = to_sql_text("Ada"), .age = 36};
-   createPerson(alloc, db, &tim); // owning wrapper (returned row unused here)
-   createPerson(alloc, db, &ada);
+   createPerson(alloc, db, &tim, &rc);
+   if (rc != SQLITE_OK) {
+      fprintf(stderr, "createPerson: %d\n", rc);
+      return rc;
+   }
+   createPerson(alloc, db, &ada, NULL);
 
-   // Callback primitive: stream a single row.
    printf("-- get_person(1) --\n");
-   getPerson_cb(db, 1, print_person, NULL);
+   rc = getPerson_cb(db, 1, print_person, NULL);
+   if (rc != SQLITE_OK) {
+      fprintf(stderr, "getPerson_cb: %d\n", rc);
+      return rc;
+   }
 
-   // Arena wrapper: an owned slice that outlives the statement.
-   PersonList people = getPeople(alloc, db);
+   PersonList people = getPeople(alloc, db, &rc);
+   if (rc != SQLITE_OK) {
+      fprintf(stderr, "getPeople: %d\n", rc);
+      return rc;
+   }
    printf("-- get_people (%zu) --\n", people.len);
    for (usize i = 0; i < people.len; i++)
       print_person(&people.items[i], NULL);
