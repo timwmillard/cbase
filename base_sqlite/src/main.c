@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
    // Arena wrapper: an owned slice that outlives the statement.
    PersonList people = getPeople(alloc, db);
    printf("-- get_people (%zu) --\n", people.len);
-   for (size_t i = 0; i < people.len; i++)
+   for (usize i = 0; i < people.len; i++)
       print_person(&people.items[i], NULL);
 
    arena_release(&scratch);
