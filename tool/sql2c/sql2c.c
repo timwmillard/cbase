@@ -1057,11 +1057,11 @@ static void emit_wrapper_decl(Gen *g, StrBuf *sb, Query *q) {
    if (q->kind == Q_ONE) {
       sb_printf(sb, "%s *%s(sql_allocator a, sqlite3 *db", q->result_type, fn);
       emit_param_args(g, sb, q);
-      sb_puts(sb, ");\n");
+      sb_puts(sb, ", int *rc);\n");
    } else if (q->kind == Q_MANY) {
       sb_printf(sb, "%s %s(sql_allocator a, sqlite3 *db", slice_type(g, q->result_type), fn);
       emit_param_args(g, sb, q);
-      sb_puts(sb, ");\n");
+      sb_puts(sb, ", int *rc);\n");
    }
 }
 
@@ -1080,11 +1080,12 @@ static void emit_wrapper_impl(Gen *g, StrBuf *sb, Query *q) {
       sb_puts(sb, "}\n");
       sb_printf(sb, "%s *%s(sql_allocator a, sqlite3 *db", rt, fn);
       emit_param_args(g, sb, q);
-      sb_puts(sb, ") {\n");
+      sb_puts(sb, ", int *rc) {\n");
       sb_printf(sb, "    %s_ctx c = { a, NULL };\n", fn);
-      sb_printf(sb, "    %s_cb(db", fn);
+      sb_printf(sb, "    int r = %s_cb(db", fn);
       emit_param_call(g, sb, q);
       sb_printf(sb, ", %s_collect, &c);\n", fn);
+      sb_puts(sb, "    if (rc) *rc = r;\n");
       sb_puts(sb, "    return c.out;\n");
       sb_puts(sb, "}\n\n");
    } else { // many
@@ -1104,11 +1105,12 @@ static void emit_wrapper_impl(Gen *g, StrBuf *sb, Query *q) {
       sb_puts(sb, "}\n");
       sb_printf(sb, "%s %s(sql_allocator a, sqlite3 *db", st, fn);
       emit_param_args(g, sb, q);
-      sb_puts(sb, ") {\n");
+      sb_puts(sb, ", int *rc) {\n");
       sb_printf(sb, "    %s_ctx c = { a, NULL, 0, 0 };\n", fn);
-      sb_printf(sb, "    %s_cb(db", fn);
+      sb_printf(sb, "    int r = %s_cb(db", fn);
       emit_param_call(g, sb, q);
       sb_printf(sb, ", %s_collect, &c);\n", fn);
+      sb_puts(sb, "    if (rc) *rc = r;\n");
       sb_printf(sb, "    return (%s){ c.items, c.len };\n", st);
       sb_puts(sb, "}\n\n");
    }
