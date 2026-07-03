@@ -1,3 +1,4 @@
 build/
 sqlite/
 .DS_Store
+tmp/
