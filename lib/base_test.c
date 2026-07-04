@@ -422,24 +422,24 @@ void test_stringf(void) {
    PASS(test_name);
 }
 
-/* string_from: copy n bytes into arena */
+/* string_from: copy null-terminated C string */
 void test_string_from(void) {
    const char *test_name = "string_from";
    arena a = {0};
-   string s = string_from(&a, "hello world", 5);
-   ASSERT_STR(s, "hello");
+   const char *cstr = "hello from string";
+   string s = string_from(&a, cstr);
+   ASSERT_STR(s, "hello from string");
+   ASSERT(s.data != cstr, "copy has distinct backing bytes");
    arena_release(&a);
    PASS(test_name);
 }
 
-/* string_from_cstr: copy null-terminated C string */
-void test_string_from_cstr(void) {
-   const char *test_name = "string_from_cstr";
+/* string_from_n: copy n bytes into arena */
+void test_string_from_n(void) {
+   const char *test_name = "string_from_n";
    arena a = {0};
-   const char *cstr = "hello from cstr";
-   string s = string_from_cstr(&a, cstr);
-   ASSERT_STR(s, "hello from cstr");
-   ASSERT(s.data != cstr, "copy has distinct backing bytes");
+   string s = string_from_n(&a, "hello world", 5);
+   ASSERT_STR(s, "hello");
    arena_release(&a);
    PASS(test_name);
 }
@@ -611,7 +611,7 @@ void test_sb_append(void) {
    arena a = {0};
    string_builder sb = sb_init(&a);
    sb_append(&sb, S("hello"));
-   sb_append_cstr(&sb, " world");
+   sb_append_from(&sb, " world");
    sb_push(&sb, '!');
    ASSERT_STR(sb_string(&sb), "hello world!");
    ASSERT(strcmp(sb_cstr(&sb), "hello world!") == 0,
@@ -620,12 +620,12 @@ void test_sb_append(void) {
    PASS(test_name);
 }
 
-void test_sb_append_n(void) {
-   const char *test_name = "sb_append_n";
+void test_sb_append_from_n(void) {
+   const char *test_name = "sb_append_from_n";
    arena a = {0};
    string_builder sb = sb_init(&a);
-   sb_append_n(&sb, "hello world", 5);
-   sb_append_n(&sb, " bytes", 6);
+   sb_append_from_n(&sb, "hello world", 5);
+   sb_append_from_n(&sb, " bytes", 6);
    ASSERT_STR(sb_string(&sb), "hello bytes");
    arena_release(&a);
    PASS(test_name);
@@ -698,7 +698,7 @@ int main(void) {
    test_string_view_n();
    test_stringf();
    test_string_from();
-   test_string_from_cstr();
+   test_string_from_n();
    test_string_dup();
    test_string_cstr();
    test_string_slice();
@@ -713,7 +713,7 @@ int main(void) {
    test_string_split();
    test_string_join();
    test_sb_append();
-   test_sb_append_n();
+   test_sb_append_from_n();
    test_sb_appendf();
    test_sb_reset();
    test_sb_fixed();
