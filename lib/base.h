@@ -373,13 +373,13 @@ void arena_reset(arena *a) {
 
 void arena_release(arena *a) {
    arena_region *r = a->start;
+   a->start = NULL;
+   a->end = NULL;
    while (r) {
       arena_region *r0 = r;
       r = r->next;
       arena_free_region(r0);
    }
-   a->start = NULL;
-   a->end = NULL;
 }
 
 arena_temp arena_temp_begin(arena *a) {
