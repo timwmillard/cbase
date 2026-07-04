@@ -432,6 +432,18 @@ void test_string_from(void) {
    PASS(test_name);
 }
 
+/* string_from_cstr: copy null-terminated C string */
+void test_string_from_cstr(void) {
+   const char *test_name = "string_from_cstr";
+   arena a = {0};
+   const char *cstr = "hello from cstr";
+   string s = string_from_cstr(&a, cstr);
+   ASSERT_STR(s, "hello from cstr");
+   ASSERT(s.data != cstr, "copy has distinct backing bytes");
+   arena_release(&a);
+   PASS(test_name);
+}
+
 /* string_dup: independent copy of an existing slice */
 void test_string_dup(void) {
    const char *test_name = "string_dup";
@@ -675,6 +687,7 @@ int main(void) {
    test_string_view_n();
    test_stringf();
    test_string_from();
+   test_string_from_cstr();
    test_string_dup();
    test_string_cstr();
    test_string_slice();

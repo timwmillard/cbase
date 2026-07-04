@@ -199,6 +199,7 @@ string string_view_n(const char *bytes, usize len); // explicit length
 string stringf(arena *a, const char *fmt, ...); // printf-style
 string vstringf(arena *a, const char *fmt, va_list args);
 string string_from(arena *a, const char *bytes, usize len);
+string string_from_cstr(arena *a, const char *cstr); // null-terminated C string
 string string_dup(arena *a, string s); // copy of an existing slice
 
 // Null-terminated C string copied into the arena (for APIs that need char*).
@@ -472,6 +473,10 @@ string string_from(arena *a, const char *bytes, usize len) {
        .data = buf,
        .len = len,
    };
+}
+
+string string_from_cstr(arena *a, const char *cstr) {
+   return string_from(a, cstr, strlen(cstr));
 }
 
 string string_dup(arena *a, string s) {
