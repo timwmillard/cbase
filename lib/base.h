@@ -196,9 +196,9 @@ string string_view(const char *cstr);               // strlen-terminated
 string string_view_n(const char *bytes, usize len); // explicit length
 
 // Owned copies — bytes are duplicated into the arena.
-string string_from(arena *a, const char *fmt, ...); // printf-style
-string string_vfrom(arena *a, const char *fmt, va_list args);
-string string_from_n(arena *a, const char *bytes, usize len);
+string stringf(arena *a, const char *fmt, ...); // printf-style
+string vstringf(arena *a, const char *fmt, va_list args);
+string string_from(arena *a, const char *bytes, usize len);
 string string_dup(arena *a, string s); // copy of an existing slice
 
 // Null-terminated C string copied into the arena (for APIs that need char*).
@@ -398,11 +398,11 @@ void arena_temp_end(arena_temp t) {
    a->end = t.region;
 }
 
-// Thin C-string wrapper over the string_vfrom primitive (which keeps the length
+// Thin C-string wrapper over the vstringf primitive (which keeps the length
 // vsnprintf already computed). The arena-owned buffer is genuinely mutable; the
 // const on string.data is only the string layer's immutability contract.
 char *arena_vsprintf(arena *a, const char *fmt, va_list args) {
-   return (char *)string_vfrom(a, fmt, args).data;
+   return (char *)vstringf(a, fmt, args).data;
 }
 
 char *arena_sprintf(arena *a, const char *fmt, ...) {
@@ -422,7 +422,7 @@ char *arena_sprintf(arena *a, const char *fmt, ...) {
 
 // A view borrows `cstr` without copying. `string.data` is const, so the view
 // cannot be written through -- matching the immutability contract. To get a
-// mutable, owned copy, use string_from_n or string_dup.
+// mutable, owned copy, use string_from or string_dup.
 string string_view(const char *cstr) {
    usize len = strlen(cstr);
    return (string){
@@ -438,17 +438,17 @@ string string_view_n(const char *bytes, usize len) {
    };
 }
 
-string string_from(arena *a, const char *fmt, ...) {
+string stringf(arena *a, const char *fmt, ...) {
    va_list args;
    va_start(args, fmt);
-   string s = string_vfrom(a, fmt, args);
+   string s = vstringf(a, fmt, args);
    va_end(args);
    return s;
 }
 
 // The formatting primitive: vsnprintf tells us the length, so we keep it rather
 // than strlen the result. arena_vsprintf/arena_sprintf wrap this.
-string string_vfrom(arena *a, const char *fmt, va_list args) {
+string vstringf(arena *a, const char *fmt, va_list args) {
    va_list args_copy;
    va_copy(args_copy, args);
    int n = vsnprintf(NULL, 0, fmt, args_copy);
@@ -464,7 +464,7 @@ string string_vfrom(arena *a, const char *fmt, va_list args) {
    };
 }
 
-string string_from_n(arena *a, const char *bytes, usize len) {
+string string_from(arena *a, const char *bytes, usize len) {
    char *buf = (char *)arena_alloc(a, len + 1);
    memcpy(buf, bytes, len);
    buf[len] = '\0';
@@ -475,7 +475,7 @@ string string_from_n(arena *a, const char *bytes, usize len) {
 }
 
 string string_dup(arena *a, string s) {
-   return string_from_n(a, s.data, s.len);
+   return string_from(a, s.data, s.len);
 }
 
 const char *string_cstr(arena *a, string s) {

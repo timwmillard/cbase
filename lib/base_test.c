@@ -412,21 +412,21 @@ void test_string_view_n(void) {
    PASS(test_name);
 }
 
-/* string_from: formatted, arena-owned copy */
-void test_string_from(void) {
-   const char *test_name = "string_from";
+/* stringf: formatted, arena-owned copy */
+void test_stringf(void) {
+   const char *test_name = "stringf";
    arena a = {0};
-   string s = string_from(&a, "hello %d", 42);
+   string s = stringf(&a, "hello %d", 42);
    ASSERT_STR(s, "hello 42");
    arena_release(&a);
    PASS(test_name);
 }
 
-/* string_from_n: copy n bytes into arena */
-void test_string_from_n(void) {
-   const char *test_name = "string_from_n";
+/* string_from: copy n bytes into arena */
+void test_string_from(void) {
+   const char *test_name = "string_from";
    arena a = {0};
-   string s = string_from_n(&a, "hello world", 5);
+   string s = string_from(&a, "hello world", 5);
    ASSERT_STR(s, "hello");
    arena_release(&a);
    PASS(test_name);
@@ -673,8 +673,8 @@ int main(void) {
    test_S_macro();
    test_string_view();
    test_string_view_n();
+   test_stringf();
    test_string_from();
-   test_string_from_n();
    test_string_dup();
    test_string_cstr();
    test_string_slice();
