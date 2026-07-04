@@ -267,6 +267,7 @@ void sb_reserve(string_builder *sb, usize cap);
 void sb_push(string_builder *sb, char c);
 void sb_append(string_builder *sb, string s);
 void sb_append_cstr(string_builder *sb, const char *cstr);
+void sb_append_n(string_builder *sb, const char *bytes, usize len);
 void sb_appendf(string_builder *sb, const char *fmt, ...);
 void sb_vappendf(string_builder *sb, const char *fmt, va_list args);
 void sb_reset(string_builder *sb); // len = 0, keep capacity
@@ -709,6 +710,10 @@ void sb_append(string_builder *sb, string s) {
 
 void sb_append_cstr(string_builder *sb, const char *cstr) {
    sb_append(sb, string_view(cstr));
+}
+
+void sb_append_n(string_builder *sb, const char *bytes, usize len) {
+   sb_append(sb, string_view_n(bytes, len));
 }
 
 void sb_appendf(string_builder *sb, const char *fmt, ...) {

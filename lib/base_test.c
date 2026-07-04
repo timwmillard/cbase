@@ -620,6 +620,17 @@ void test_sb_append(void) {
    PASS(test_name);
 }
 
+void test_sb_append_n(void) {
+   const char *test_name = "sb_append_n";
+   arena a = {0};
+   string_builder sb = sb_init(&a);
+   sb_append_n(&sb, "hello world", 5);
+   sb_append_n(&sb, " bytes", 6);
+   ASSERT_STR(sb_string(&sb), "hello bytes");
+   arena_release(&a);
+   PASS(test_name);
+}
+
 void test_sb_appendf(void) {
    const char *test_name = "sb_appendf";
    arena a = {0};
@@ -702,6 +713,7 @@ int main(void) {
    test_string_split();
    test_string_join();
    test_sb_append();
+   test_sb_append_n();
    test_sb_appendf();
    test_sb_reset();
    test_sb_fixed();
