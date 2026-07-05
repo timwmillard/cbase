@@ -426,6 +426,107 @@ static void test_mat3x2(void) {
 
 }
 
+// ─── mat2x4 ─────────────────────────────────────────────────────────────────────
+
+static void test_mat2x4(void) {
+    mat2x4 a = {.v = {1,2,3,4,5,6,7,8}};
+
+    mat2x4 r = mat2x4_scale(a, 0.0f);
+    for (int i = 0; i < 8; i++) ASSERT_FEQ(r.v[i], 0.0f);
+
+    mat2x4 b = {.v = {3,6,9,12,15,18,21,24}};
+    r = mat2x4_sub(mat2x4_add(a, b), b);
+    for (int i = 0; i < 8; i++) ASSERT_FEQ(r.v[i], a.v[i]);
+
+    mat4x2 rt = mat2x4_transpose(a);
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 2; j++)
+            ASSERT_FEQ(rt.m[j][i], a.m[i][j]);
+
+    vec2 v = {1.0f, 2.0f};
+    vec4 rv = mat2x4_mul_vec(a, v);
+    ASSERT_FEQ(rv.x, 5.0f);
+    ASSERT_FEQ(rv.y, 11.0f);
+    ASSERT_FEQ(rv.z, 17.0f);
+    ASSERT_FEQ(rv.w, 23.0f);
+
+}
+
+// ─── mat4x2 ─────────────────────────────────────────────────────────────────────
+
+static void test_mat4x2(void) {
+    mat4x2 a = {.v = {1,2,3,4,5,6,7,8}};
+
+    mat4x2 r = mat4x2_scale(a, 0.0f);
+    for (int i = 0; i < 8; i++) ASSERT_FEQ(r.v[i], 0.0f);
+
+    mat4x2 b = {.v = {3,6,9,12,15,18,21,24}};
+    r = mat4x2_sub(mat4x2_add(a, b), b);
+    for (int i = 0; i < 8; i++) ASSERT_FEQ(r.v[i], a.v[i]);
+
+    mat2x4 rt = mat4x2_transpose(a);
+    for (int i = 0; i < 2; i++)
+        for (int j = 0; j < 4; j++)
+            ASSERT_FEQ(rt.m[j][i], a.m[i][j]);
+
+    vec4 v = {1.0f, 2.0f, 3.0f, 4.0f};
+    vec2 rv = mat4x2_mul_vec(a, v);
+    ASSERT_FEQ(rv.x, 30.0f);
+    ASSERT_FEQ(rv.y, 70.0f);
+
+}
+
+// ─── mat3x4 ─────────────────────────────────────────────────────────────────────
+
+static void test_mat3x4(void) {
+    mat3x4 a = {.v = {1,2,3,4,5,6,7,8,9,10,11,12}};
+
+    mat3x4 r = mat3x4_scale(a, 0.0f);
+    for (int i = 0; i < 12; i++) ASSERT_FEQ(r.v[i], 0.0f);
+
+    mat3x4 b = {.v = {3,6,9,12,15,18,21,24,27,30,33,36}};
+    r = mat3x4_sub(mat3x4_add(a, b), b);
+    for (int i = 0; i < 12; i++) ASSERT_FEQ(r.v[i], a.v[i]);
+
+    mat4x3 rt = mat3x4_transpose(a);
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 3; j++)
+            ASSERT_FEQ(rt.m[j][i], a.m[i][j]);
+
+    vec3 v = {1.0f, 2.0f, 3.0f};
+    vec4 rv = mat3x4_mul_vec(a, v);
+    ASSERT_FEQ(rv.x, 14.0f);
+    ASSERT_FEQ(rv.y, 32.0f);
+    ASSERT_FEQ(rv.z, 50.0f);
+    ASSERT_FEQ(rv.w, 68.0f);
+
+}
+
+// ─── mat4x3 ─────────────────────────────────────────────────────────────────────
+
+static void test_mat4x3(void) {
+    mat4x3 a = {.v = {1,2,3,4,5,6,7,8,9,10,11,12}};
+
+    mat4x3 r = mat4x3_scale(a, 0.0f);
+    for (int i = 0; i < 12; i++) ASSERT_FEQ(r.v[i], 0.0f);
+
+    mat4x3 b = {.v = {3,6,9,12,15,18,21,24,27,30,33,36}};
+    r = mat4x3_sub(mat4x3_add(a, b), b);
+    for (int i = 0; i < 12; i++) ASSERT_FEQ(r.v[i], a.v[i]);
+
+    mat3x4 rt = mat4x3_transpose(a);
+    for (int i = 0; i < 3; i++)
+        for (int j = 0; j < 4; j++)
+            ASSERT_FEQ(rt.m[j][i], a.m[i][j]);
+
+    vec4 v = {1.0f, 2.0f, 3.0f, 4.0f};
+    vec3 rv = mat4x3_mul_vec(a, v);
+    ASSERT_FEQ(rv.x, 30.0f);
+    ASSERT_FEQ(rv.y, 70.0f);
+    ASSERT_FEQ(rv.z, 110.0f);
+
+}
+
 // ─── main ────────────────────────────────────────────────────────────────────
 
 int main(void) {
@@ -446,6 +547,10 @@ int main(void) {
     test_mat4(); PASS("mat4");
     test_mat2x3(); PASS("mat2x3");
     test_mat3x2(); PASS("mat3x2");
+    test_mat2x4(); PASS("mat2x4");
+    test_mat4x2(); PASS("mat4x2");
+    test_mat3x4(); PASS("mat3x4");
+    test_mat4x3(); PASS("mat4x3");
 
     if (_failed == 0)
         printf("\n" COLOR_BOLD COLOR_GREEN "All tests passed." COLOR_RESET "\n\n");

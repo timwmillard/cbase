@@ -528,6 +528,42 @@ typedef struct {
     };
 } mat3x2;
 
+// ── mat2x4 ──
+
+typedef struct {
+    union {
+        float m[4][2];
+        float v[8];
+    };
+} mat2x4;
+
+// ── mat4x2 ──
+
+typedef struct {
+    union {
+        float m[2][4];
+        float v[8];
+    };
+} mat4x2;
+
+// ── mat3x4 ──
+
+typedef struct {
+    union {
+        float m[4][3];
+        float v[12];
+    };
+} mat3x4;
+
+// ── mat4x3 ──
+
+typedef struct {
+    union {
+        float m[3][4];
+        float v[12];
+    };
+} mat4x3;
+
 // ── mat2 ──
 
 static inline mat2 mat2_identity(void) {
@@ -767,6 +803,162 @@ static inline vec2 mat3x2_mul_vec(mat3x2 a, vec3 b) {
     vec2 r = {0};
     for (int i = 0; i < 2; i++)
         for (int j = 0; j < 3; j++)
+            r.v[i] += a.m[i][j] * b.v[j];
+    return r;
+}
+
+// ── mat2x4 ──
+
+static inline mat2x4 mat2x4_add(mat2x4 a, mat2x4 b) {
+    mat2x4 r;
+    for (int i = 0; i < 8; i++)
+        r.v[i] = a.v[i] + b.v[i];
+    return r;
+}
+
+static inline mat2x4 mat2x4_sub(mat2x4 a, mat2x4 b) {
+    mat2x4 r;
+    for (int i = 0; i < 8; i++)
+        r.v[i] = a.v[i] - b.v[i];
+    return r;
+}
+
+static inline mat2x4 mat2x4_scale(mat2x4 a, float s) {
+    mat2x4 r;
+    for (int i = 0; i < 8; i++)
+        r.v[i] = a.v[i] * s;
+    return r;
+}
+
+static inline mat4x2 mat2x4_transpose(mat2x4 a) {
+    mat4x2 r;
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 2; j++)
+            r.m[j][i] = a.m[i][j];
+    return r;
+}
+
+static inline vec4 mat2x4_mul_vec(mat2x4 a, vec2 b) {
+    vec4 r = {0};
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 2; j++)
+            r.v[i] += a.m[i][j] * b.v[j];
+    return r;
+}
+
+// ── mat4x2 ──
+
+static inline mat4x2 mat4x2_add(mat4x2 a, mat4x2 b) {
+    mat4x2 r;
+    for (int i = 0; i < 8; i++)
+        r.v[i] = a.v[i] + b.v[i];
+    return r;
+}
+
+static inline mat4x2 mat4x2_sub(mat4x2 a, mat4x2 b) {
+    mat4x2 r;
+    for (int i = 0; i < 8; i++)
+        r.v[i] = a.v[i] - b.v[i];
+    return r;
+}
+
+static inline mat4x2 mat4x2_scale(mat4x2 a, float s) {
+    mat4x2 r;
+    for (int i = 0; i < 8; i++)
+        r.v[i] = a.v[i] * s;
+    return r;
+}
+
+static inline mat2x4 mat4x2_transpose(mat4x2 a) {
+    mat2x4 r;
+    for (int i = 0; i < 2; i++)
+        for (int j = 0; j < 4; j++)
+            r.m[j][i] = a.m[i][j];
+    return r;
+}
+
+static inline vec2 mat4x2_mul_vec(mat4x2 a, vec4 b) {
+    vec2 r = {0};
+    for (int i = 0; i < 2; i++)
+        for (int j = 0; j < 4; j++)
+            r.v[i] += a.m[i][j] * b.v[j];
+    return r;
+}
+
+// ── mat3x4 ──
+
+static inline mat3x4 mat3x4_add(mat3x4 a, mat3x4 b) {
+    mat3x4 r;
+    for (int i = 0; i < 12; i++)
+        r.v[i] = a.v[i] + b.v[i];
+    return r;
+}
+
+static inline mat3x4 mat3x4_sub(mat3x4 a, mat3x4 b) {
+    mat3x4 r;
+    for (int i = 0; i < 12; i++)
+        r.v[i] = a.v[i] - b.v[i];
+    return r;
+}
+
+static inline mat3x4 mat3x4_scale(mat3x4 a, float s) {
+    mat3x4 r;
+    for (int i = 0; i < 12; i++)
+        r.v[i] = a.v[i] * s;
+    return r;
+}
+
+static inline mat4x3 mat3x4_transpose(mat3x4 a) {
+    mat4x3 r;
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 3; j++)
+            r.m[j][i] = a.m[i][j];
+    return r;
+}
+
+static inline vec4 mat3x4_mul_vec(mat3x4 a, vec3 b) {
+    vec4 r = {0};
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 3; j++)
+            r.v[i] += a.m[i][j] * b.v[j];
+    return r;
+}
+
+// ── mat4x3 ──
+
+static inline mat4x3 mat4x3_add(mat4x3 a, mat4x3 b) {
+    mat4x3 r;
+    for (int i = 0; i < 12; i++)
+        r.v[i] = a.v[i] + b.v[i];
+    return r;
+}
+
+static inline mat4x3 mat4x3_sub(mat4x3 a, mat4x3 b) {
+    mat4x3 r;
+    for (int i = 0; i < 12; i++)
+        r.v[i] = a.v[i] - b.v[i];
+    return r;
+}
+
+static inline mat4x3 mat4x3_scale(mat4x3 a, float s) {
+    mat4x3 r;
+    for (int i = 0; i < 12; i++)
+        r.v[i] = a.v[i] * s;
+    return r;
+}
+
+static inline mat3x4 mat4x3_transpose(mat4x3 a) {
+    mat3x4 r;
+    for (int i = 0; i < 3; i++)
+        for (int j = 0; j < 4; j++)
+            r.m[j][i] = a.m[i][j];
+    return r;
+}
+
+static inline vec3 mat4x3_mul_vec(mat4x3 a, vec4 b) {
+    vec3 r = {0};
+    for (int i = 0; i < 3; i++)
+        for (int j = 0; j < 4; j++)
             r.v[i] += a.m[i][j] * b.v[j];
     return r;
 }

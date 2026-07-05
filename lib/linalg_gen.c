@@ -34,24 +34,29 @@ static VecDef vecs[] = {
 // ─── matrix table ────────────────────────────────────────────────────────────
 
 typedef struct {
-   const char *name;            // "mat2x3"
-   const char *vec_in;          // vec type consumed by mul_vec (size == cols)
-   const char *vec_out;         // vec type produced by mul_vec (size == rows)
-   int rows;                    // 3
-   int cols;                    // 2
-   int square;                  // 1 if rows == cols (enables identity/mul)
-   const char *transpose_name;  // name of the transposed matrix type
+   const char *name;           // "mat2x3"
+   const char *vec_in;         // vec type consumed by mul_vec (size == cols)
+   const char *vec_out;        // vec type produced by mul_vec (size == rows)
+   int rows;                   // 3
+   int cols;                   // 2
+   int square;                 // 1 if rows == cols (enables identity/mul)
+   const char *transpose_name; // name of the transposed matrix type
 } MatDef;
 
 static MatDef mats[] = {
+    // Square matrix
     {"mat2", "vec2", "vec2", 2, 2, 1, "mat2"},
     {"mat3", "vec3", "vec3", 3, 3, 1, "mat3"},
     {"mat4", "vec4", "vec4", 4, 4, 1, "mat4"},
+
     // GLSL matCxR convention: matCxR has C columns and R rows, so
     // mat2x3 has 2 columns, 3 rows and maps vec2 -> vec3
-
     {"mat2x3", "vec2", "vec3", 3, 2, 0, "mat3x2"},
     {"mat3x2", "vec3", "vec2", 2, 3, 0, "mat2x3"},
+    {"mat2x4", "vec2", "vec4", 4, 2, 0, "mat4x2"},
+    {"mat4x2", "vec4", "vec2", 2, 4, 0, "mat2x4"},
+    {"mat3x4", "vec3", "vec4", 4, 3, 0, "mat4x3"},
+    {"mat4x3", "vec4", "vec3", 3, 4, 0, "mat3x4"},
 };
 
 // ─── field names ─────────────────────────────────────────────────────────────
@@ -217,8 +222,8 @@ static void emit_mat_mul(MatDef *m) {
 }
 
 static void emit_mat_transpose(MatDef *m) {
-   printf("static inline %s %s_transpose(%s a) {\n", m->transpose_name,
-          m->name, m->name);
+   printf("static inline %s %s_transpose(%s a) {\n", m->transpose_name, m->name,
+          m->name);
    printf("    %s r;\n", m->transpose_name);
    printf("    for (int i = 0; i < %d; i++)\n", m->rows);
    printf("        for (int j = 0; j < %d; j++)\n", m->cols);
@@ -504,8 +509,7 @@ static void emit_test_mat(MatDef *m) {
       printf("};\n");
       printf("    %s idrv = %s_mul_vec(I, idv);\n", m->vec_out, mn);
       for (int i = 0; i < n; i++)
-         printf("    ASSERT_FEQ(idrv.%s, %.1ff);\n", fields[i],
-                (float)(i + 1));
+         printf("    ASSERT_FEQ(idrv.%s, %.1ff);\n", fields[i], (float)(i + 1));
       printf("\n");
 
       // diagonal scale: diag[i] = i+2, v[i] = i+1, result[i] = (i+1)*(i+2)
