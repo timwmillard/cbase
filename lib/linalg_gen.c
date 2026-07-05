@@ -20,12 +20,15 @@ typedef struct {
 } VecDef;
 
 static VecDef vecs[] = {
-    {"bvec2", "uint8_t", 2, 0},  {"bvec3", "uint8_t", 3, 0},
-    {"bvec4", "uint8_t", 4, 0},  {"ivec2", "int32_t", 2, 0},
-    {"ivec3", "int32_t", 3, 0},  {"ivec4", "int32_t", 4, 0},
-    {"uvec2", "uint32_t", 2, 0}, {"uvec3", "uint32_t", 3, 0},
-    {"uvec4", "uint32_t", 4, 0}, {"vec2", "float", 2, 1},
-    {"vec3", "float", 3, 1},     {"vec4", "float", 4, 1},
+    {"ivec2", "int32_t", 2, 0},  //
+    {"ivec3", "int32_t", 3, 0},  //
+    {"ivec4", "int32_t", 4, 0},  //
+    {"uvec2", "uint32_t", 2, 0}, //
+    {"uvec3", "uint32_t", 3, 0}, //
+    {"uvec4", "uint32_t", 4, 0}, //
+    {"vec2", "float", 2, 1},     //
+    {"vec3", "float", 3, 1},     //
+    {"vec4", "float", 4, 1},     //
 };
 
 // ─── matrix table ────────────────────────────────────────────────────────────

@@ -23,69 +23,6 @@ static int _failed = 0;
 #define EPS 1e-5f
 #define ASSERT_FEQ(a, b) ASSERT(fabsf((a) - (b)) < EPS)
 
-// ─── bvec2 (uint8_t) ─────────────────────────────────────────────────────────────
-
-static void test_bvec2(void) {
-    bvec2 a = {3, 4};
-    bvec2 b = {1, 2};
-
-    bvec2 r = bvec2_add(a, b);
-    ASSERT(r.x == 4 && r.y == 6);
-
-    r = bvec2_sub(a, b);
-    ASSERT(r.x == 2 && r.y == 2);
-
-    r = bvec2_scale(a, 2);
-    ASSERT(r.x == 6 && r.y == 8);
-
-    ASSERT(bvec2_dot(a, b) == 11);
-
-    ASSERT_FEQ(bvec2_len((bvec2){3, 4}), 5.0f);
-}
-
-// ─── bvec3 (uint8_t) ─────────────────────────────────────────────────────────────
-
-static void test_bvec3(void) {
-    bvec3 a = {3, 4, 5};
-    bvec3 b = {1, 2, 3};
-
-    bvec3 r = bvec3_add(a, b);
-    ASSERT(r.x == 4 && r.y == 6 && r.z == 8);
-
-    r = bvec3_sub(a, b);
-    ASSERT(r.x == 2 && r.y == 2 && r.z == 2);
-
-    r = bvec3_scale(a, 2);
-    ASSERT(r.x == 6 && r.y == 8 && r.z == 10);
-
-    ASSERT(bvec3_dot(a, b) == 26);
-
-    ASSERT_FEQ(bvec3_len((bvec3){0, 3, 4}), 5.0f);
-
-    bvec3 cx = bvec3_cross((bvec3){1,0,0}, (bvec3){0,1,0});
-    ASSERT(cx.x == 0 && cx.y == 0 && cx.z == 1);
-}
-
-// ─── bvec4 (uint8_t) ─────────────────────────────────────────────────────────────
-
-static void test_bvec4(void) {
-    bvec4 a = {3, 4, 5, 6};
-    bvec4 b = {1, 2, 3, 4};
-
-    bvec4 r = bvec4_add(a, b);
-    ASSERT(r.x == 4 && r.y == 6 && r.z == 8 && r.w == 10);
-
-    r = bvec4_sub(a, b);
-    ASSERT(r.x == 2 && r.y == 2 && r.z == 2 && r.w == 2);
-
-    r = bvec4_scale(a, 2);
-    ASSERT(r.x == 6 && r.y == 8 && r.z == 10 && r.w == 12);
-
-    ASSERT(bvec4_dot(a, b) == 50);
-
-    ASSERT_FEQ(bvec4_len((bvec4){0, 0, 3, 4}), 5.0f);
-}
-
 // ─── ivec2 (int32_t) ─────────────────────────────────────────────────────────────
 
 static void test_ivec2(void) {
@@ -427,9 +364,6 @@ static void test_mat4(void) {
 int main(void) {
     printf(COLOR_BOLD "\nlinalg.h tests\n" COLOR_RESET "\n");
 
-    test_bvec2(); PASS("bvec2");
-    test_bvec3(); PASS("bvec3");
-    test_bvec4(); PASS("bvec4");
     test_ivec2(); PASS("ivec2");
     test_ivec3(); PASS("ivec3");
     test_ivec4(); PASS("ivec4");
