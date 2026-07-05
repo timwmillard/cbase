@@ -594,15 +594,6 @@ static inline mat2 mat2_scale(mat2 a, float s) {
     return r;
 }
 
-static inline mat2 mat2_mul(mat2 a, mat2 b) {
-    mat2 r = {0};
-    for (int i = 0; i < 2; i++)
-        for (int j = 0; j < 2; j++)
-            for (int k = 0; k < 2; k++)
-                r.m[i][j] += a.m[i][k] * b.m[k][j];
-    return r;
-}
-
 static inline mat2 mat2_transpose(mat2 a) {
     mat2 r;
     for (int i = 0; i < 2; i++)
@@ -649,15 +640,6 @@ static inline mat3 mat3_scale(mat3 a, float s) {
     return r;
 }
 
-static inline mat3 mat3_mul(mat3 a, mat3 b) {
-    mat3 r = {0};
-    for (int i = 0; i < 3; i++)
-        for (int j = 0; j < 3; j++)
-            for (int k = 0; k < 3; k++)
-                r.m[i][j] += a.m[i][k] * b.m[k][j];
-    return r;
-}
-
 static inline mat3 mat3_transpose(mat3 a) {
     mat3 r;
     for (int i = 0; i < 3; i++)
@@ -701,15 +683,6 @@ static inline mat4 mat4_scale(mat4 a, float s) {
     mat4 r;
     for (int i = 0; i < 16; i++)
         r.v[i] = a.v[i] * s;
-    return r;
-}
-
-static inline mat4 mat4_mul(mat4 a, mat4 b) {
-    mat4 r = {0};
-    for (int i = 0; i < 4; i++)
-        for (int j = 0; j < 4; j++)
-            for (int k = 0; k < 4; k++)
-                r.m[i][j] += a.m[i][k] * b.m[k][j];
     return r;
 }
 
@@ -960,6 +933,53 @@ static inline vec3 mat4x3_mul_vec(mat4x3 a, vec4 b) {
     for (int i = 0; i < 3; i++)
         for (int j = 0; j < 4; j++)
             r.v[i] += a.m[i][j] * b.v[j];
+    return r;
+}
+
+// ── matrix multiplication ──
+
+static inline mat2 mat2_mul(mat2 a, mat2 b) {
+    mat2 r = {0};
+    for (int i = 0; i < 2; i++)
+        for (int j = 0; j < 2; j++)
+            for (int k = 0; k < 2; k++)
+                r.m[i][j] += a.m[i][k] * b.m[k][j];
+    return r;
+}
+
+static inline mat3 mat3_mul(mat3 a, mat3 b) {
+    mat3 r = {0};
+    for (int i = 0; i < 3; i++)
+        for (int j = 0; j < 3; j++)
+            for (int k = 0; k < 3; k++)
+                r.m[i][j] += a.m[i][k] * b.m[k][j];
+    return r;
+}
+
+static inline mat4 mat4_mul(mat4 a, mat4 b) {
+    mat4 r = {0};
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
+            for (int k = 0; k < 4; k++)
+                r.m[i][j] += a.m[i][k] * b.m[k][j];
+    return r;
+}
+
+static inline mat3 mat2x3_mul_mat3x2(mat2x3 a, mat3x2 b) {
+    mat3 r = {0};
+    for (int i = 0; i < 3; i++)
+        for (int j = 0; j < 3; j++)
+            for (int k = 0; k < 2; k++)
+                r.m[i][j] += a.m[i][k] * b.m[k][j];
+    return r;
+}
+
+static inline mat2 mat3x2_mul_mat2x3(mat3x2 a, mat2x3 b) {
+    mat2 r = {0};
+    for (int i = 0; i < 2; i++)
+        for (int j = 0; j < 2; j++)
+            for (int k = 0; k < 3; k++)
+                r.m[i][j] += a.m[i][k] * b.m[k][j];
     return r;
 }
 

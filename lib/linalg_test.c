@@ -527,6 +527,93 @@ static void test_mat4x3(void) {
 
 }
 
+// ─── mat2_mul ─────────────────────────────────────────────────────────────────────
+
+static void test_mat2_mul(void) {
+    mat2 a = {.v = {1,2,3,4}};
+    mat2 b = {.v = {1,2,3,4}};
+
+    mat2 r = mat2_mul(a, b);
+    ASSERT_FEQ(r.m[0][0], 7.0f);
+    ASSERT_FEQ(r.m[0][1], 10.0f);
+    ASSERT_FEQ(r.m[1][0], 15.0f);
+    ASSERT_FEQ(r.m[1][1], 22.0f);
+}
+
+// ─── mat3_mul ─────────────────────────────────────────────────────────────────────
+
+static void test_mat3_mul(void) {
+    mat3 a = {.v = {1,2,3,4,5,6,7,8,9}};
+    mat3 b = {.v = {1,2,3,4,5,6,7,8,9}};
+
+    mat3 r = mat3_mul(a, b);
+    ASSERT_FEQ(r.m[0][0], 30.0f);
+    ASSERT_FEQ(r.m[0][1], 36.0f);
+    ASSERT_FEQ(r.m[0][2], 42.0f);
+    ASSERT_FEQ(r.m[1][0], 66.0f);
+    ASSERT_FEQ(r.m[1][1], 81.0f);
+    ASSERT_FEQ(r.m[1][2], 96.0f);
+    ASSERT_FEQ(r.m[2][0], 102.0f);
+    ASSERT_FEQ(r.m[2][1], 126.0f);
+    ASSERT_FEQ(r.m[2][2], 150.0f);
+}
+
+// ─── mat4_mul ─────────────────────────────────────────────────────────────────────
+
+static void test_mat4_mul(void) {
+    mat4 a = {.v = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16}};
+    mat4 b = {.v = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16}};
+
+    mat4 r = mat4_mul(a, b);
+    ASSERT_FEQ(r.m[0][0], 90.0f);
+    ASSERT_FEQ(r.m[0][1], 100.0f);
+    ASSERT_FEQ(r.m[0][2], 110.0f);
+    ASSERT_FEQ(r.m[0][3], 120.0f);
+    ASSERT_FEQ(r.m[1][0], 202.0f);
+    ASSERT_FEQ(r.m[1][1], 228.0f);
+    ASSERT_FEQ(r.m[1][2], 254.0f);
+    ASSERT_FEQ(r.m[1][3], 280.0f);
+    ASSERT_FEQ(r.m[2][0], 314.0f);
+    ASSERT_FEQ(r.m[2][1], 356.0f);
+    ASSERT_FEQ(r.m[2][2], 398.0f);
+    ASSERT_FEQ(r.m[2][3], 440.0f);
+    ASSERT_FEQ(r.m[3][0], 426.0f);
+    ASSERT_FEQ(r.m[3][1], 484.0f);
+    ASSERT_FEQ(r.m[3][2], 542.0f);
+    ASSERT_FEQ(r.m[3][3], 600.0f);
+}
+
+// ─── mat2x3_mul_mat3x2 ─────────────────────────────────────────────────────────────────────
+
+static void test_mat2x3_mul_mat3x2(void) {
+    mat2x3 a = {.v = {1,2,3,4,5,6}};
+    mat3x2 b = {.v = {1,2,3,4,5,6}};
+
+    mat3 r = mat2x3_mul_mat3x2(a, b);
+    ASSERT_FEQ(r.m[0][0], 9.0f);
+    ASSERT_FEQ(r.m[0][1], 12.0f);
+    ASSERT_FEQ(r.m[0][2], 15.0f);
+    ASSERT_FEQ(r.m[1][0], 19.0f);
+    ASSERT_FEQ(r.m[1][1], 26.0f);
+    ASSERT_FEQ(r.m[1][2], 33.0f);
+    ASSERT_FEQ(r.m[2][0], 29.0f);
+    ASSERT_FEQ(r.m[2][1], 40.0f);
+    ASSERT_FEQ(r.m[2][2], 51.0f);
+}
+
+// ─── mat3x2_mul_mat2x3 ─────────────────────────────────────────────────────────────────────
+
+static void test_mat3x2_mul_mat2x3(void) {
+    mat3x2 a = {.v = {1,2,3,4,5,6}};
+    mat2x3 b = {.v = {1,2,3,4,5,6}};
+
+    mat2 r = mat3x2_mul_mat2x3(a, b);
+    ASSERT_FEQ(r.m[0][0], 22.0f);
+    ASSERT_FEQ(r.m[0][1], 28.0f);
+    ASSERT_FEQ(r.m[1][0], 49.0f);
+    ASSERT_FEQ(r.m[1][1], 64.0f);
+}
+
 // ─── main ────────────────────────────────────────────────────────────────────
 
 int main(void) {
@@ -551,6 +638,12 @@ int main(void) {
     test_mat4x2(); PASS("mat4x2");
     test_mat3x4(); PASS("mat3x4");
     test_mat4x3(); PASS("mat4x3");
+
+    test_mat2_mul(); PASS("mat2_mul");
+    test_mat3_mul(); PASS("mat3_mul");
+    test_mat4_mul(); PASS("mat4_mul");
+    test_mat2x3_mul_mat3x2(); PASS("mat2x3_mul_mat3x2");
+    test_mat3x2_mul_mat2x3(); PASS("mat3x2_mul_mat2x3");
 
     if (_failed == 0)
         printf("\n" COLOR_BOLD COLOR_GREEN "All tests passed." COLOR_RESET "\n\n");

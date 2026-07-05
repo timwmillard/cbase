@@ -8,6 +8,7 @@ Usage:
 */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 // ─── vector table ────────────────────────────────────────────────────────────
@@ -59,6 +60,26 @@ static MatDef mats[] = {
     {"mat4x3", "vec4", "vec3", 3, 4, 0, "mat3x4"},
 };
 
+// ─── matrix multiplication table ────────────────────────────────────────────
+
+// (a, b, result) triples: a's cols must equal b's rows, and result must be
+// a->rows x b->cols. Looked up against mats[] rather than duplicating
+// dimensions, so a bad triple fails at generation time instead of emitting
+// broken C.
+typedef struct {
+   const char *a_name;
+   const char *b_name;
+   const char *result_name;
+} MatMulDef;
+
+static MatMulDef mat_muls[] = {
+    {"mat2", "mat2", "mat2"},
+    {"mat3", "mat3", "mat3"},
+    {"mat4", "mat4", "mat4"},
+    {"mat2x3", "mat3x2", "mat3"},
+    {"mat3x2", "mat2x3", "mat2"},
+};
+
 // ─── field names ─────────────────────────────────────────────────────────────
 
 static const char *fields[] = {"x", "y", "z", "w"};
@@ -66,6 +87,23 @@ static const char *fields[] = {"x", "y", "z", "w"};
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 #define ARRAY_COUNT(a) (sizeof(a) / sizeof((a)[0]))
+
+static MatDef *find_mat(const char *name) {
+   for (size_t i = 0; i < ARRAY_COUNT(mats); i++)
+      if (strcmp(mats[i].name, name) == 0)
+         return &mats[i];
+   fprintf(stderr, "find_mat: unknown matrix type %s\n", name);
+   exit(1);
+}
+
+// same-type product keeps the plain "<a>_mul" name; mixed shapes get
+// "<a>_mul_<b>" since the b type is no longer implied by a alone
+static void mat_mul_name(MatMulDef *mm, char *buf, size_t sz) {
+   if (strcmp(mm->a_name, mm->b_name) == 0)
+      snprintf(buf, sz, "%s_mul", mm->a_name);
+   else
+      snprintf(buf, sz, "%s_mul_%s", mm->a_name, mm->b_name);
+}
 
 static void emit_vec_fields(VecDef *v) {
    for (int i = 0; i < v->n; i++)
@@ -209,13 +247,27 @@ static void emit_mat_scale(MatDef *m) {
    printf("}\n\n");
 }
 
-static void emit_mat_mul(MatDef *m) {
-   printf("static inline %s %s_mul(%s a, %s b) {\n", m->name, m->name, m->name,
-          m->name);
-   printf("    %s r = {0};\n", m->name);
-   printf("    for (int i = 0; i < %d; i++)\n", m->rows);
-   printf("        for (int j = 0; j < %d; j++)\n", m->rows);
-   printf("            for (int k = 0; k < %d; k++)\n", m->rows);
+static void emit_mat_mul(MatMulDef *mm) {
+   MatDef *a = find_mat(mm->a_name);
+   MatDef *b = find_mat(mm->b_name);
+   MatDef *res = find_mat(mm->result_name);
+
+   if (a->cols != b->rows || res->rows != a->rows || res->cols != b->cols) {
+      fprintf(stderr, "emit_mat_mul: bad shape %s(%dx%d) * %s(%dx%d) -> %s\n",
+              a->name, a->rows, a->cols, b->name, b->rows, b->cols,
+              res->name);
+      exit(1);
+   }
+
+   char fn[64];
+   mat_mul_name(mm, fn, sizeof(fn));
+
+   printf("static inline %s %s(%s a, %s b) {\n", res->name, fn, a->name,
+          b->name);
+   printf("    %s r = {0};\n", res->name);
+   printf("    for (int i = 0; i < %d; i++)\n", a->rows);
+   printf("        for (int j = 0; j < %d; j++)\n", b->cols);
+   printf("            for (int k = 0; k < %d; k++)\n", a->cols);
    printf("                r.m[i][j] += a.m[i][k] * b.m[k][j];\n");
    printf("    return r;\n");
    printf("}\n\n");
@@ -535,9 +587,51 @@ static void emit_test_mat(MatDef *m) {
    printf("}\n\n");
 }
 
+static void emit_test_matmul(MatMulDef *mm) {
+   MatDef *a = find_mat(mm->a_name);
+   MatDef *b = find_mat(mm->b_name);
+   MatDef *res = find_mat(mm->result_name);
+
+   char fn[64];
+   mat_mul_name(mm, fn, sizeof(fn));
+
+   int av[16], bv[16];
+   for (int i = 0; i < a->rows * a->cols; i++)
+      av[i] = i + 1;
+   for (int i = 0; i < b->rows * b->cols; i++)
+      bv[i] = i + 1;
+
+   printf("// ─── %s ", fn);
+   printf("────────────────────────────────────────────────────────────────────"
+          "─\n\n");
+   printf("static void test_%s(void) {\n", fn);
+
+   printf("    %s a = {.v = {", a->name);
+   for (int i = 0; i < a->rows * a->cols; i++)
+      printf("%s%d", i ? "," : "", av[i]);
+   printf("}};\n");
+   printf("    %s b = {.v = {", b->name);
+   for (int i = 0; i < b->rows * b->cols; i++)
+      printf("%s%d", i ? "," : "", bv[i]);
+   printf("}};\n\n");
+
+   printf("    %s r = %s(a, b);\n", res->name, fn);
+   for (int i = 0; i < res->rows; i++) {
+      for (int j = 0; j < res->cols; j++) {
+         int sum = 0;
+         for (int k = 0; k < a->cols; k++)
+            sum += av[i * a->cols + k] * bv[k * b->cols + j];
+         printf("    ASSERT_FEQ(r.m[%d][%d], %.1ff);\n", i, j, (float)sum);
+      }
+   }
+
+   printf("}\n\n");
+}
+
 static void emit_test_main(void) {
    int vec_count = ARRAY_COUNT(vecs);
    int mat_count = ARRAY_COUNT(mats);
+   int matmul_count = ARRAY_COUNT(mat_muls);
 
    printf("// ─── main ");
    printf("────────────────────────────────────────────────────────────────────"
@@ -550,6 +644,12 @@ static void emit_test_main(void) {
    printf("\n");
    for (int i = 0; i < mat_count; i++)
       printf("    test_%s(); PASS(\"%s\");\n", mats[i].name, mats[i].name);
+   printf("\n");
+   for (int i = 0; i < matmul_count; i++) {
+      char fn[64];
+      mat_mul_name(&mat_muls[i], fn, sizeof(fn));
+      printf("    test_%s(); PASS(\"%s\");\n", fn, fn);
+   }
    printf("\n");
    printf("    if (_failed == 0)\n");
    printf("        printf(\"\\n\" COLOR_BOLD COLOR_GREEN \"All tests passed.\" "
@@ -574,6 +674,9 @@ int main(int argc, char **argv) {
       int mat_count = ARRAY_COUNT(mats);
       for (int i = 0; i < mat_count; i++)
          emit_test_mat(&mats[i]);
+      int matmul_count = ARRAY_COUNT(mat_muls);
+      for (int i = 0; i < matmul_count; i++)
+         emit_test_matmul(&mat_muls[i]);
       emit_test_main();
       return 0;
    }
@@ -625,11 +728,14 @@ int main(int argc, char **argv) {
       emit_mat_add(m);
       emit_mat_sub(m);
       emit_mat_scale(m);
-      if (m->square)
-         emit_mat_mul(m);
       emit_mat_transpose(m);
       emit_mat_mul_vec(m);
    }
+
+   printf("// ── matrix multiplication ──\n\n");
+   int matmul_count = ARRAY_COUNT(mat_muls);
+   for (int i = 0; i < matmul_count; i++)
+      emit_mat_mul(&mat_muls[i]);
 
    printf("#endif // LINALG_H\n");
    return 0;
