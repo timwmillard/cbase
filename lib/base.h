@@ -237,7 +237,6 @@ string string_replace(arena *a, string s, string from, string to);
 typedef struct {
    string *items;
    usize len;
-   arena *arena;
 } string_array;
 
 // Growable list of strings (see the `list` section: list_init/append/reserve).
@@ -618,7 +617,7 @@ string string_replace(arena *a, string s, string from, string to) {
 
 // Split / join
 string_array string_split(arena *a, string s, string delim) {
-   string_array arr = {.items = NULL, .len = 0, .arena = a};
+   string_array arr = {.items = NULL, .len = 0};
 
    if (delim.len == 0) { // no delimiter => whole string
       arr.items = (string *)arena_alloc(a, sizeof(string));
