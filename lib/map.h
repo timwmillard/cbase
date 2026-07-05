@@ -1,4 +1,4 @@
-/* base_map.h — hash map with `string` keys, arena-backed.
+/* map.h — hash map with `string` keys, arena-backed.
  *
  * Single-header, same pattern as base.h. Include after base.h:
  *
