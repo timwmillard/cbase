@@ -367,7 +367,10 @@ static inline float vec2_len(vec2 a) {
 }
 
 static inline vec2 vec2_norm(vec2 a) {
-    return vec2_scale(a, 1.0f / vec2_len(a));
+    float len = vec2_len(a);
+    if (len == 0.0f)
+        return a;
+    return vec2_scale(a, 1.0f / len);
 }
 
 // ── vec3 ──
@@ -419,7 +422,10 @@ static inline float vec3_len(vec3 a) {
 }
 
 static inline vec3 vec3_norm(vec3 a) {
-    return vec3_scale(a, 1.0f / vec3_len(a));
+    float len = vec3_len(a);
+    if (len == 0.0f)
+        return a;
+    return vec3_scale(a, 1.0f / len);
 }
 
 static inline vec3 vec3_cross(vec3 a, vec3 b) {
@@ -480,7 +486,10 @@ static inline float vec4_len(vec4 a) {
 }
 
 static inline vec4 vec4_norm(vec4 a) {
-    return vec4_scale(a, 1.0f / vec4_len(a));
+    float len = vec4_len(a);
+    if (len == 0.0f)
+        return a;
+    return vec4_scale(a, 1.0f / len);
 }
 
 // ── mat2 ──

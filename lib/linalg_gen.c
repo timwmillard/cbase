@@ -178,7 +178,10 @@ static void emit_vec_norm(VecDef *v) {
    if (!v->is_float)
       return;
    printf("static inline %s %s_norm(%s a) {\n", v->name, v->name, v->name);
-   printf("    return %s_scale(a, 1.0f / %s_len(a));\n", v->name, v->name);
+   printf("    float len = %s_len(a);\n", v->name);
+   printf("    if (len == 0.0f)\n");
+   printf("        return a;\n");
+   printf("    return %s_scale(a, 1.0f / len);\n", v->name);
    printf("}\n\n");
 }
 
@@ -459,6 +462,11 @@ static void emit_test_vec(VecDef *v) {
             printf("    ASSERT_FEQ(nv.%s, %.1ff / 5.0f);\n", fields[i],
                    (float)lv[i]);
       }
+
+      // zero vector stays zero instead of becoming NaN
+      printf("\n    %s zv = %s_norm((%s){0});\n", nm, nm, nm);
+      for (int i = 0; i < n; i++)
+         printf("    ASSERT_FEQ(zv.%s, 0.0f);\n", fields[i]);
    }
 
    // cross (n==3 only)

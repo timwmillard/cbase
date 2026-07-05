@@ -175,6 +175,10 @@ static void test_vec2(void) {
     ASSERT_FEQ(vec2_len(nv), 1.0f);
     ASSERT_FEQ(nv.x, 3.0f / 5.0f);
     ASSERT_FEQ(nv.y, 4.0f / 5.0f);
+
+    vec2 zv = vec2_norm((vec2){0});
+    ASSERT_FEQ(zv.x, 0.0f);
+    ASSERT_FEQ(zv.y, 0.0f);
 }
 
 // ─── vec3 (float) ─────────────────────────────────────────────────────────────
@@ -206,6 +210,11 @@ static void test_vec3(void) {
     ASSERT_FEQ(vec3_len(nv), 1.0f);
     ASSERT_FEQ(nv.y, 3.0f / 5.0f);
     ASSERT_FEQ(nv.z, 4.0f / 5.0f);
+
+    vec3 zv = vec3_norm((vec3){0});
+    ASSERT_FEQ(zv.x, 0.0f);
+    ASSERT_FEQ(zv.y, 0.0f);
+    ASSERT_FEQ(zv.z, 0.0f);
 
     vec3 cx = vec3_cross((vec3){1.0f,0.0f,0.0f}, (vec3){0.0f,1.0f,0.0f});
     ASSERT_FEQ(cx.x, 0.0f); ASSERT_FEQ(cx.y, 0.0f); ASSERT_FEQ(cx.z, 1.0f);
@@ -243,6 +252,12 @@ static void test_vec4(void) {
     ASSERT_FEQ(vec4_len(nv), 1.0f);
     ASSERT_FEQ(nv.z, 3.0f / 5.0f);
     ASSERT_FEQ(nv.w, 4.0f / 5.0f);
+
+    vec4 zv = vec4_norm((vec4){0});
+    ASSERT_FEQ(zv.x, 0.0f);
+    ASSERT_FEQ(zv.y, 0.0f);
+    ASSERT_FEQ(zv.z, 0.0f);
+    ASSERT_FEQ(zv.w, 0.0f);
 }
 
 // ─── mat2 ─────────────────────────────────────────────────────────────────────
