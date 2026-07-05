@@ -34,15 +34,24 @@ static VecDef vecs[] = {
 // ─── matrix table ────────────────────────────────────────────────────────────
 
 typedef struct {
-   const char *name;     // "mat3f"
-   const char *vec_name; // "vec3"
-   int n;                // 3
+   const char *name;            // "mat2x3"
+   const char *vec_in;          // vec type consumed by mul_vec (size == cols)
+   const char *vec_out;         // vec type produced by mul_vec (size == rows)
+   int rows;                    // 3
+   int cols;                    // 2
+   int square;                  // 1 if rows == cols (enables identity/mul)
+   const char *transpose_name;  // name of the transposed matrix type
 } MatDef;
 
 static MatDef mats[] = {
-    {"mat2", "vec2", 2},
-    {"mat3", "vec3", 3},
-    {"mat4", "vec4", 4},
+    {"mat2", "vec2", "vec2", 2, 2, 1, "mat2"},
+    {"mat3", "vec3", "vec3", 3, 3, 1, "mat3"},
+    {"mat4", "vec4", "vec4", 4, 4, 1, "mat4"},
+    // GLSL matCxR convention: matCxR has C columns and R rows, so
+    // mat2x3 has 2 columns, 3 rows and maps vec2 -> vec3
+
+    {"mat2x3", "vec2", "vec3", 3, 2, 0, "mat3x2"},
+    {"mat3x2", "vec3", "vec2", 2, 3, 0, "mat2x3"},
 };
 
 // ─── field names ─────────────────────────────────────────────────────────────
@@ -150,8 +159,8 @@ static void emit_vec_cross(VecDef *v) {
 static void emit_mat_struct(MatDef *m) {
    printf("typedef struct {\n");
    printf("    union {\n");
-   printf("        float m[%d][%d];\n", m->n, m->n);
-   printf("        float v[%d];\n", m->n * m->n);
+   printf("        float m[%d][%d];\n", m->rows, m->cols);
+   printf("        float v[%d];\n", m->rows * m->cols);
    printf("    };\n");
    printf("} %s;\n\n", m->name);
 }
@@ -159,7 +168,7 @@ static void emit_mat_struct(MatDef *m) {
 static void emit_mat_identity(MatDef *m) {
    printf("static inline %s %s_identity(void) {\n", m->name, m->name);
    printf("    %s r = {0};\n", m->name);
-   printf("    for (int i = 0; i < %d; i++)\n", m->n);
+   printf("    for (int i = 0; i < %d; i++)\n", m->rows);
    printf("        r.m[i][i] = 1.0f;\n");
    printf("    return r;\n");
    printf("}\n\n");
@@ -169,7 +178,7 @@ static void emit_mat_add(MatDef *m) {
    printf("static inline %s %s_add(%s a, %s b) {\n", m->name, m->name, m->name,
           m->name);
    printf("    %s r;\n", m->name);
-   printf("    for (int i = 0; i < %d; i++)\n", m->n * m->n);
+   printf("    for (int i = 0; i < %d; i++)\n", m->rows * m->cols);
    printf("        r.v[i] = a.v[i] + b.v[i];\n");
    printf("    return r;\n");
    printf("}\n\n");
@@ -179,7 +188,7 @@ static void emit_mat_sub(MatDef *m) {
    printf("static inline %s %s_sub(%s a, %s b) {\n", m->name, m->name, m->name,
           m->name);
    printf("    %s r;\n", m->name);
-   printf("    for (int i = 0; i < %d; i++)\n", m->n * m->n);
+   printf("    for (int i = 0; i < %d; i++)\n", m->rows * m->cols);
    printf("        r.v[i] = a.v[i] - b.v[i];\n");
    printf("    return r;\n");
    printf("}\n\n");
@@ -189,7 +198,7 @@ static void emit_mat_scale(MatDef *m) {
    printf("static inline %s %s_scale(%s a, float s) {\n", m->name, m->name,
           m->name);
    printf("    %s r;\n", m->name);
-   printf("    for (int i = 0; i < %d; i++)\n", m->n * m->n);
+   printf("    for (int i = 0; i < %d; i++)\n", m->rows * m->cols);
    printf("        r.v[i] = a.v[i] * s;\n");
    printf("    return r;\n");
    printf("}\n\n");
@@ -199,30 +208,31 @@ static void emit_mat_mul(MatDef *m) {
    printf("static inline %s %s_mul(%s a, %s b) {\n", m->name, m->name, m->name,
           m->name);
    printf("    %s r = {0};\n", m->name);
-   printf("    for (int i = 0; i < %d; i++)\n", m->n);
-   printf("        for (int j = 0; j < %d; j++)\n", m->n);
-   printf("            for (int k = 0; k < %d; k++)\n", m->n);
+   printf("    for (int i = 0; i < %d; i++)\n", m->rows);
+   printf("        for (int j = 0; j < %d; j++)\n", m->rows);
+   printf("            for (int k = 0; k < %d; k++)\n", m->rows);
    printf("                r.m[i][j] += a.m[i][k] * b.m[k][j];\n");
    printf("    return r;\n");
    printf("}\n\n");
 }
 
 static void emit_mat_transpose(MatDef *m) {
-   printf("static inline %s %s_transpose(%s a) {\n", m->name, m->name, m->name);
-   printf("    %s r;\n", m->name);
-   printf("    for (int i = 0; i < %d; i++)\n", m->n);
-   printf("        for (int j = 0; j < %d; j++)\n", m->n);
-   printf("            r.m[i][j] = a.m[j][i];\n");
+   printf("static inline %s %s_transpose(%s a) {\n", m->transpose_name,
+          m->name, m->name);
+   printf("    %s r;\n", m->transpose_name);
+   printf("    for (int i = 0; i < %d; i++)\n", m->rows);
+   printf("        for (int j = 0; j < %d; j++)\n", m->cols);
+   printf("            r.m[j][i] = a.m[i][j];\n");
    printf("    return r;\n");
    printf("}\n\n");
 }
 
 static void emit_mat_mul_vec(MatDef *m) {
-   printf("static inline %s %s_mul_vec(%s a, %s b) {\n", m->vec_name, m->name,
-          m->name, m->vec_name);
-   printf("    %s r = {0};\n", m->vec_name);
-   printf("    for (int i = 0; i < %d; i++)\n", m->n);
-   printf("        for (int j = 0; j < %d; j++)\n", m->n);
+   printf("static inline %s %s_mul_vec(%s a, %s b) {\n", m->vec_out, m->name,
+          m->name, m->vec_in);
+   printf("    %s r = {0};\n", m->vec_out);
+   printf("    for (int i = 0; i < %d; i++)\n", m->rows);
+   printf("        for (int j = 0; j < %d; j++)\n", m->cols);
    printf("            r.v[i] += a.m[i][j] * b.v[j];\n");
    printf("    return r;\n");
    printf("}\n\n");
@@ -414,21 +424,23 @@ static void emit_test_vec(VecDef *v) {
 }
 
 static void emit_test_mat(MatDef *m) {
-   int n = m->n;
-   int nn = n * n;
+   int rows = m->rows;
+   int cols = m->cols;
+   int nn = rows * cols;
    const char *mn = m->name;
-   const char *vn = m->vec_name;
 
    printf("// ─── %s ", mn);
    printf("────────────────────────────────────────────────────────────────────"
           "─\n\n");
    printf("static void test_%s(void) {\n", mn);
 
-   // identity check
-   printf("    %s I = %s_identity();\n", mn, mn);
-   printf("    for (int i = 0; i < %d; i++)\n", n);
-   printf("        for (int j = 0; j < %d; j++)\n", n);
-   printf("            ASSERT_FEQ(I.m[i][j], i == j ? 1.0f : 0.0f);\n\n");
+   if (m->square) {
+      // identity check
+      printf("    %s I = %s_identity();\n", mn, mn);
+      printf("    for (int i = 0; i < %d; i++)\n", rows);
+      printf("        for (int j = 0; j < %d; j++)\n", rows);
+      printf("            ASSERT_FEQ(I.m[i][j], i == j ? 1.0f : 0.0f);\n\n");
+   }
 
    // sequential a
    printf("    %s a = {.v = {", mn);
@@ -440,51 +452,81 @@ static void emit_test_mat(MatDef *m) {
    printf("    %s r = %s_scale(a, 0.0f);\n", mn, mn);
    printf("    for (int i = 0; i < %d; i++) ASSERT_FEQ(r.v[i], 0.0f);\n\n", nn);
 
-   // add/sub roundtrip
-   printf("    %s b = %s_scale(I, 2.0f);\n", mn, mn);
-   printf("    r = %s_sub(%s_add(a, b), b);\n", mn, mn);
-   printf("    for (int i = 0; i < %d; i++) ASSERT_FEQ(r.v[i], a.v[i]);\n\n",
-          nn);
+   if (m->square) {
+      // add/sub roundtrip
+      printf("    %s b = %s_scale(I, 2.0f);\n", mn, mn);
+      printf("    r = %s_sub(%s_add(a, b), b);\n", mn, mn);
+      printf("    for (int i = 0; i < %d; i++) ASSERT_FEQ(r.v[i], a.v[i]);\n\n",
+             nn);
 
-   // identity * a = a
-   printf("    r = %s_mul(I, a);\n", mn);
-   printf("    for (int i = 0; i < %d; i++) ASSERT_FEQ(r.v[i], a.v[i]);\n\n",
-          nn);
+      // identity * a = a
+      printf("    r = %s_mul(I, a);\n", mn);
+      printf("    for (int i = 0; i < %d; i++) ASSERT_FEQ(r.v[i], a.v[i]);\n\n",
+             nn);
+   } else {
+      // add/sub roundtrip against an arbitrary second matrix
+      printf("    %s b = {.v = {", mn);
+      for (int i = 0; i < nn; i++)
+         printf("%s%d", i ? "," : "", (i + 1) * 3);
+      printf("}};\n");
+      printf("    r = %s_sub(%s_add(a, b), b);\n", mn, mn);
+      printf("    for (int i = 0; i < %d; i++) ASSERT_FEQ(r.v[i], a.v[i]);\n\n",
+             nn);
+   }
 
    // transpose
-   printf("    r = %s_transpose(a);\n", mn);
-   printf("    for (int i = 0; i < %d; i++)\n", n);
-   printf("        for (int j = 0; j < %d; j++)\n", n);
-   printf("            ASSERT_FEQ(r.m[i][j], a.m[j][i]);\n\n");
+   printf("    %s rt = %s_transpose(a);\n", m->transpose_name, mn);
+   printf("    for (int i = 0; i < %d; i++)\n", rows);
+   printf("        for (int j = 0; j < %d; j++)\n", cols);
+   printf("            ASSERT_FEQ(rt.m[j][i], a.m[i][j]);\n\n");
 
-   // identity * v = v
-   printf("    %s v = {", vn);
-   for (int i = 0; i < n; i++)
+   // mul_vec: v = {1..cols}, rv[i] = sum_j a.m[i][j] * v[j]
+   printf("    %s v = {", m->vec_in);
+   for (int i = 0; i < cols; i++)
       printf("%s%.1ff", i ? ", " : "", (float)(i + 1));
    printf("};\n");
-   printf("    %s rv = %s_mul_vec(I, v);\n", vn, mn);
-   for (int i = 0; i < n; i++)
-      printf("    ASSERT_FEQ(rv.%s, %.1ff);\n", fields[i], (float)(i + 1));
+   printf("    %s rv = %s_mul_vec(a, v);\n", m->vec_out, mn);
+   for (int i = 0; i < rows; i++) {
+      int sum = 0;
+      for (int j = 0; j < cols; j++)
+         sum += (i * cols + j + 1) * (j + 1);
+      printf("    ASSERT_FEQ(rv.%s, %.1ff);\n", fields[i], (float)sum);
+   }
    printf("\n");
 
-   // diagonal scale: diag[i] = i+2, v[i] = i+1, result[i] = (i+1)*(i+2)
-   printf("    %s ds = {.m = {", mn);
-   for (int i = 0; i < n; i++) {
-      printf("{");
-      for (int j = 0; j < n; j++) {
-         if (j)
+   if (m->square) {
+      int n = rows;
+
+      // identity * v = v
+      printf("    %s idv = {", m->vec_out);
+      for (int i = 0; i < n; i++)
+         printf("%s%.1ff", i ? ", " : "", (float)(i + 1));
+      printf("};\n");
+      printf("    %s idrv = %s_mul_vec(I, idv);\n", m->vec_out, mn);
+      for (int i = 0; i < n; i++)
+         printf("    ASSERT_FEQ(idrv.%s, %.1ff);\n", fields[i],
+                (float)(i + 1));
+      printf("\n");
+
+      // diagonal scale: diag[i] = i+2, v[i] = i+1, result[i] = (i+1)*(i+2)
+      printf("    %s ds = {.m = {", mn);
+      for (int i = 0; i < n; i++) {
+         printf("{");
+         for (int j = 0; j < n; j++) {
+            if (j)
+               printf(",");
+            printf("%d", i == j ? i + 2 : 0);
+         }
+         printf("}");
+         if (i < n - 1)
             printf(",");
-         printf("%d", i == j ? i + 2 : 0);
       }
-      printf("}");
-      if (i < n - 1)
-         printf(",");
+      printf("}};\n");
+      printf("    idrv = %s_mul_vec(ds, idv);\n", mn);
+      for (int i = 0; i < n; i++)
+         printf("    ASSERT_FEQ(idrv.%s, %.1ff);\n", fields[i],
+                (float)((i + 1) * (i + 2)));
    }
-   printf("}};\n");
-   printf("    rv = %s_mul_vec(ds, v);\n", mn);
-   for (int i = 0; i < n; i++)
-      printf("    ASSERT_FEQ(rv.%s, %.1ff);\n", fields[i],
-             (float)((i + 1) * (i + 2)));
 
    printf("}\n\n");
 }
@@ -564,15 +606,23 @@ int main(int argc, char **argv) {
    }
 
    int mat_count = ARRAY_COUNT(mats);
+   // structs are emitted first since transpose() can return a different
+   // matrix type (e.g. mat2x3_transpose returns mat3x2), which must already
+   // be declared
+   for (int i = 0; i < mat_count; i++) {
+      printf("// ── %s ──\n\n", mats[i].name);
+      emit_mat_struct(&mats[i]);
+   }
    for (int i = 0; i < mat_count; i++) {
       MatDef *m = &mats[i];
       printf("// ── %s ──\n\n", m->name);
-      emit_mat_struct(m);
-      emit_mat_identity(m);
+      if (m->square)
+         emit_mat_identity(m);
       emit_mat_add(m);
       emit_mat_sub(m);
       emit_mat_scale(m);
-      emit_mat_mul(m);
+      if (m->square)
+         emit_mat_mul(m);
       emit_mat_transpose(m);
       emit_mat_mul_vec(m);
    }

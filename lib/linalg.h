@@ -492,6 +492,44 @@ typedef struct {
     };
 } mat2;
 
+// ── mat3 ──
+
+typedef struct {
+    union {
+        float m[3][3];
+        float v[9];
+    };
+} mat3;
+
+// ── mat4 ──
+
+typedef struct {
+    union {
+        float m[4][4];
+        float v[16];
+    };
+} mat4;
+
+// ── mat2x3 ──
+
+typedef struct {
+    union {
+        float m[3][2];
+        float v[6];
+    };
+} mat2x3;
+
+// ── mat3x2 ──
+
+typedef struct {
+    union {
+        float m[2][3];
+        float v[6];
+    };
+} mat3x2;
+
+// ── mat2 ──
+
 static inline mat2 mat2_identity(void) {
     mat2 r = {0};
     for (int i = 0; i < 2; i++)
@@ -533,7 +571,7 @@ static inline mat2 mat2_transpose(mat2 a) {
     mat2 r;
     for (int i = 0; i < 2; i++)
         for (int j = 0; j < 2; j++)
-            r.m[i][j] = a.m[j][i];
+            r.m[j][i] = a.m[i][j];
     return r;
 }
 
@@ -546,13 +584,6 @@ static inline vec2 mat2_mul_vec(mat2 a, vec2 b) {
 }
 
 // ── mat3 ──
-
-typedef struct {
-    union {
-        float m[3][3];
-        float v[9];
-    };
-} mat3;
 
 static inline mat3 mat3_identity(void) {
     mat3 r = {0};
@@ -595,7 +626,7 @@ static inline mat3 mat3_transpose(mat3 a) {
     mat3 r;
     for (int i = 0; i < 3; i++)
         for (int j = 0; j < 3; j++)
-            r.m[i][j] = a.m[j][i];
+            r.m[j][i] = a.m[i][j];
     return r;
 }
 
@@ -608,13 +639,6 @@ static inline vec3 mat3_mul_vec(mat3 a, vec3 b) {
 }
 
 // ── mat4 ──
-
-typedef struct {
-    union {
-        float m[4][4];
-        float v[16];
-    };
-} mat4;
 
 static inline mat4 mat4_identity(void) {
     mat4 r = {0};
@@ -657,7 +681,7 @@ static inline mat4 mat4_transpose(mat4 a) {
     mat4 r;
     for (int i = 0; i < 4; i++)
         for (int j = 0; j < 4; j++)
-            r.m[i][j] = a.m[j][i];
+            r.m[j][i] = a.m[i][j];
     return r;
 }
 
@@ -665,6 +689,84 @@ static inline vec4 mat4_mul_vec(mat4 a, vec4 b) {
     vec4 r = {0};
     for (int i = 0; i < 4; i++)
         for (int j = 0; j < 4; j++)
+            r.v[i] += a.m[i][j] * b.v[j];
+    return r;
+}
+
+// ── mat2x3 ──
+
+static inline mat2x3 mat2x3_add(mat2x3 a, mat2x3 b) {
+    mat2x3 r;
+    for (int i = 0; i < 6; i++)
+        r.v[i] = a.v[i] + b.v[i];
+    return r;
+}
+
+static inline mat2x3 mat2x3_sub(mat2x3 a, mat2x3 b) {
+    mat2x3 r;
+    for (int i = 0; i < 6; i++)
+        r.v[i] = a.v[i] - b.v[i];
+    return r;
+}
+
+static inline mat2x3 mat2x3_scale(mat2x3 a, float s) {
+    mat2x3 r;
+    for (int i = 0; i < 6; i++)
+        r.v[i] = a.v[i] * s;
+    return r;
+}
+
+static inline mat3x2 mat2x3_transpose(mat2x3 a) {
+    mat3x2 r;
+    for (int i = 0; i < 3; i++)
+        for (int j = 0; j < 2; j++)
+            r.m[j][i] = a.m[i][j];
+    return r;
+}
+
+static inline vec3 mat2x3_mul_vec(mat2x3 a, vec2 b) {
+    vec3 r = {0};
+    for (int i = 0; i < 3; i++)
+        for (int j = 0; j < 2; j++)
+            r.v[i] += a.m[i][j] * b.v[j];
+    return r;
+}
+
+// ── mat3x2 ──
+
+static inline mat3x2 mat3x2_add(mat3x2 a, mat3x2 b) {
+    mat3x2 r;
+    for (int i = 0; i < 6; i++)
+        r.v[i] = a.v[i] + b.v[i];
+    return r;
+}
+
+static inline mat3x2 mat3x2_sub(mat3x2 a, mat3x2 b) {
+    mat3x2 r;
+    for (int i = 0; i < 6; i++)
+        r.v[i] = a.v[i] - b.v[i];
+    return r;
+}
+
+static inline mat3x2 mat3x2_scale(mat3x2 a, float s) {
+    mat3x2 r;
+    for (int i = 0; i < 6; i++)
+        r.v[i] = a.v[i] * s;
+    return r;
+}
+
+static inline mat2x3 mat3x2_transpose(mat3x2 a) {
+    mat2x3 r;
+    for (int i = 0; i < 2; i++)
+        for (int j = 0; j < 3; j++)
+            r.m[j][i] = a.m[i][j];
+    return r;
+}
+
+static inline vec2 mat3x2_mul_vec(mat3x2 a, vec3 b) {
+    vec2 r = {0};
+    for (int i = 0; i < 2; i++)
+        for (int j = 0; j < 3; j++)
             r.v[i] += a.m[i][j] * b.v[j];
     return r;
 }
