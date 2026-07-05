@@ -2,6 +2,7 @@
 .DS_Store
 
 /base_test
+/map_test
 /linalg_gen
 /linalg_test
 

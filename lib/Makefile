@@ -1,11 +1,15 @@
 CC = cc
 CFLAGS = -std=c11 -Wall -Wextra -Werror -Wpedantic
 
-all: base_test linalg_test
+all: base_test map_test linalg_test
 
 # base.h
 base_test: base_test.c base.h
 	$(CC) $(CFLAGS) -o base_test base_test.c
+
+# map.h
+map_test: map_test.c map.h
+	$(CC) $(CFLAGS) -o map_test map_test.c
 
 # linalg.h
 linalg.h: linalg_gen
@@ -22,8 +26,9 @@ linalg_test: linalg_test.c linalg.h
 
 # Run tests
 
-test: base_test linalg_test
+test: base_test map_test linalg_test
 	./base_test
+	./map_test
 	./linalg_test
 
 # Clean
