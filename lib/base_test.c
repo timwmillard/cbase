@@ -495,6 +495,26 @@ void test_string_trim(void) {
    PASS(test_name);
 }
 
+/* string_trim_prefix / string_trim_suffix */
+void test_string_trim_prefix_suffix(void) {
+   const char *test_name = "string_trim_prefix_suffix";
+   string s = S("hello world");
+   ASSERT_STR(string_trim_prefix(s, S("hello ")), "world");
+   ASSERT_STR(string_trim_suffix(s, S(" world")), "hello");
+   ASSERT_STR(string_trim_prefix(s, S("world")), "hello world");
+   ASSERT_STR(string_trim_suffix(s, S("hello")), "hello world");
+   ASSERT(string_trim_prefix(s, S("hello world")).len == 0,
+          "trims whole string as prefix");
+   ASSERT(string_trim_suffix(s, S("hello world")).len == 0,
+          "trims whole string as suffix");
+   ASSERT_STR(string_trim_prefix(s, S("")), "hello world");
+   ASSERT_STR(string_trim_suffix(s, S("")), "hello world");
+   /* no copy: unmatched case returns the same underlying data pointer */
+   ASSERT(string_trim_prefix(s, S("world")).data == s.data,
+          "no-op prefix trim points into source");
+   PASS(test_name);
+}
+
 /* string_eq */
 void test_string_eq(void) {
    const char *test_name = "string_eq";
@@ -703,6 +723,7 @@ int main(void) {
    test_string_cstr();
    test_string_slice();
    test_string_trim();
+   test_string_trim_prefix_suffix();
    test_string_eq();
    test_string_starts_ends_with();
    test_string_contains();

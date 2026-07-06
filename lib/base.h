@@ -213,6 +213,8 @@ string string_slice(string s, isize start, isize end); // negative = from end
 string string_trim(string s); // strip leading/trailing ws
 string string_trim_left(string s);
 string string_trim_right(string s);
+string string_trim_prefix(string s, string prefix);
+string string_trim_suffix(string s, string suffix);
 
 bool string_eq(string a, string b);
 bool string_starts_with(string s, string prefix);
@@ -526,6 +528,18 @@ string string_trim_right(string s) {
    while (len > 0 && isspace(s.data[len - 1]))
       len--;
    return (string){.data = s.data, .len = len};
+}
+
+string string_trim_prefix(string s, string prefix) {
+   if (!string_starts_with(s, prefix))
+      return s;
+   return (string){.data = s.data + prefix.len, .len = s.len - prefix.len};
+}
+
+string string_trim_suffix(string s, string suffix) {
+   if (!string_ends_with(s, suffix))
+      return s;
+   return (string){.data = s.data, .len = s.len - suffix.len};
 }
 
 bool string_eq(string a, string b) {
