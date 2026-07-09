@@ -2,11 +2,11 @@
 return {
   cbase = {
     branch = "master",
-    commit = "3f34431e2a9d1d73b78cf9fb93583acdd064db15",
-    dest = "deps/cbase",
+    commit = "bed11b754b002a95da041a145ed84bd555b4af29",
+    dest = "deps",
     files = {
       {
-        path = "deps/cbase/base.h",
+        path = "deps/base.h",
         sha256 = "0d945136cc4212258cfbdb6e734e82075da0bf1a560ba61c4b6f7d00fdd4bc7a",
       },
     },

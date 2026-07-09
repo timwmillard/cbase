@@ -5,6 +5,7 @@ return {
     {
         'timwmillard/cbase',
         files = { 'lib/base.h' },
+        subdir = false,
         flatten = true,
     },
     {
