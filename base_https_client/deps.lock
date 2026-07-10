@@ -39,7 +39,7 @@ return {
   tlse = {
     commit = "3b215a149fb650298dd36f5abab9a42e3bd63439",
     dest = "deps/tlse",
-    tree_sha256 = "fc9a76e9eb0a0a02af14e95a64bc53cbb2141e46079a9784e51c863d2bc94bc5",
+    tree_sha256 = "b16316e0ee037203833d9ea46a19505fa1a6f2a24b87f62ebac864a2d67f8453",
     url = "https://github.com/eduardsui/tlse.git",
   },
 }
