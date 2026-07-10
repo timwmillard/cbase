@@ -2,7 +2,6 @@
 #include <sys/types.h>
 #ifdef _WIN32
 #include <winsock2.h>
-#pragma comment (lib, "ws2_32.lib")
 #define socklen_t int
 #else
 #include <sys/socket.h>
@@ -44,7 +43,7 @@ int verify(struct TLSContext *context, struct TLSCertificate **certificate_chain
             return err;
     }
 
-    // Perform certificate validation against ROOT CA
+    // Perform certificate validation agains ROOT CA
     err = tls_certificate_chain_is_valid_root(context, certificate_chain, len);
     if (err)
         return err;
@@ -65,6 +64,7 @@ int main(int argc, char *argv[]) {
     char msg[] = "GET %s HTTP/1.1\r\nHost: %s:%i\r\nConnection: close\r\n\r\n";
     char msg_buffer[0xFF];
     char buffer[0xFFF];
+    char root_buffer[0xFFFFF];
     char *ref_argv[] = {"", "google.com", "443"};
     char *req_file = "/";
 #ifdef _WIN32

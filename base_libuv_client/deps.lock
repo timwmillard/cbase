@@ -2,7 +2,7 @@
 return {
   cbase = {
     branch = "master",
-    commit = "bed11b754b002a95da041a145ed84bd555b4af29",
+    commit = "af4a3f7320169949d2093e53e79fd4808c3af1a8",
     dest = "deps",
     files = {
       {
@@ -17,7 +17,7 @@ return {
   },
   libuv = {
     branch = "v1.x",
-    commit = "4b9d359b50ef4156d4af8171fd29caf08b29d65e",
+    commit = "6ab8638e55ef24d4a48c4e22f34ff7f0a92d67a4",
     dest = "deps/libuv",
     files = {
       {
@@ -282,7 +282,7 @@ return {
       },
       {
         path = "deps/libuv/src/unix/poll.c",
-        sha256 = "05734e69c0f8a40ad9097861bd799870582715599f311dffb6e8d7a316a22eed",
+        sha256 = "6087536ab790963b4a6f48ee1f6faa8cdfe7a67ff0abdc1552256926f3492940",
       },
       {
         path = "deps/libuv/src/unix/posix-hrtime.c",
@@ -516,10 +516,9 @@ return {
   },
   lockfile_version = 1,
   tlse = {
-    branch = "master",
-    commit = "32d063c8d3ba1fdfebc2ce537562e388e68ba568",
+    commit = "3b215a149fb650298dd36f5abab9a42e3bd63439",
     dest = "deps/tlse",
-    tree_sha256 = "53dadf30b78bbe48f141fd7980fec3f0866ac0407f6e2c1ca2f795da77f30a21",
+    tree_sha256 = "fc9a76e9eb0a0a02af14e95a64bc53cbb2141e46079a9784e51c863d2bc94bc5",
     url = "https://github.com/eduardsui/tlse.git",
   },
 }

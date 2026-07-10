@@ -20,5 +20,6 @@ return {
     },
     {
         'eduardsui/tlse',
+        tag = 'v1.0.7',
     },
 }
