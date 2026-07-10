@@ -2,7 +2,7 @@
 return {
   cbase = {
     branch = "master",
-    commit = "78a8e6c7c3318aecacab32ab9d0304c622ccaba4",
+    commit = "d079bf411b331f3439ffd93f0fc92de2e8c98930",
     dest = "deps",
     files = {
       {
@@ -16,6 +16,26 @@ return {
     url = "https://github.com/timwmillard/cbase.git",
   },
   lockfile_version = 1,
+  picohttpparser = {
+    branch = "master",
+    commit = "f4d94b48b31e0abae029ebeafcfd9ca0680ede58",
+    dest = "deps",
+    files = {
+      {
+        path = "deps/picohttpparser.c",
+        sha256 = "ddada2e27e9010f678a68a93a08fc13dee32178cc497b602322d80900eb94044",
+      },
+      {
+        path = "deps/picohttpparser.h",
+        sha256 = "1fc9074dd12418b2b91e55ef3a8279bccf8d3577b790dea6f2f908ab2a157f1c",
+      },
+    },
+    spec_files = {
+      "picohttpparser.c",
+      "picohttpparser.h",
+    },
+    url = "https://github.com/h2o/picohttpparser.git",
+  },
   tlse = {
     commit = "3b215a149fb650298dd36f5abab9a42e3bd63439",
     dest = "deps/tlse",

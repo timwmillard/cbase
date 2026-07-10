@@ -12,4 +12,13 @@ return {
         'eduardsui/tlse',
         tag = 'v1.0.7',
     },
+    {
+        'h2o/picohttpparser',
+        subdir = false,
+        flatten = true,
+        files = {
+            'picohttpparser.c',
+            'picohttpparser.h',
+        },
+    },
 }
