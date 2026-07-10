@@ -1,10 +1,15 @@
 #include <stdio.h>
-#include <sys/types.h>
+#include <stdlib.h>
+#include <signal.h>
+#include <string.h>
+
 #ifdef _WIN32
     #include <winsock2.h>
+    #pragma comment (lib, "ws2_32.lib")
     #define socklen_t int
     #define sleep(x)    Sleep(x*1000)
 #else
+    #include <sys/types.h>
     #include <sys/socket.h>
     #include <netinet/in.h>
     #include <netdb.h> 
@@ -55,12 +60,32 @@ int send_pending(int client_sock, struct TLSContext *context) {
 
 int validate_certificate(struct TLSContext *context, struct TLSCertificate **certificate_chain, int len) {
     int i;
+    int err;
     if (certificate_chain) {
         for (i = 0; i < len; i++) {
             struct TLSCertificate *certificate = certificate_chain[i];
-            // check certificate ...
+            // check validity date
+            err = tls_certificate_is_valid(certificate);
+            if (err)
+                return err;
+            // check certificate in certificate->bytes of length certificate->len
+            // the certificate is in ASN.1 DER format
         }
     }
+    // check if chain is valid
+    err = tls_certificate_chain_is_valid(certificate_chain, len);
+    if (err)
+        return err;
+
+    const char *sni = tls_sni(context);
+    if ((len > 0) && (sni)) {
+        err = tls_certificate_valid_subject(certificate_chain[0], sni);
+        if (err)
+            return err;
+    }
+
+    fprintf(stderr, "Certificate OK\n");
+
     //return certificate_expired;
     //return certificate_revoked;
     //return certificate_unknown;
@@ -104,7 +129,10 @@ int main(int argc, char *argv[]) {
     if (connect(sockfd,(struct sockaddr *)&serv_addr,sizeof(serv_addr)) < 0) 
         error("ERROR connecting");
 
-    struct TLSContext *context = tls_create_context(0, TLS_V12);
+    struct TLSContext *context = tls_create_context(0, TLS_V13);
+    // the next line is needed only if you want to serialize the connection context or kTLS is used
+    tls_make_exportable(context, 1);
+    tls_sni_set(context, argv[1]);
     tls_client_connect(context);
     send_pending(sockfd, context);
     unsigned char client_message[0xFFFF];
@@ -113,11 +141,20 @@ int main(int argc, char *argv[]) {
     while ((read_size = recv(sockfd, client_message, sizeof(client_message) , 0)) > 0) {
         tls_consume_stream(context, client_message, read_size, validate_certificate);
         send_pending(sockfd, context);
-        if (tls_established(context)) {
+        if (tls_established(context) == 1) {
             if (!sent) {
                 const char *request = "GET / HTTP/1.1\r\nConnection: close\r\n\r\n";
-                tls_write(context, (unsigned char *)request, strlen(request));
-                send_pending(sockfd, context);
+                // try kTLS (kernel TLS implementation in linux >= 4.13)
+                // note that you can use send on a ktls socket
+                // recv must be handled by TLSe
+                if (!tls_make_ktls(context, sockfd)) {
+                    // call send as on regular TCP sockets
+                    // TLS record layer is handled by the kernel
+                    send(sockfd, request, strlen(request), 0);
+                } else {
+                    tls_write(context, (unsigned char *)request, strlen(request));
+                    send_pending(sockfd, context);
+                }
                 sent = 1;
             }
 
@@ -127,5 +164,6 @@ int main(int argc, char *argv[]) {
                 fwrite(read_buffer, read_size, 1, stdout);
         }
     }
+    fflush(stdout);
     return 0;
 }

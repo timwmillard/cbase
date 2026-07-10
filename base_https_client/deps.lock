@@ -2,7 +2,7 @@
 return {
   cbase = {
     branch = "master",
-    commit = "d079bf411b331f3439ffd93f0fc92de2e8c98930",
+    commit = "1d5300e5160d62e2f60fc3822d16cbc611ad29de",
     dest = "deps",
     files = {
       {
@@ -37,9 +37,10 @@ return {
     url = "https://github.com/h2o/picohttpparser.git",
   },
   tlse = {
-    commit = "3b215a149fb650298dd36f5abab9a42e3bd63439",
+    branch = "master",
+    commit = "32d063c8d3ba1fdfebc2ce537562e388e68ba568",
     dest = "deps/tlse",
-    tree_sha256 = "b16316e0ee037203833d9ea46a19505fa1a6f2a24b87f62ebac864a2d67f8453",
+    tree_sha256 = "53dadf30b78bbe48f141fd7980fec3f0866ac0407f6e2c1ca2f795da77f30a21",
     url = "https://github.com/eduardsui/tlse.git",
   },
 }

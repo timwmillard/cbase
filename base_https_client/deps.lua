@@ -10,7 +10,7 @@ return {
     },
     {
         'eduardsui/tlse',
-        tag = 'v1.0.7',
+        -- tag = 'v1.0.7',
     },
     {
         'h2o/picohttpparser',

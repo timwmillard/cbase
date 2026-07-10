@@ -16,7 +16,7 @@ int main(int argc , char *argv[]) {
     socklen_t c;
     struct sockaddr_in server , client;
     char client_message[0xFFFF];
-    const char msg[] = "HTTP/1.1 200 OK\r\nContent-length: 37\r\nContent-type: text/plain\r\n\r\nHello world from TLSe (TLS 1.2)";
+    const char msg[] = "HTTP/1.1 200 OK\r\nContent-length: 31\r\nContent-type: text/plain\r\n\r\nHello world from TLSe (TLS 1.2)";
 
 #ifdef _WIN32
     WSADATA wsaData;
