@@ -76,6 +76,7 @@ func-prefix  =
 | `schema` | path to the schema SQL | `schema.sql` |
 | `queries` | path to the queries SQL | `queries.sql` |
 | `output` | path of the generated header (`.c` goes alongside in `split` mode) | `queries.h` |
+| `manifest` | path of a JSON query manifest, for feeding other codegen (e.g. Lua bindings); unset disables it | (none) |
 | `mode` | `split` (header + `.c`) \| `single` (one stb-style header) | `split` |
 | `struct-style` | `snake` \| `camel` \| `pascal` for struct names | `pascal` |
 | `field-style` | naming for struct fields / params | `pascal` |
@@ -133,6 +134,64 @@ macro first:
 ```
 
 Elsewhere, just `#include "queries.h"` for the declarations.
+
+### Manifest (`manifest = ...`)
+
+Setting `manifest` writes a JSON description of every query, meant to drive
+other codegen (e.g. a separate tool generating Lua bindings) without having to
+reimplement `sql2c`'s naming-style logic or type mapping:
+
+```json
+{
+  "models": [
+    {
+      "table": "boat",
+      "type": "Boat",
+      "columns": [
+        { "name": "id", "field": "id", "sql_type": "INTEGER", "c_type": "sql_int64", "nullable": false, "pk": true },
+        { "name": "name", "field": "name", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false, "pk": false },
+        { "name": "registration", "field": "registration", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false, "pk": false }
+      ]
+    }
+  ],
+  "queries": [
+    {
+      "name": "GetBoat",
+      "kind": "one",
+      "sql": "select * from boat where id = :id;",
+      "func": "get_boat",
+      "params_type": null,
+      "params": [
+        { "name": "id", "field": "id", "sql_type": "INTEGER", "c_type": "sql_int64", "nullable": false }
+      ],
+      "result_type": "Boat",
+      "result_list_type": null,
+      "result": [
+        { "name": "id", "field": "id", "sql_type": "INTEGER", "c_type": "sql_int64", "nullable": false },
+        { "name": "name", "field": "name", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false },
+        { "name": "registration", "field": "registration", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false }
+      ]
+    }
+  ]
+}
+```
+
+- `models` lists every schema table (independent of which queries touch it),
+  matching the `typedef struct` `sql2c` emits per table — `type` is the
+  generated struct name and each column carries `pk`.
+- `kind` is `one` / `many` / `exec`.
+- `func` is the generated entry point to call: for `one`/`many` it returns
+  `result_type *` / `result_list_type` (a `{ items, len }` struct) via
+  `(sql_allocator a, sqlite3 *db, ...params, int *rc)`; for `exec` it returns
+  `int` via `(sqlite3 *db, ...params)`.
+- `params_type` is non-null only when there's more than one param (matching
+  when `sql2c` collapses params into a struct vs. a single positional arg).
+- Each param/column carries both the raw declared SQL type (`sql_type`) and
+  the exact generated C type/identifier (`c_type`/`field`) — the latter
+  already run through `struct-style`/`field-style`/`func-style` and any
+  prefix, so downstream generators call the real symbols without re-deriving
+  them.
+- `result` is `null` for `:exec` queries.
 
 For each query you get two functions.
 

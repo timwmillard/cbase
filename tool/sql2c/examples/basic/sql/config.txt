@@ -10,3 +10,4 @@ field-style  = snake
 func-style   = snake
 type-prefix  =
 func-prefix  =
+manifest     = manifes.json
