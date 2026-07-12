@@ -75,7 +75,7 @@ func-prefix  =
 |---|---|---|
 | `schema` | path to the schema SQL | `schema.sql` |
 | `queries` | path to the queries SQL | `queries.sql` |
-| `output` | path of the generated header (`.c` and `models.h` go alongside) | `queries.h` |
+| `output` | path of the generated header (`.c` goes alongside) | `queries.h` |
 | `struct-style` | `snake` \| `camel` \| `pascal` for struct names | `pascal` |
 | `field-style` | naming for struct fields / params | `pascal` |
 | `func-style` | naming for function names | `snake` |
@@ -111,12 +111,12 @@ parameters carry no name and default to `sql_text` with a warning.
 
 ## Generated output
 
-Three files are produced next to `output`:
+Two files are produced next to `output`:
 
-- **`models.h`** — the `sql_*` base types (`sql_text`, `sql_int64`, nullable
-  variants, …), one struct per table, and the allocator interface.
-- **`queries.h`** — result-slice typedefs, parameter structs, and function
-  declarations.
+- **`queries.h`** (or whatever `output` is named) — the `sql_*` base types
+  (`sql_text`, `sql_int64`, nullable variants, …), the allocator interface,
+  one struct per table, result-slice typedefs, parameter structs, and
+  function declarations.
 - **`queries.c`** — the implementations.
 
 For each query you get two functions.
@@ -154,8 +154,8 @@ int delete_person(sqlite3 *db, sql_int64 id);
 
 ### The allocator
 
-`sql_allocator` is a single function plus a context pointer (defined in
-`models.h`). Adapt any allocator with a few lines — here, an arena:
+`sql_allocator` is a single function plus a context pointer (defined in the
+generated header). Adapt any allocator with a few lines — here, an arena:
 
 ```c
 static void *arena_alloc_fn(void *ctx, size_t n) { return arena_alloc((arena *)ctx, n); }
@@ -186,7 +186,6 @@ sql2c_generate(
     WORKDIR ${CMAKE_SOURCE_DIR}/sql
     OUTPUTS ${CMAKE_SOURCE_DIR}/src/queries.h
             ${CMAKE_SOURCE_DIR}/src/queries.c
-            ${CMAKE_SOURCE_DIR}/src/models.h
     DEPENDS ${CMAKE_SOURCE_DIR}/sql/schema.sql
             ${CMAKE_SOURCE_DIR}/sql/queries.sql
 )

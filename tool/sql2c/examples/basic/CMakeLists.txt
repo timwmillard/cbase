@@ -16,7 +16,6 @@ sql2c_generate(
     WORKDIR ${CMAKE_CURRENT_SOURCE_DIR}/sql
     OUTPUTS ${CMAKE_CURRENT_SOURCE_DIR}/src/queries.h
             ${CMAKE_CURRENT_SOURCE_DIR}/src/queries.c
-            ${CMAKE_CURRENT_SOURCE_DIR}/src/models.h
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/sql/schema.sql
             ${CMAKE_CURRENT_SOURCE_DIR}/sql/queries.sql
 )

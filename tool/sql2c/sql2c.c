@@ -600,44 +600,6 @@ static char *type_name(Gen *g, const char *name) {
    return styled;
 }
 
-static void emit_models(Gen *g, StrBuf *sb) {
-   sb_puts(sb, "// Generated from SQL - do not edit\n\n");
-   sb_puts(sb, "#ifndef SQL_MODEL_H\n");
-   sb_puts(sb, "#define SQL_MODEL_H\n\n");
-   sb_puts(sb, "#include <stdint.h>\n");
-   sb_puts(sb, "#include <stdbool.h>\n");
-   sb_puts(sb, "#include <stddef.h>\n");
-   sb_puts(sb, "#include <string.h>\n\n");
-   sb_puts(sb, MODELS_PRELUDE);
-   sb_puts(sb, MODELS_ALLOCATOR);
-
-   sb_puts(sb, "// ============ Table Structs ============\n\n");
-   for (int t = 0; t < g->ntables; t++) {
-      Table *tbl = &g->tables[t];
-      sb_puts(sb, "typedef struct {\n");
-      for (int c = 0; c < tbl->ncols; c++) {
-         Column *col = &tbl->cols[c];
-         const char *ctype = sqlite_type_to_sqltype(g->a, col->decltype, col_nullable(col));
-         char *fname = apply_style(g->a, col->name, g->field_style);
-         sb_printf(sb, "    %s %s;\n", ctype, fname);
-      }
-      sb_printf(sb, "} %s;\n\n", type_name(g, tbl->name));
-   }
-
-   sb_puts(sb, "#endif // SQL_MODEL_H\n");
-}
-
-// Directory portion of a path ("a/b/c.h" -> "a/b"), or "." if none.
-static char *path_dir(Arena *a, const char *path) {
-   const char *slash = strrchr(path, '/');
-   if (!slash) return arena_strdup(a, ".");
-   size_t n = (size_t)(slash - path);
-   char *d = arena_alloc(a, n + 1);
-   memcpy(d, path, n);
-   d[n] = 0;
-   return d;
-}
-
 static char *func_name(Gen *g, const char *name) {
    char *styled = apply_style(g->a, name, g->func_style);
    if (g->cfg->func_prefix && g->cfg->func_prefix[0]) {
@@ -1125,9 +1087,29 @@ static void emit_header(Gen *g, StrBuf *sb, Query *qs, int nq, const char *outpu
    sb_puts(sb, "// Generated from SQL - do not edit\n\n");
    sb_printf(sb, "#ifndef %s\n", guard.data);
    sb_printf(sb, "#define %s\n\n", guard.data);
+   sb_puts(sb, "#include <stdint.h>\n");
+   sb_puts(sb, "#include <stdbool.h>\n");
+   sb_puts(sb, "#include <stddef.h>\n");
+   sb_puts(sb, "#include <string.h>\n\n");
    sb_puts(sb, "#include \"sqlite3.h\"\n\n");
-   sb_puts(sb, "#include \"models.h\"\n\n");
    sb_free(&guard);
+
+   sb_puts(sb, "// ============ Base Types ============\n\n");
+   sb_puts(sb, MODELS_PRELUDE);
+   sb_puts(sb, MODELS_ALLOCATOR);
+
+   sb_puts(sb, "// ============ Table Structs ============\n\n");
+   for (int t = 0; t < g->ntables; t++) {
+      Table *tbl = &g->tables[t];
+      sb_puts(sb, "typedef struct {\n");
+      for (int c = 0; c < tbl->ncols; c++) {
+         Column *col = &tbl->cols[c];
+         const char *ctype = sqlite_type_to_sqltype(g->a, col->decltype, col_nullable(col));
+         char *fname = apply_style(g->a, col->name, g->field_style);
+         sb_printf(sb, "    %s %s;\n", ctype, fname);
+      }
+      sb_printf(sb, "} %s;\n\n", type_name(g, tbl->name));
+   }
 
    // Result slices for :many wrappers (deduped by result type).
    const char *seen[256];
@@ -1229,17 +1211,8 @@ int main(int argc, char **argv) {
    Query *qs = parse_queries(&g, queries_text, &nq);
    for (int i = 0; i < nq; i++) introspect_query(&g, db, &qs[i]);
 
-   char *dir = path_dir(&arena, cfg.output);
    const char *base = strrchr(cfg.output, '/');
    base = base ? base + 1 : cfg.output;
-
-   // Emit models.h next to the output header.
-   StrBuf models = {0};
-   emit_models(&g, &models);
-   char models_path[1024];
-   snprintf(models_path, sizeof(models_path), "%s/models.h", dir);
-   write_file(models_path, models.data, models.len);
-   sb_free(&models);
 
    // Emit the query header (<output>) and implementation (<output>.c).
    StrBuf header = {0};
