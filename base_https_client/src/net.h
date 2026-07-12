@@ -151,7 +151,7 @@ static int net_would_block(void) {
 net_socket net_connect(const char *host, const char *port) {
    struct addrinfo hints = {
        .ai_family = AF_UNSPEC, // IPv4 or IPv6
-       .ai_socktype = SOCK_STEAM,
+       .ai_socktype = SOCK_STREAM,
    };
    struct addrinfo *res = NULL;
    struct addrinfo *ai;
