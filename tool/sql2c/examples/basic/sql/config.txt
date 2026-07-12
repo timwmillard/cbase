@@ -1,0 +1,12 @@
+# sql2c config for the basic example.
+# Paths are resolved relative to this file's directory (the WORKDIR sql2c
+# runs in — see the CMakeLists.txt in the example's root).
+
+schema       = schema.sql
+queries      = queries.sql
+output       = ../src/queries.h
+struct-style = pascal
+field-style  = snake
+func-style   = snake
+type-prefix  =
+func-prefix  =
