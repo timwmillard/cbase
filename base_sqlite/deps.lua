@@ -17,7 +17,6 @@ return {
         'timwmillard/cbase',
         dev = '..',
         name = 'cbase-tool',
-        branch = 'sql2c-singlefile',
         dir = '.',
         flatten = false,
         files = {
