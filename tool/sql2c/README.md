@@ -75,7 +75,8 @@ func-prefix  =
 |---|---|---|
 | `schema` | path to the schema SQL | `schema.sql` |
 | `queries` | path to the queries SQL | `queries.sql` |
-| `output` | path of the generated header (`.c` goes alongside) | `queries.h` |
+| `output` | path of the generated header (`.c` goes alongside in `split` mode) | `queries.h` |
+| `mode` | `split` (header + `.c`) \| `single` (one stb-style header) | `split` |
 | `struct-style` | `snake` \| `camel` \| `pascal` for struct names | `pascal` |
 | `field-style` | naming for struct fields / params | `pascal` |
 | `func-style` | naming for function names | `snake` |
@@ -111,13 +112,27 @@ parameters carry no name and default to `sql_text` with a warning.
 
 ## Generated output
 
-Two files are produced next to `output`:
+`mode = split` (the default) produces two files next to `output`:
 
 - **`queries.h`** (or whatever `output` is named) — the `sql_*` base types
   (`sql_text`, `sql_int64`, nullable variants, …), the allocator interface,
   one struct per table, result-slice typedefs, parameter structs, and
   function declarations.
 - **`queries.c`** — the implementations.
+
+`mode = single` produces just `output`, stb-style: the same declarations
+followed by the implementations, with the implementations gated behind a
+`<STEM>_IMPLEMENTATION` macro derived from `output`'s basename without its
+extension (`output = queries.h` → `QUERIES_IMPLEMENTATION`). Include it freely
+from any number of translation units; in exactly one of them, define the
+macro first:
+
+```c
+#define QUERIES_IMPLEMENTATION
+#include "queries.h"
+```
+
+Elsewhere, just `#include "queries.h"` for the declarations.
 
 For each query you get two functions.
 

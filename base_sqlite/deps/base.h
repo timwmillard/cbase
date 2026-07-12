@@ -196,8 +196,9 @@ string string_view(const char *cstr);               // strlen-terminated
 string string_view_n(const char *bytes, usize len); // explicit length
 
 // Owned copies — bytes are duplicated into the arena.
-string string_from(arena *a, const char *fmt, ...); // printf-style
-string string_vfrom(arena *a, const char *fmt, va_list args);
+string stringf(arena *a, const char *fmt, ...); // printf-style
+string vstringf(arena *a, const char *fmt, va_list args);
+string string_from(arena *a, const char *cstr); // null-terminated C string
 string string_from_n(arena *a, const char *bytes, usize len);
 string string_dup(arena *a, string s); // copy of an existing slice
 
@@ -212,6 +213,8 @@ string string_slice(string s, isize start, isize end); // negative = from end
 string string_trim(string s); // strip leading/trailing ws
 string string_trim_left(string s);
 string string_trim_right(string s);
+string string_trim_prefix(string s, string prefix);
+string string_trim_suffix(string s, string suffix);
 
 bool string_eq(string a, string b);
 bool string_starts_with(string s, string prefix);
@@ -236,7 +239,6 @@ string string_replace(arena *a, string s, string from, string to);
 typedef struct {
    string *items;
    usize len;
-   arena *arena;
 } string_array;
 
 // Growable list of strings (see the `list` section: list_init/append/reserve).
@@ -265,7 +267,8 @@ string_builder sb_init_fixed(char *buf,
 void sb_reserve(string_builder *sb, usize cap);
 void sb_push(string_builder *sb, char c);
 void sb_append(string_builder *sb, string s);
-void sb_append_cstr(string_builder *sb, const char *cstr);
+void sb_append_from(string_builder *sb, const char *cstr);
+void sb_append_from_n(string_builder *sb, const char *bytes, usize len);
 void sb_appendf(string_builder *sb, const char *fmt, ...);
 void sb_vappendf(string_builder *sb, const char *fmt, va_list args);
 void sb_reset(string_builder *sb); // len = 0, keep capacity
@@ -371,13 +374,13 @@ void arena_reset(arena *a) {
 
 void arena_release(arena *a) {
    arena_region *r = a->start;
+   a->start = NULL;
+   a->end = NULL;
    while (r) {
       arena_region *r0 = r;
       r = r->next;
       arena_free_region(r0);
    }
-   a->start = NULL;
-   a->end = NULL;
 }
 
 arena_temp arena_temp_begin(arena *a) {
@@ -398,11 +401,11 @@ void arena_temp_end(arena_temp t) {
    a->end = t.region;
 }
 
-// Thin C-string wrapper over the string_vfrom primitive (which keeps the length
+// Thin C-string wrapper over the vstringf primitive (which keeps the length
 // vsnprintf already computed). The arena-owned buffer is genuinely mutable; the
 // const on string.data is only the string layer's immutability contract.
 char *arena_vsprintf(arena *a, const char *fmt, va_list args) {
-   return (char *)string_vfrom(a, fmt, args).data;
+   return (char *)vstringf(a, fmt, args).data;
 }
 
 char *arena_sprintf(arena *a, const char *fmt, ...) {
@@ -422,7 +425,7 @@ char *arena_sprintf(arena *a, const char *fmt, ...) {
 
 // A view borrows `cstr` without copying. `string.data` is const, so the view
 // cannot be written through -- matching the immutability contract. To get a
-// mutable, owned copy, use string_from_n or string_dup.
+// mutable, owned copy, use string_from, string_from_n, or string_dup.
 string string_view(const char *cstr) {
    usize len = strlen(cstr);
    return (string){
@@ -438,17 +441,17 @@ string string_view_n(const char *bytes, usize len) {
    };
 }
 
-string string_from(arena *a, const char *fmt, ...) {
+string stringf(arena *a, const char *fmt, ...) {
    va_list args;
    va_start(args, fmt);
-   string s = string_vfrom(a, fmt, args);
+   string s = vstringf(a, fmt, args);
    va_end(args);
    return s;
 }
 
 // The formatting primitive: vsnprintf tells us the length, so we keep it rather
 // than strlen the result. arena_vsprintf/arena_sprintf wrap this.
-string string_vfrom(arena *a, const char *fmt, va_list args) {
+string vstringf(arena *a, const char *fmt, va_list args) {
    va_list args_copy;
    va_copy(args_copy, args);
    int n = vsnprintf(NULL, 0, fmt, args_copy);
@@ -462,6 +465,10 @@ string string_vfrom(arena *a, const char *fmt, va_list args) {
        .data = buf,
        .len = (usize)n,
    };
+}
+
+string string_from(arena *a, const char *cstr) {
+   return string_from_n(a, cstr, strlen(cstr));
 }
 
 string string_from_n(arena *a, const char *bytes, usize len) {
@@ -521,6 +528,18 @@ string string_trim_right(string s) {
    while (len > 0 && isspace(s.data[len - 1]))
       len--;
    return (string){.data = s.data, .len = len};
+}
+
+string string_trim_prefix(string s, string prefix) {
+   if (!string_starts_with(s, prefix))
+      return s;
+   return (string){.data = s.data + prefix.len, .len = s.len - prefix.len};
+}
+
+string string_trim_suffix(string s, string suffix) {
+   if (!string_ends_with(s, suffix))
+      return s;
+   return (string){.data = s.data, .len = s.len - suffix.len};
 }
 
 bool string_eq(string a, string b) {
@@ -612,7 +631,7 @@ string string_replace(arena *a, string s, string from, string to) {
 
 // Split / join
 string_array string_split(arena *a, string s, string delim) {
-   string_array arr = {.items = NULL, .len = 0, .arena = a};
+   string_array arr = {.items = NULL, .len = 0};
 
    if (delim.len == 0) { // no delimiter => whole string
       arr.items = (string *)arena_alloc(a, sizeof(string));
@@ -702,8 +721,12 @@ void sb_append(string_builder *sb, string s) {
    sb->len += s.len;
 }
 
-void sb_append_cstr(string_builder *sb, const char *cstr) {
+void sb_append_from(string_builder *sb, const char *cstr) {
    sb_append(sb, string_view(cstr));
+}
+
+void sb_append_from_n(string_builder *sb, const char *bytes, usize len) {
+   sb_append(sb, string_view_n(bytes, len));
 }
 
 void sb_appendf(string_builder *sb, const char *fmt, ...) {

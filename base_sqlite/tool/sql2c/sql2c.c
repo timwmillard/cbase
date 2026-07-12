@@ -169,6 +169,7 @@ typedef struct {
    const char *schema;
    const char *queries;
    const char *output;
+   const char *mode; // "split" (queries.h + queries.c) or "single" (stb-style)
    const char *struct_style;
    const char *field_style;
    const char *func_style;
@@ -191,6 +192,7 @@ static int config_set(Config *c, const char *key, const char *value, Arena *a) {
    if (strcmp(key, "schema") == 0) c->schema = v;
    else if (strcmp(key, "queries") == 0) c->queries = v;
    else if (strcmp(key, "output") == 0) c->output = v;
+   else if (strcmp(key, "mode") == 0) c->mode = v;
    else if (strcmp(key, "struct-style") == 0) c->struct_style = v;
    else if (strcmp(key, "field-style") == 0) c->field_style = v;
    else if (strcmp(key, "func-style") == 0) c->func_style = v;
@@ -262,6 +264,16 @@ static Style parse_style(const char *s) {
    if (strcmp(s, "snake") == 0) return STYLE_SNAKE;
    if (strcmp(s, "camel") == 0) return STYLE_CAMEL;
    return STYLE_PASCAL;
+}
+
+// split: <output> declarations + <output minus ext>.c implementations.
+// single: everything in <output>, implementation gated behind an
+// <GUARD>_IMPLEMENTATION #ifdef (stb-style).
+typedef enum { MODE_SPLIT, MODE_SINGLE } Mode;
+
+static Mode parse_mode(const char *s) {
+   if (strcmp(s, "single") == 0) return MODE_SINGLE;
+   return MODE_SPLIT;
 }
 
 static int is_sep(char c) { return c == '-' || c == '_' || c == ' '; }
@@ -598,44 +610,6 @@ static char *type_name(Gen *g, const char *name) {
       return r;
    }
    return styled;
-}
-
-static void emit_models(Gen *g, StrBuf *sb) {
-   sb_puts(sb, "// Generated from SQL - do not edit\n\n");
-   sb_puts(sb, "#ifndef SQL_MODEL_H\n");
-   sb_puts(sb, "#define SQL_MODEL_H\n\n");
-   sb_puts(sb, "#include <stdint.h>\n");
-   sb_puts(sb, "#include <stdbool.h>\n");
-   sb_puts(sb, "#include <stddef.h>\n");
-   sb_puts(sb, "#include <string.h>\n\n");
-   sb_puts(sb, MODELS_PRELUDE);
-   sb_puts(sb, MODELS_ALLOCATOR);
-
-   sb_puts(sb, "// ============ Table Structs ============\n\n");
-   for (int t = 0; t < g->ntables; t++) {
-      Table *tbl = &g->tables[t];
-      sb_puts(sb, "typedef struct {\n");
-      for (int c = 0; c < tbl->ncols; c++) {
-         Column *col = &tbl->cols[c];
-         const char *ctype = sqlite_type_to_sqltype(g->a, col->decltype, col_nullable(col));
-         char *fname = apply_style(g->a, col->name, g->field_style);
-         sb_printf(sb, "    %s %s;\n", ctype, fname);
-      }
-      sb_printf(sb, "} %s;\n\n", type_name(g, tbl->name));
-   }
-
-   sb_puts(sb, "#endif // SQL_MODEL_H\n");
-}
-
-// Directory portion of a path ("a/b/c.h" -> "a/b"), or "." if none.
-static char *path_dir(Arena *a, const char *path) {
-   const char *slash = strrchr(path, '/');
-   if (!slash) return arena_strdup(a, ".");
-   size_t n = (size_t)(slash - path);
-   char *d = arena_alloc(a, n + 1);
-   memcpy(d, path, n);
-   d[n] = 0;
-   return d;
 }
 
 static char *func_name(Gen *g, const char *name) {
@@ -1116,18 +1090,51 @@ static void emit_wrapper_impl(Gen *g, StrBuf *sb, Query *q) {
    }
 }
 
-static void emit_header(Gen *g, StrBuf *sb, Query *qs, int nq, const char *output) {
+// Uppercased, dot-to-underscore basename of a path, for use as a header
+// guard ("a/b/queries.h" -> "QUERIES_H").
+static char *header_guard(Arena *a, const char *output) {
    const char *base = strrchr(output, '/');
    base = base ? base + 1 : output;
    StrBuf guard = {0};
    for (const char *p = base; *p; p++) sb_printf(&guard, "%c", *p == '.' ? '_' : to_upper(*p));
-
-   sb_puts(sb, "// Generated from SQL - do not edit\n\n");
-   sb_printf(sb, "#ifndef %s\n", guard.data);
-   sb_printf(sb, "#define %s\n\n", guard.data);
-   sb_puts(sb, "#include \"sqlite3.h\"\n\n");
-   sb_puts(sb, "#include \"models.h\"\n\n");
+   char *r = arena_strdup(a, guard.data);
    sb_free(&guard);
+   return r;
+}
+
+// Uppercased basename with its extension stripped, for use as an
+// implementation-macro stem ("a/b/queries.h" -> "QUERIES").
+static char *header_stem(Arena *a, const char *output) {
+   const char *base = strrchr(output, '/');
+   base = base ? base + 1 : output;
+   const char *dot = strrchr(base, '.');
+   size_t n = dot ? (size_t)(dot - base) : strlen(base);
+   StrBuf stem = {0};
+   for (size_t i = 0; i < n; i++) sb_printf(&stem, "%c", to_upper(base[i]));
+   char *r = arena_strdup(a, stem.data ? stem.data : "");
+   sb_free(&stem);
+   return r;
+}
+
+// Base types, allocator, table structs, result-list typedefs, param structs,
+// and query function declarations — shared by both output modes.
+static void emit_declarations(Gen *g, StrBuf *sb, Query *qs, int nq) {
+   sb_puts(sb, "// ============ Base Types ============\n\n");
+   sb_puts(sb, MODELS_PRELUDE);
+   sb_puts(sb, MODELS_ALLOCATOR);
+
+   sb_puts(sb, "// ============ Table Structs ============\n\n");
+   for (int t = 0; t < g->ntables; t++) {
+      Table *tbl = &g->tables[t];
+      sb_puts(sb, "typedef struct {\n");
+      for (int c = 0; c < tbl->ncols; c++) {
+         Column *col = &tbl->cols[c];
+         const char *ctype = sqlite_type_to_sqltype(g->a, col->decltype, col_nullable(col));
+         char *fname = apply_style(g->a, col->name, g->field_style);
+         sb_printf(sb, "    %s %s;\n", ctype, fname);
+      }
+      sb_printf(sb, "} %s;\n\n", type_name(g, tbl->name));
+   }
 
    // Result slices for :many wrappers (deduped by result type).
    const char *seen[256];
@@ -1155,25 +1162,68 @@ static void emit_header(Gen *g, StrBuf *sb, Query *qs, int nq, const char *outpu
       emit_query_decl(g, sb, &qs[i]);
       emit_wrapper_decl(g, sb, &qs[i]);
    }
-
-   sb_puts(sb, "\n");
-   const char *base2 = strrchr(output, '/');
-   base2 = base2 ? base2 + 1 : output;
-   StrBuf guard2 = {0};
-   for (const char *p = base2; *p; p++) sb_printf(&guard2, "%c", *p == '.' ? '_' : to_upper(*p));
-   sb_printf(sb, "#endif // %s\n", guard2.data);
-   sb_free(&guard2);
 }
 
+// Query function implementations — shared by both output modes.
+static void emit_definitions(Gen *g, StrBuf *sb, Query *qs, int nq) {
+   for (int i = 0; i < nq; i++) {
+      emit_query_impl(g, sb, &qs[i]);
+      emit_wrapper_impl(g, sb, &qs[i]);
+   }
+}
+
+// mode=split: declarations only, for <output>.
+static void emit_header(Gen *g, StrBuf *sb, Query *qs, int nq, const char *output) {
+   char *guard = header_guard(g->a, output);
+
+   sb_puts(sb, "// Generated from SQL - do not edit\n\n");
+   sb_printf(sb, "#ifndef %s\n", guard);
+   sb_printf(sb, "#define %s\n\n", guard);
+   sb_puts(sb, "#include <stdint.h>\n");
+   sb_puts(sb, "#include <stdbool.h>\n");
+   sb_puts(sb, "#include <stddef.h>\n");
+   sb_puts(sb, "#include <string.h>\n\n");
+   sb_puts(sb, "#include \"sqlite3.h\"\n\n");
+
+   emit_declarations(g, sb, qs, nq);
+
+   sb_puts(sb, "\n");
+   sb_printf(sb, "#endif // %s\n", guard);
+}
+
+// mode=split: implementations, for <output minus ext>.c.
 static void emit_impl(Gen *g, StrBuf *sb, Query *qs, int nq, const char *header_base) {
    sb_puts(sb, "// Generated from SQL - do not edit\n\n");
    sb_puts(sb, "#include <stdlib.h>\n");
    sb_puts(sb, "#include <string.h>\n");
    sb_printf(sb, "#include \"%s\"\n\n", header_base);
-   for (int i = 0; i < nq; i++) {
-      emit_query_impl(g, sb, &qs[i]);
-      emit_wrapper_impl(g, sb, &qs[i]);
-   }
+   emit_definitions(g, sb, qs, nq);
+}
+
+// mode=single: declarations plus implementations gated behind
+// <STEM>_IMPLEMENTATION, all in <output> (stb-style single header).
+static void emit_single(Gen *g, StrBuf *sb, Query *qs, int nq, const char *output) {
+   char *guard = header_guard(g->a, output);
+   char *stem = header_stem(g->a, output);
+
+   sb_puts(sb, "// Generated from SQL - do not edit\n\n");
+   sb_printf(sb, "#ifndef %s\n", guard);
+   sb_printf(sb, "#define %s\n\n", guard);
+   sb_puts(sb, "#include <stdint.h>\n");
+   sb_puts(sb, "#include <stdbool.h>\n");
+   sb_puts(sb, "#include <stddef.h>\n");
+   sb_puts(sb, "#include <string.h>\n\n");
+   sb_puts(sb, "#include \"sqlite3.h\"\n\n");
+
+   emit_declarations(g, sb, qs, nq);
+
+   sb_puts(sb, "\n");
+   sb_printf(sb, "#endif // %s\n\n", guard);
+
+   sb_printf(sb, "#ifdef %s_IMPLEMENTATION\n\n", stem);
+   sb_puts(sb, "#include <stdlib.h>\n\n");
+   emit_definitions(g, sb, qs, nq);
+   sb_printf(sb, "#endif // %s_IMPLEMENTATION\n", stem);
 }
 
 // ============================================================================
@@ -1187,6 +1237,7 @@ int main(int argc, char **argv) {
        .schema = "schema.sql",
        .queries = "queries.sql",
        .output = "queries.h",
+       .mode = "split",
        .struct_style = "pascal",
        .field_style = "pascal",
        .func_style = "snake",
@@ -1229,36 +1280,36 @@ int main(int argc, char **argv) {
    Query *qs = parse_queries(&g, queries_text, &nq);
    for (int i = 0; i < nq; i++) introspect_query(&g, db, &qs[i]);
 
-   char *dir = path_dir(&arena, cfg.output);
-   const char *base = strrchr(cfg.output, '/');
-   base = base ? base + 1 : cfg.output;
+   Mode mode = parse_mode(cfg.mode);
 
-   // Emit models.h next to the output header.
-   StrBuf models = {0};
-   emit_models(&g, &models);
-   char models_path[1024];
-   snprintf(models_path, sizeof(models_path), "%s/models.h", dir);
-   write_file(models_path, models.data, models.len);
-   sb_free(&models);
+   if (mode == MODE_SINGLE) {
+      StrBuf out = {0};
+      emit_single(&g, &out, qs, nq, cfg.output);
+      write_file(cfg.output, out.data, out.len);
+      sb_free(&out);
+   } else {
+      const char *base = strrchr(cfg.output, '/');
+      base = base ? base + 1 : cfg.output;
 
-   // Emit the query header (<output>) and implementation (<output>.c).
-   StrBuf header = {0};
-   emit_header(&g, &header, qs, nq, cfg.output);
-   write_file(cfg.output, header.data, header.len);
-   sb_free(&header);
+      // Emit the query header (<output>) and implementation (<output>.c).
+      StrBuf header = {0};
+      emit_header(&g, &header, qs, nq, cfg.output);
+      write_file(cfg.output, header.data, header.len);
+      sb_free(&header);
 
-   // Implementation path: output with extension replaced by .c.
-   char impl_path[1024];
-   snprintf(impl_path, sizeof(impl_path), "%s", cfg.output);
-   char *dot = strrchr(impl_path, '.');
-   char *slash = strrchr(impl_path, '/');
-   if (dot && (!slash || dot > slash)) strcpy(dot, ".c");
-   else strncat(impl_path, ".c", sizeof(impl_path) - strlen(impl_path) - 1);
+      // Implementation path: output with extension replaced by .c.
+      char impl_path[1024];
+      snprintf(impl_path, sizeof(impl_path), "%s", cfg.output);
+      char *dot = strrchr(impl_path, '.');
+      char *slash = strrchr(impl_path, '/');
+      if (dot && (!slash || dot > slash)) strcpy(dot, ".c");
+      else strncat(impl_path, ".c", sizeof(impl_path) - strlen(impl_path) - 1);
 
-   StrBuf impl = {0};
-   emit_impl(&g, &impl, qs, nq, base);
-   write_file(impl_path, impl.data, impl.len);
-   sb_free(&impl);
+      StrBuf impl = {0};
+      emit_impl(&g, &impl, qs, nq, base);
+      write_file(impl_path, impl.data, impl.len);
+      sb_free(&impl);
+   }
 
    sqlite3_close(db);
    arena_free(&arena);

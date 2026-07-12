@@ -46,7 +46,6 @@ include_directories(deps)
 
 add_executable(${PROJECT_NAME}
     src/main.c
-    src/queries.c
     src/deps.c
     deps/sqlite3.c
 )
