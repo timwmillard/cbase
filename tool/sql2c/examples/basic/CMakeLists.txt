@@ -3,11 +3,8 @@ project(sql2c_basic_example C)
 
 set(CMAKE_C_STANDARD 11)
 
-# Reuse the SQLite amalgamation already vendored for base_sqlite instead of
-# duplicating it here. A standalone consumer would instead point these at
-# their own copy (see ../../README.md).
-set(SQL2C_SQLITE_C       ${CMAKE_CURRENT_SOURCE_DIR}/../../../../base_sqlite/deps/sqlite3.c)
-set(SQL2C_SQLITE_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/../../../../base_sqlite/deps)
+set(SQL2C_SQLITE_C       ${CMAKE_CURRENT_SOURCE_DIR}/../../sqlite/sqlite3.c)
+set(SQL2C_SQLITE_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/../../sqlite)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../.. sql2c_build)
 
