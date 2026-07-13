@@ -1,0 +1,4 @@
+{
+    "diagnostics.globals": ["dispatch", "canonical_json"],
+    "workspace.library": ["types"]
+}

@@ -1,7 +1,8 @@
 /* jobq: embedded SQLite-backed job queue with Lua handlers.
  *
  * Library usage:
- *   #include <jobq.h>, link -ljobq -lsqlite3 -llua5.4 -lpthread
+ *   #include <jobq.h>, link -ljobq -lpthread
+ *   (sqlite3 and lua are compiled straight into libjobq; see CMakeLists.txt)
  *
  *   sqlite3 *db; jobq_open("jobs.db", &db); jobq_migrate(db);
  *   jobq_pool pool;

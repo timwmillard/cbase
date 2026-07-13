@@ -1,11 +1,6 @@
 
-*.o
-*.a
-*.so
+/build
 
 *.db
 *.db-shm
 *.db-wal
-
-jobqd
-

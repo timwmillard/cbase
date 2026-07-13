@@ -5,15 +5,16 @@
 #include <stdint.h>
 
 typedef struct {
-    int64_t id;
-    char   *kind;
-    char   *args;          /* JSON text, owned; free with jobq_job_free */
-    int     attempt;       /* attempt number of THIS run (1-based) */
-    int     max_attempts;
+  int64_t id;
+  char *kind;
+  char *args;  /* JSON text, owned; free with jobq_job_free */
+  int attempt; /* attempt number of THIS run (1-based) */
+  int max_attempts;
 } jobq_job;
 
 /* Create tables/indexes if missing. Also flips any 'running' jobs back to
- * 'available' -- call once at startup, before workers exist (crash recovery). */
+ * 'available' -- call once at startup, before workers exist (crash recovery).
+ */
 int jobq_migrate(sqlite3 *db);
 
 /* Enqueue a job.
@@ -22,8 +23,8 @@ int jobq_migrate(sqlite3 *db);
  *   run_at:     unix time; 0 means "now".
  * Returns new job id, 0 if skipped as duplicate, -1 on error. */
 int64_t jobq_enqueue(sqlite3 *db, const char *kind, const char *args_json,
-                     const char *unique_key, int64_t run_at,
-                     int priority, int max_attempts);
+                     const char *unique_key, int64_t run_at, int priority,
+                     int max_attempts);
 
 /* Atomically claim the next available job.
  * Returns 1 and fills *out (caller frees), 0 if queue empty, -1 on error. */

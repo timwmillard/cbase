@@ -1,62 +1,23 @@
--- jobs.lua: job handlers. Loaded once per worker thread into that
--- worker's own lua_State (no cross-thread sharing, no locks needed).
+-- jobs.lua: job handlers, and nothing else. Dispatch, JSON decoding, and
+-- canonical encoding are part of the jobq daemon itself (src/runtime_lua.h);
+-- point -l at any file that just calls jobq.register(kind, fn) to swap in a
+-- different set of handlers.
 --
--- Available from C:
+-- Available from C / the runtime:
+--   jobq.register(kind, fn)  -- fn(args, job) where job = {id, kind}
+--                             -- error("...") fails the job -> retry with backoff
+--                             -- return normally to complete it
 --   jobq.enqueue(kind, args_json [, {unique_key=, run_at=, priority=, max_attempts=}])
---   jobq.heartbeat(job_id)   -- for handlers that run longer than the rescue timeout
+--   jobq.heartbeat(job_id)    -- for handlers that run longer than the rescue timeout
+--   canonical_json(value)     -- sorted-key JSON encode, for building unique_key values
 
--- Pure-Lua JSON (dkjson, vendored via deps.lua) instead of lua-cjson, so
--- worker Lua states need nothing beyond stock Lua.
-local dkjson = require("dkjson")
-local cjson = {
-  encode = dkjson.encode,
-  decode = function(str)
-    local obj, _, err = dkjson.decode(str)
-    if err then return nil, err end
-    return obj
-  end,
-}
+local jobq = require("jobq")
 
-----------------------------------------------------------------------
--- Canonical JSON: sorted keys, so equal args => equal bytes.
--- Uniqueness is byte-comparison; cjson.encode does NOT sort keys.
--- Use this when building unique_key values at the producer side too.
-----------------------------------------------------------------------
-local function canonical_json(v)
-  local t = type(v)
-  if t == "table" then
-    -- array?
-    local n = #v
-    local is_array = n > 0
-    if is_array then
-      local parts = {}
-      for i = 1, n do parts[i] = canonical_json(v[i]) end
-      return "[" .. table.concat(parts, ",") .. "]"
-    end
-    local keys = {}
-    for k in pairs(v) do keys[#keys + 1] = k end
-    table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
-    local parts = {}
-    for i, k in ipairs(keys) do
-      parts[i] = cjson.encode(tostring(k)) .. ":" .. canonical_json(v[k])
-    end
-    return "{" .. table.concat(parts, ",") .. "}"
-  end
-  return cjson.encode(v)
-end
-
-----------------------------------------------------------------------
--- Handlers. Signature: handler(args_table, job) where job = {id, kind}.
--- Raise an error (error("...")) to fail the job -> retry with backoff.
--- Return normally to complete it.
-----------------------------------------------------------------------
-local handlers = {}
-
-handlers["demo.print"] = function(args, job)
+jobq.register("demo.print", function(args, job)
   print(("job %d: hello, %s"):format(job.id, args.name or "world"))
-end
+end)
 
-handlers["email.send"] = function(args, job)
+jobq.register("email.send", function(args, job)
   -- Blocking I/O is fine here: it only occupies this worker thread.
   -- e.g. with luasocket/lua-http:
   --   local ok, err = smtp_send(args.to, args.subject, args.body)
@@ -66,31 +27,13 @@ handlers["email.send"] = function(args, job)
   -- jobq.enqueue("email.log", canonical_json({to = args.to}),
   --              { unique_key = "email.log:" .. args.to,
   --                run_at = os.time() + 3600 })
-end
+end)
 
-handlers["report.generate"] = function(args, job)
+jobq.register("report.generate", function(args, job)
   -- Long-running example: heartbeat inside the loop so the rescue
   -- sweeper (RESCUE_TIMEOUT in main.c) doesn't reclaim us.
   for chunk = 1, (args.chunks or 1) do
     -- ... produce chunk ...
     jobq.heartbeat(job.id)
   end
-end
-
-----------------------------------------------------------------------
--- Entry point called from C for every claimed job.
-----------------------------------------------------------------------
-function dispatch(id, kind, args_json)
-  local h = handlers[kind]
-  if not h then
-    error(("no handler for kind %q"):format(kind))
-  end
-  local args, err = cjson.decode(args_json)
-  if args == nil then
-    error(("bad args JSON for job %d: %s"):format(id, tostring(err)))
-  end
-  return h(args, { id = id, kind = kind })
-end
-
--- exported for producers that build unique keys / args in Lua
-_G.canonical_json = canonical_json
+end)
