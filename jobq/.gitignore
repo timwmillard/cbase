@@ -1,0 +1,11 @@
+
+*.o
+*.a
+*.so
+
+*.db
+*.db-shm
+*.db-wal
+
+jobqd
+
