@@ -370,6 +370,27 @@ static void dirname_of(const char *path, char *out, size_t cap)
     out[n] = 0;
 }
 
+/* Manual line splitter: unlike strtok, its state lives entirely in *cursor,
+ * so it's safe for inline_file to call itself recursively while mid-scan of
+ * an outer file (strtok's internal static position would otherwise get
+ * clobbered by the nested call). Also, unlike strtok, it doesn't collapse
+ * consecutive delimiters, so blank lines in real source come through as
+ * empty-string lines instead of silently vanishing. */
+static char *next_line(char **cursor)
+{
+    if (!*cursor) return NULL;
+    char *start = *cursor;
+    if (*start == 0) { *cursor = NULL; return NULL; }
+    char *nl = strchr(start, '\n');
+    if (nl) {
+        *nl = 0;
+        *cursor = nl + 1;
+    } else {
+        *cursor = NULL;
+    }
+    return start;
+}
+
 /* from_path/from_line are only for error messages (the include site that
  * pulled this file in); pass NULL/0 for a manifest-level root. */
 static void inline_file(Arena *a, StrBuf *body, StrList *seen_local,
@@ -393,8 +414,9 @@ static void inline_file(Arena *a, StrBuf *body, StrList *seen_local,
     dirname_of(path, dir, sizeof dir);
 
     char *text = read_file(a, path);
+    char *cursor = text;
     int lineno = 0;
-    for (char *line = strtok(text, "\n"); line; line = strtok(NULL, "\n")) {
+    for (char *line = next_line(&cursor); line; line = next_line(&cursor)) {
         lineno++;
         IncludeMatch m;
         if (match_include(line, &m)) {
