@@ -5,8 +5,17 @@
 --   jobq.enqueue(kind, args_json [, {unique_key=, run_at=, priority=, max_attempts=}])
 --   jobq.heartbeat(job_id)   -- for handlers that run longer than the rescue timeout
 
-local ok, cjson = pcall(require, "cjson.safe")
-if not ok then error("lua-cjson required (luarocks install lua-cjson)") end
+-- Pure-Lua JSON (dkjson, vendored via deps.lua) instead of lua-cjson, so
+-- worker Lua states need nothing beyond stock Lua.
+local dkjson = require("dkjson")
+local cjson = {
+  encode = dkjson.encode,
+  decode = function(str)
+    local obj, _, err = dkjson.decode(str)
+    if err then return nil, err end
+    return obj
+  end,
+}
 
 ----------------------------------------------------------------------
 -- Canonical JSON: sorted keys, so equal args => equal bytes.
