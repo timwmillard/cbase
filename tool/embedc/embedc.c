@@ -4,7 +4,9 @@
  * Copyright (c) 2026 Tim Millard
  * SPDX-License-Identifier: MIT
  *
- * Usage: embedc [-b|-t] <input> <output> [name]
+ * Usage:
+ *   embedc [-b|-t] <input> <output> [name]
+ *   embedc [-b|-t] -o <output> <input> [input ...]
  *
  *   -b   binary mode (default): emit an `unsigned char <name>_data[]` array
  *        of raw bytes plus an `unsigned int <name>_len`.
@@ -12,8 +14,9 @@
  *        (one source-line literal per input line) plus `<name>_len` (the
  *        string length, excluding the terminator).
  *
- * If [name] is omitted it is derived from the input filename: the basename
- * with every non-identifier character replaced by '_'.
+ * The -o form embeds multiple inputs in one output. Symbol names are derived
+ * from each input filename: the basename with every non-identifier character
+ * replaced by '_'.
  */
 
 #include <ctype.h>
@@ -22,7 +25,10 @@
 
 static void usage(const char *prog)
 {
-    fprintf(stderr, "usage: %s [-b|-t] <input> <output> [name]\n", prog);
+    fprintf(stderr,
+            "usage: %s [-b|-t] <input> <output> [name]\n"
+            "       %s [-b|-t] -o <output> <input> [input ...]\n",
+            prog, prog);
 }
 
 /* Derive a C identifier from a path: basename, non-alnum -> '_'. */
@@ -98,12 +104,20 @@ int main(int argc, char **argv)
 {
     int text = 0;
     int argi = 1;
+    const char *multi_outpath = NULL;
 
     for (; argi < argc && argv[argi][0] == '-' && argv[argi][1]; argi++) {
         if (strcmp(argv[argi], "-b") == 0)
             text = 0;
         else if (strcmp(argv[argi], "-t") == 0)
             text = 1;
+        else if (strcmp(argv[argi], "-o") == 0) {
+            if (multi_outpath || ++argi >= argc) {
+                usage(argv[0]);
+                return 2;
+            }
+            multi_outpath = argv[argi];
+        }
         else if (strcmp(argv[argi], "--") == 0) {
             argi++;
             break;
@@ -113,41 +127,79 @@ int main(int argc, char **argv)
         }
     }
 
-    if (argc - argi < 2 || argc - argi > 3) {
-        usage(argv[0]);
-        return 2;
-    }
+    int input_count;
+    const char *outpath;
+    const char *explicit_name = NULL;
 
-    const char *inpath = argv[argi];
-    const char *outpath = argv[argi + 1];
+    if (multi_outpath) {
+        input_count = argc - argi;
+        outpath = multi_outpath;
+        if (input_count < 1) {
+            usage(argv[0]);
+            return 2;
+        }
 
-    char name[256];
-    if (argc - argi == 3)
-        snprintf(name, sizeof name, "%s", argv[argi + 2]);
-    else
-        derive_name(inpath, name, sizeof name);
-
-    FILE *in = fopen(inpath, text ? "r" : "rb");
-    if (!in) {
-        perror(inpath);
-        return 1;
+        /* Duplicate basenames would emit duplicate C definitions. */
+        for (int i = 0; i < input_count; i++) {
+            char left[256];
+            derive_name(argv[argi + i], left, sizeof left);
+            for (int j = i + 1; j < input_count; j++) {
+                char right[256];
+                derive_name(argv[argi + j], right, sizeof right);
+                if (strcmp(left, right) == 0) {
+                    fprintf(stderr,
+                            "%s: inputs %s and %s both produce symbol %s\n",
+                            argv[0], argv[argi + i], argv[argi + j], left);
+                    return 2;
+                }
+            }
+        }
+    } else {
+        if (argc - argi < 2 || argc - argi > 3) {
+            usage(argv[0]);
+            return 2;
+        }
+        input_count = 1;
+        outpath = argv[argi + 1];
+        if (argc - argi == 3)
+            explicit_name = argv[argi + 2];
     }
 
     FILE *out = fopen(outpath, "w");
     if (!out) {
         perror(outpath);
-        fclose(in);
         return 1;
     }
 
-    int rc = text ? emit_text(in, out, name) : emit_binary(in, out, name);
+    int rc = 0;
+    for (int i = 0; i < input_count; i++) {
+        const char *inpath = argv[argi + i];
+        char name[256];
+        if (explicit_name)
+            snprintf(name, sizeof name, "%s", explicit_name);
+        else
+            derive_name(inpath, name, sizeof name);
+
+        FILE *in = fopen(inpath, text ? "r" : "rb");
+        if (!in) {
+            perror(inpath);
+            rc = -1;
+            break;
+        }
+
+        rc = text ? emit_text(in, out, name) : emit_binary(in, out, name);
+        fclose(in);
+        if (rc != 0) {
+            fprintf(stderr, "%s: error processing %s\n", argv[0], inpath);
+            break;
+        }
+    }
 
     if (fclose(out) != 0)
         rc = -1;
-    fclose(in);
 
     if (rc != 0) {
-        fprintf(stderr, "%s: error processing %s\n", argv[0], inpath);
+        remove(outpath);
         return 1;
     }
     return 0;
