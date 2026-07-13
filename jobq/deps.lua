@@ -31,13 +31,17 @@ return {
     },
     {
         -- embedc: embeds .lua source into C headers at build time (same
-        -- pattern as base_sqlite/deps.lua). Local monorepo checkout via
-        -- `dev`, not a real fetch.
+        -- pattern as base_sqlite/deps.lua). singleh: amalgamates src/*.c/.h
+        -- (plus embedc's generated headers) into one distributable jobq.h.
+        -- Both local monorepo checkouts via `dev`, not a real fetch.
         'timwmillard/cbase',
         dev = '..',
         name = 'cbase-tool',
         dir = '.',
         flatten = false,
-        files = { 'tool/embedc/embedc.c', 'tool/embedc/CMakeLists.txt' },
+        files = {
+            'tool/embedc/embedc.c', 'tool/embedc/CMakeLists.txt',
+            'tool/singleh/singleh.c', 'tool/singleh/CMakeLists.txt',
+        },
     },
 }

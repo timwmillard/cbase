@@ -1,0 +1,17 @@
+# singleh manifest — amalgamates jobq into one distributable, stb-style
+# jobq.h. See tool/singleh/singleh.c for the manifest format.
+#
+# No outer `guard =`: src/jobq.h already carries its own #ifndef JOBQ_H
+# wrapper, which comes along verbatim since it's inlined below — a second,
+# same-named outer guard here would just shadow it and strip the real
+# content. sqlite3.h/lua.h stay external #include <...> lines (hoisted,
+# not inlined) — consumers still need those available and linked.
+output     = jobq.h
+impl-guard = JOBQ_IMPLEMENTATION
+
+declarations
+include src/jobq.h
+
+implementation
+include src/queue.c
+include src/pool.c

@@ -59,3 +59,25 @@ install(TARGETS jobqd jobq_static
     ARCHIVE DESTINATION lib
 )
 install(FILES src/jobq.h src/queue.h src/pool.h DESTINATION include/jobq)
+
+# Single-header distribution (stb-style jobq.h): not part of `all` — build it
+# explicitly with `cmake --build build --target jobq_single_header`. Depends
+# on embedc's generated headers since src/pool.c #includes them; singleh
+# inlines that content into the implementation section same as any other
+# local #include.
+add_subdirectory(tool/singleh)
+
+singleh_generate(
+    MANIFEST ${CMAKE_SOURCE_DIR}/jobq.manifest
+    OUTPUT   ${CMAKE_SOURCE_DIR}/jobq.h
+    WORKDIR  ${CMAKE_SOURCE_DIR}
+    DEPENDS
+        ${CMAKE_SOURCE_DIR}/src/jobq.h
+        ${CMAKE_SOURCE_DIR}/src/queue.h
+        ${CMAKE_SOURCE_DIR}/src/queue.c
+        ${CMAKE_SOURCE_DIR}/src/pool.h
+        ${CMAKE_SOURCE_DIR}/src/pool.c
+        ${CMAKE_SOURCE_DIR}/src/dkjson_lua.h
+        ${CMAKE_SOURCE_DIR}/src/runtime_lua.h
+)
+add_custom_target(jobq_single_header DEPENDS ${CMAKE_SOURCE_DIR}/jobq.h)

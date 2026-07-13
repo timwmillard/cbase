@@ -10,10 +10,18 @@ return {
       {
         path = "tool/embedc/embedc.c",
       },
+      {
+        path = "tool/singleh/CMakeLists.txt",
+      },
+      {
+        path = "tool/singleh/singleh.c",
+      },
     },
     spec_files = {
       "tool/embedc/embedc.c",
       "tool/embedc/CMakeLists.txt",
+      "tool/singleh/singleh.c",
+      "tool/singleh/CMakeLists.txt",
     },
     url = "https://github.com/timwmillard/cbase.git",
   },
