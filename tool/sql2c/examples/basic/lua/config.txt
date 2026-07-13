@@ -1,0 +1,8 @@
+# csql2lua config for the basic example.
+# Paths are resolved relative to this file's directory (the WORKDIR
+# csql2lua runs in — see the CMakeLists.txt in the example's root).
+
+manifest       = ../sql/manifes.json
+module         = basicdb
+queries_header = ../src/queries.h
+output         = basicdb.lua.c

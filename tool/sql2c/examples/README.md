@@ -12,8 +12,13 @@ basic/
     schema.sql    # tables sql2c introspects
     queries.sql   # named queries
     config.txt    # sql2c config (naming styles, paths)
+    manifes.json  # generated: query manifest for other codegen (e.g. csql2lua)
   src/
     main.c        # demo program; queries.h/.c are generated here
+  lua/
+    config.txt    # csql2lua config
+    basicdb.lua.c # generated: Lua C module source
+    test.lua      # exercises the built basicdb.so from Lua
   CMakeLists.txt
 ```
 
@@ -37,3 +42,14 @@ The example borrows the SQLite amalgamation already vendored under
 `base_sqlite/deps/` in this repo. Outside this repo, point
 `SQL2C_SQLITE_C`/`SQL2C_SQLITE_INCLUDE` at your own copy instead — see
 `../README.md`.
+
+If Lua is found via `pkg-config` at configure time, the build also runs
+[`csql2lua`](../../csql2lua/README.md) against `sql/manifes.json` and builds
+`basicdb.so`, a loadable Lua C module wrapping the same queries:
+
+```sh
+lua lua/test.lua
+```
+
+(See `../../csql2lua/README.md` for how the Lua-side API looks.) If Lua isn't
+found, this step is skipped and `basic_example` still builds fine.

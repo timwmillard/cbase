@@ -138,8 +138,9 @@ Elsewhere, just `#include "queries.h"` for the declarations.
 ### Manifest (`manifest = ...`)
 
 Setting `manifest` writes a JSON description of every query, meant to drive
-other codegen (e.g. a separate tool generating Lua bindings) without having to
-reimplement `sql2c`'s naming-style logic or type mapping:
+other codegen without having to reimplement `sql2c`'s naming-style logic or
+type mapping. [`csql2lua`](../csql2lua/README.md) is one such consumer — it
+turns this manifest into a Lua C module:
 
 ```json
 {
