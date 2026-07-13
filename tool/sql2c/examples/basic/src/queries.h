@@ -98,7 +98,7 @@ typedef struct sql_allocator {
 
 static inline sql_text sql_dup_text(sql_allocator a, sql_text s) {
     if (s.data == NULL) return s;
-    sql_byte *p = a.alloc(a.ctx, s.len + 1);
+    sql_byte *p = (sql_byte *)a.alloc(a.ctx, s.len + 1);
     memcpy(p, s.data, s.len);
     p[s.len] = 0;
     return (sql_text){ .data = p, .len = s.len };
@@ -106,7 +106,7 @@ static inline sql_text sql_dup_text(sql_allocator a, sql_text s) {
 
 static inline sql_nulltext sql_dup_nulltext(sql_allocator a, sql_nulltext s) {
     if (s.null || s.data == NULL) return s;
-    char *p = a.alloc(a.ctx, s.len + 1);
+    char *p = (char *)a.alloc(a.ctx, s.len + 1);
     memcpy(p, s.data, s.len);
     p[s.len] = 0;
     return (sql_nulltext){ .data = p, .len = s.len, .null = false };
@@ -114,14 +114,14 @@ static inline sql_nulltext sql_dup_nulltext(sql_allocator a, sql_nulltext s) {
 
 static inline sql_blob sql_dup_blob(sql_allocator a, sql_blob s) {
     if (s.data == NULL) return s;
-    sql_byte *p = a.alloc(a.ctx, s.len);
+    sql_byte *p = (sql_byte *)a.alloc(a.ctx, s.len);
     memcpy(p, s.data, s.len);
     return (sql_blob){ .data = p, .len = s.len };
 }
 
 static inline sql_nullblob sql_dup_nullblob(sql_allocator a, sql_nullblob s) {
     if (s.null || s.data == NULL) return s;
-    sql_byte *p = a.alloc(a.ctx, s.len);
+    sql_byte *p = (sql_byte *)a.alloc(a.ctx, s.len);
     memcpy(p, s.data, s.len);
     return (sql_nullblob){ .data = p, .len = s.len, .null = false };
 }
