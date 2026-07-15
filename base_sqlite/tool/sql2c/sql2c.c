@@ -169,6 +169,7 @@ typedef struct {
    const char *schema;
    const char *queries;
    const char *output;
+   const char *manifest; // optional path for the JSON query manifest; "" disables it
    const char *mode; // "split" (queries.h + queries.c) or "single" (stb-style)
    const char *struct_style;
    const char *field_style;
@@ -192,6 +193,7 @@ static int config_set(Config *c, const char *key, const char *value, Arena *a) {
    if (strcmp(key, "schema") == 0) c->schema = v;
    else if (strcmp(key, "queries") == 0) c->queries = v;
    else if (strcmp(key, "output") == 0) c->output = v;
+   else if (strcmp(key, "manifest") == 0) c->manifest = v;
    else if (strcmp(key, "mode") == 0) c->mode = v;
    else if (strcmp(key, "struct-style") == 0) c->struct_style = v;
    else if (strcmp(key, "field-style") == 0) c->field_style = v;
@@ -561,7 +563,7 @@ static const char *MODELS_ALLOCATOR =
     "\n"
     "static inline sql_text sql_dup_text(sql_allocator a, sql_text s) {\n"
     "    if (s.data == NULL) return s;\n"
-    "    sql_byte *p = a.alloc(a.ctx, s.len + 1);\n"
+    "    sql_byte *p = (sql_byte *)a.alloc(a.ctx, s.len + 1);\n"
     "    memcpy(p, s.data, s.len);\n"
     "    p[s.len] = 0;\n"
     "    return (sql_text){ .data = p, .len = s.len };\n"
@@ -569,7 +571,7 @@ static const char *MODELS_ALLOCATOR =
     "\n"
     "static inline sql_nulltext sql_dup_nulltext(sql_allocator a, sql_nulltext s) {\n"
     "    if (s.null || s.data == NULL) return s;\n"
-    "    char *p = a.alloc(a.ctx, s.len + 1);\n"
+    "    char *p = (char *)a.alloc(a.ctx, s.len + 1);\n"
     "    memcpy(p, s.data, s.len);\n"
     "    p[s.len] = 0;\n"
     "    return (sql_nulltext){ .data = p, .len = s.len, .null = false };\n"
@@ -577,14 +579,14 @@ static const char *MODELS_ALLOCATOR =
     "\n"
     "static inline sql_blob sql_dup_blob(sql_allocator a, sql_blob s) {\n"
     "    if (s.data == NULL) return s;\n"
-    "    sql_byte *p = a.alloc(a.ctx, s.len);\n"
+    "    sql_byte *p = (sql_byte *)a.alloc(a.ctx, s.len);\n"
     "    memcpy(p, s.data, s.len);\n"
     "    return (sql_blob){ .data = p, .len = s.len };\n"
     "}\n"
     "\n"
     "static inline sql_nullblob sql_dup_nullblob(sql_allocator a, sql_nullblob s) {\n"
     "    if (s.null || s.data == NULL) return s;\n"
-    "    sql_byte *p = a.alloc(a.ctx, s.len);\n"
+    "    sql_byte *p = (sql_byte *)a.alloc(a.ctx, s.len);\n"
     "    memcpy(p, s.data, s.len);\n"
     "    return (sql_nullblob){ .data = p, .len = s.len, .null = false };\n"
     "}\n"
@@ -631,8 +633,9 @@ static char *func_name(Gen *g, const char *name) {
 typedef enum { Q_ONE, Q_MANY, Q_EXEC } QueryKind;
 
 typedef struct {
-   char *name;        // bind name (':' stripped), or "argN" for positional
-   const char *type;  // sql_* C type
+   char *name;            // bind name (':' stripped), or "argN" for positional
+   const char *type;      // sql_* C type
+   const char *sql_type;  // raw declared SQL type (e.g. "INTEGER"), for the manifest
 } Param;
 
 typedef struct {
@@ -685,6 +688,18 @@ static const char *param_type(Gen *g, const char *name) {
    return result;
 }
 
+// Raw declared SQL type for a named parameter (first matching column), for
+// the manifest. Mirrors the lookup in param_type() above.
+static const char *param_sql_type(Gen *g, const char *name) {
+   for (int t = 0; t < g->ntables; t++) {
+      for (int c = 0; c < g->tables[t].ncols; c++) {
+         if (strcasecmp(g->tables[t].cols[c].name, name) != 0) continue;
+         return g->tables[t].cols[c].decltype ? g->tables[t].cols[c].decltype : "TEXT";
+      }
+   }
+   return "TEXT";
+}
+
 static void introspect_query(Gen *g, sqlite3 *db, Query *q) {
    sqlite3_stmt *st;
    if (sqlite3_prepare_v2(db, q->sql, -1, &st, NULL) != SQLITE_OK) {
@@ -706,6 +721,7 @@ static void introspect_query(Gen *g, sqlite3 *db, Query *q) {
       }
       q->params[i - 1].name = arena_strdup(g->a, namebuf);
       q->params[i - 1].type = pn ? param_type(g, namebuf) : "sql_text";
+      q->params[i - 1].sql_type = pn ? param_sql_type(g, namebuf) : "TEXT";
    }
 
    int nc = sqlite3_column_count(st);
@@ -1090,6 +1106,140 @@ static void emit_wrapper_impl(Gen *g, StrBuf *sb, Query *q) {
    }
 }
 
+// ============================================================================
+// manifest.json emit — machine-readable query metadata for other codegen
+// (e.g. a separate SQL-manifest -> Lua generator that doesn't want to
+// re-derive struct/field names from schema + naming-style config itself).
+// ============================================================================
+
+static void json_escape(StrBuf *sb, const char *s) {
+   sb_puts(sb, "\"");
+   for (const unsigned char *p = (const unsigned char *)s; *p; p++) {
+      switch (*p) {
+         case '"': sb_puts(sb, "\\\""); break;
+         case '\\': sb_puts(sb, "\\\\"); break;
+         case '\n': sb_puts(sb, "\\n"); break;
+         case '\r': sb_puts(sb, "\\r"); break;
+         case '\t': sb_puts(sb, "\\t"); break;
+         default:
+            if (*p < 0x20) sb_printf(sb, "\\u%04x", *p);
+            else sb_printf(sb, "%c", *p);
+      }
+   }
+   sb_puts(sb, "\"");
+}
+
+static const char *query_kind_name(QueryKind k) {
+   switch (k) {
+      case Q_ONE: return "one";
+      case Q_MANY: return "many";
+      default: return "exec";
+   }
+}
+
+// One param or result column: SQL-level name/type plus the exact generated
+// C identifier/type, so a downstream generator doesn't need to reimplement
+// apply_style()/type mapping to call into the emitted C correctly.
+static void emit_manifest_column(StrBuf *sb, const char *name, const char *field,
+                                  const char *sql_type, const char *c_type, int nullable) {
+   sb_puts(sb, "{ \"name\": ");
+   json_escape(sb, name);
+   sb_puts(sb, ", \"field\": ");
+   json_escape(sb, field);
+   sb_puts(sb, ", \"sql_type\": ");
+   json_escape(sb, sql_type);
+   sb_printf(sb, ", \"c_type\": \"%s\", \"nullable\": %s }", c_type, nullable ? "true" : "false");
+}
+
+// Schema tables, independent of which queries reference them — lets a
+// downstream generator define full model types even for tables no query
+// touches directly.
+static void emit_manifest_models(Gen *g, StrBuf *sb) {
+   sb_puts(sb, "  \"models\": [\n");
+   for (int t = 0; t < g->ntables; t++) {
+      Table *tbl = &g->tables[t];
+      if (t > 0) sb_puts(sb, ",\n");
+      sb_puts(sb, "    {\n");
+      sb_puts(sb, "      \"table\": "); json_escape(sb, tbl->name); sb_puts(sb, ",\n");
+      sb_puts(sb, "      \"type\": "); json_escape(sb, type_name(g, tbl->name)); sb_puts(sb, ",\n");
+      sb_puts(sb, "      \"columns\": [");
+      for (int c = 0; c < tbl->ncols; c++) {
+         if (c > 0) sb_puts(sb, ", ");
+         Column *col = &tbl->cols[c];
+         const char *ctype = sqlite_type_to_sqltype(g->a, col->decltype, col_nullable(col));
+         const char *field = apply_style(g->a, col->name, g->field_style);
+         sb_puts(sb, "{ \"name\": ");
+         json_escape(sb, col->name);
+         sb_puts(sb, ", \"field\": ");
+         json_escape(sb, field);
+         sb_puts(sb, ", \"sql_type\": ");
+         json_escape(sb, col->decltype);
+         sb_printf(sb, ", \"c_type\": \"%s\", \"nullable\": %s, \"pk\": %s }",
+                   ctype, col_nullable(col) ? "true" : "false", col->pk ? "true" : "false");
+      }
+      sb_puts(sb, "]\n");
+      sb_puts(sb, "    }");
+   }
+   sb_puts(sb, "\n  ],\n");
+}
+
+static void emit_manifest(Gen *g, StrBuf *sb, Query *qs, int nq) {
+   sb_puts(sb, "{\n");
+   emit_manifest_models(g, sb);
+   sb_puts(sb, "  \"queries\": [\n");
+   for (int qi = 0; qi < nq; qi++) {
+      Query *q = &qs[qi];
+      const char *fn = func_name(g, q->name);
+      if (qi > 0) sb_puts(sb, ",\n");
+      sb_puts(sb, "    {\n");
+      sb_puts(sb, "      \"name\": "); json_escape(sb, q->name); sb_puts(sb, ",\n");
+      sb_printf(sb, "      \"kind\": \"%s\",\n", query_kind_name(q->kind));
+      sb_puts(sb, "      \"sql\": "); json_escape(sb, q->sql); sb_puts(sb, ",\n");
+      sb_puts(sb, "      \"func\": "); json_escape(sb, fn); sb_puts(sb, ",\n");
+
+      if (q->nparams > 1) {
+         sb_puts(sb, "      \"params_type\": ");
+         json_escape(sb, params_type_name(g, q));
+         sb_puts(sb, ",\n");
+      } else {
+         sb_puts(sb, "      \"params_type\": null,\n");
+      }
+
+      sb_puts(sb, "      \"params\": [");
+      for (int i = 0; i < q->nparams; i++) {
+         if (i > 0) sb_puts(sb, ", ");
+         const char *field = apply_style(g->a, q->params[i].name, g->field_style);
+         emit_manifest_column(sb, q->params[i].name, field, q->params[i].sql_type, q->params[i].type, 0);
+      }
+      sb_puts(sb, "],\n");
+
+      if (q->kind == Q_EXEC) {
+         sb_puts(sb, "      \"result_type\": null,\n");
+         sb_puts(sb, "      \"result_list_type\": null,\n");
+         sb_puts(sb, "      \"result\": null\n");
+      } else {
+         sb_puts(sb, "      \"result_type\": "); json_escape(sb, q->result_type); sb_puts(sb, ",\n");
+         if (q->kind == Q_MANY) {
+            sb_puts(sb, "      \"result_list_type\": ");
+            json_escape(sb, slice_type(g, q->result_type));
+            sb_puts(sb, ",\n");
+         } else {
+            sb_puts(sb, "      \"result_list_type\": null,\n");
+         }
+         sb_puts(sb, "      \"result\": [");
+         for (int i = 0; i < q->nresults; i++) {
+            if (i > 0) sb_puts(sb, ", ");
+            Column *col = &q->results[i].col;
+            const char *ctype = sqlite_type_to_sqltype(g->a, col->decltype, col_nullable(col));
+            emit_manifest_column(sb, col->name, q->results[i].field, col->decltype, ctype, col_nullable(col));
+         }
+         sb_puts(sb, "]\n");
+      }
+      sb_puts(sb, "    }");
+   }
+   sb_puts(sb, "\n  ]\n}\n");
+}
+
 // Uppercased, dot-to-underscore basename of a path, for use as a header
 // guard ("a/b/queries.h" -> "QUERIES_H").
 static char *header_guard(Arena *a, const char *output) {
@@ -1237,6 +1387,7 @@ int main(int argc, char **argv) {
        .schema = "schema.sql",
        .queries = "queries.sql",
        .output = "queries.h",
+       .manifest = "",
        .mode = "split",
        .struct_style = "pascal",
        .field_style = "pascal",
@@ -1309,6 +1460,13 @@ int main(int argc, char **argv) {
       emit_impl(&g, &impl, qs, nq, base);
       write_file(impl_path, impl.data, impl.len);
       sb_free(&impl);
+   }
+
+   if (cfg.manifest && cfg.manifest[0]) {
+      StrBuf manifest = {0};
+      emit_manifest(&g, &manifest, qs, nq);
+      write_file(cfg.manifest, manifest.data, manifest.len);
+      sb_free(&manifest);
    }
 
    sqlite3_close(db);

@@ -1,11 +1,11 @@
 return {
     config = {
         dir = 'deps',
-        subdir = false,
-        flatten = true,
     },
     {
         'floooh/sokol',
+        subdir = '',
+        flatten = true,
         files = {
             'sokol_app.h', 'sokol_gfx.h', 'sokol_glue.h',
             'util/sokol_nuklear.h',
@@ -13,6 +13,8 @@ return {
     },
     {
         'Immediate-Mode-UI/Nuklear',
+        subdir = '',
+        flatten = true,
         files = {
             'nuklear.h',
         },
