@@ -26,7 +26,6 @@ return {
     url = "https://github.com/timwmillard/cbase.git",
   },
   dkjson = {
-    branch = "master",
     commit = "e72ba0c9f5d8b8746fc306f6189a819dbb5cd0be",
     dest = ".",
     files = {

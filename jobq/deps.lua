@@ -5,8 +5,6 @@
 return {
     config = {
         dir = 'deps',
-        subdir = false,
-        flatten = true,
     },
     {
         -- Official lua.org amalgam (not the lua/lua git mirror): the archive's
@@ -14,10 +12,12 @@ return {
         -- deps/lua-5.5.0 so a -Ideps/lua-5.5.0/src path stays put.
         url = 'https://www.lua.org/ftp/lua-5.5.0.tar.gz',
         name = 'lua',
-        dest = 'deps/lua-5.5.0',
+        subdir = 'lua-5.5.0',
+        flatten = true,
     },
     {
         url = 'https://sqlite.org/2026/sqlite-amalgamation-3530300.zip',
+        subdir = '',
         files = { 'sqlite3.c', 'sqlite3.h' },
     },
     {
@@ -26,8 +26,10 @@ return {
         -- (not deps/) — it's embedded into the binary at build time (see
         -- CMakeLists.txt), not require()'d off disk at runtime.
         'LuaDist/dkjson',
+        flatten = true,
+        dir = '.',
+        subdir = '',
         files = { 'dkjson.lua' },
-        dest = '.',
     },
     {
         -- embedc: embeds .lua source into C headers at build time (same
@@ -38,6 +40,7 @@ return {
         dev = '..',
         name = 'cbase-tool',
         dir = '.',
+        subdir = '',
         flatten = false,
         files = {
             'tool/embedc/embedc.c', 'tool/embedc/CMakeLists.txt',
