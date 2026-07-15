@@ -1,10 +1,9 @@
 #include <stdio.h>
 
 #include "base.h"
+#include "queries.h"
 #include "schema.h"
 #include "sqlite3.h"
-#define QUERIES_IMPLEMENTATION
-#include "queries.h"
 
 // Adapt base.h's arena to the generated sql_allocator interface.
 static void *arena_alloc_fn(void *ctx, size_t n) {
