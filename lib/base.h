@@ -698,7 +698,7 @@ string string_join(arena *a, string_array parts, string sep) {
 
 // clang-format off
 // Stolen from Tsoding who stole from Jai's Unicode module
-static const uint8_t bytes_for_utf8[] = {
+static const u8 bytes_for_utf8[] = {
     1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
     1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
     1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
