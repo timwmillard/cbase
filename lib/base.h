@@ -262,8 +262,27 @@ string string_join(arena *a, string_array parts, string sep);
 // UTF8
 // ---------------------------------------------------------------------------
 
+typedef u32 rune; // a decoded Unicode codepoint
+
 usize string_utf8_len(string s);
 usize string_utf8_len_overrun(string s, usize *bytes_overrun);
+
+// Decode the codepoint at the start of s, writing the number of bytes it
+// consumed to *bytes_read (optional). To iterate a whole string:
+//   usize i = 0;
+//   while (i < s.len) {
+//      usize n;
+//      rune r = string_utf8_decode(string_slice(s, i, s.len), &n);
+//      ... use r ...
+//      i += n;
+//   }
+// If the leading byte declares a sequence longer than s.len (a truncated
+// trailing codepoint — see string_utf8_len_overrun), the decode consumes
+// only the bytes actually present, so *bytes_read never overruns s.len.
+// Empty input decodes as {rune 0, bytes_read 0}, distinct from a real NUL
+// byte (which decodes as {rune 0, bytes_read 1}) — check bytes_read, not
+// just the rune, to tell them apart.
+rune string_utf8_decode(string s, usize *bytes_read);
 
 // ---------------------------------------------------------------------------
 // string_builder — the only mutable type. Grows in an arena (or a fixed
@@ -727,6 +746,25 @@ usize string_utf8_len_overrun(string s, usize *bytes_overrun) {
 
 usize string_utf8_len(string s) {
    return string_utf8_len_overrun(s, NULL);
+}
+
+rune string_utf8_decode(string s, usize *bytes_read) {
+   if (s.len == 0) {
+      if (bytes_read)
+         *bytes_read = 0;
+      return 0;
+   }
+   u8 lead = (u8)s.data[0];
+   usize declared = bytes_for_utf8[lead];
+   usize n = declared > s.len ? s.len : declared;
+
+   rune r = (declared == 1) ? lead : (lead & (u8)((1 << (7 - declared)) - 1));
+   for (usize i = 1; i < n; i++)
+      r = (r << 6) | ((u8)s.data[i] & 0x3F);
+
+   if (bytes_read)
+      *bytes_read = n;
+   return r;
 }
 
 // -----------------------------------------------------------------------------
