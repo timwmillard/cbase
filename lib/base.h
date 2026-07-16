@@ -44,6 +44,17 @@ typedef long double f128;
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 
+// Marks a code path as unreachable. Asserts in debug builds (giving a clear
+// diagnostic if actually hit) and tells the compiler the path is dead
+// otherwise, so it can drop the code and won't warn about a missing return.
+#if defined(__GNUC__) || defined(__clang__)
+#define UNREACHABLE() (assert(!"unreachable"), __builtin_unreachable())
+#elif defined(_MSC_VER)
+#define UNREACHABLE() (assert(!"unreachable"), __assume(0))
+#else
+#define UNREACHABLE() (assert(!"unreachable"), abort())
+#endif
+
 // ---------------------------------------------------------------------------
 // arena (copied from base.h so this header stands alone)
 // ---------------------------------------------------------------------------
@@ -248,6 +259,13 @@ string_array string_split(arena *a, string s, string delim);
 string string_join(arena *a, string_array parts, string sep);
 
 // ---------------------------------------------------------------------------
+// UTF8
+// ---------------------------------------------------------------------------
+
+usize string_utf8_len(string s);
+usize string_utf8_len_overrun(string s, usize *bytes_overrun);
+
+// ---------------------------------------------------------------------------
 // string_builder — the only mutable type. Grows in an arena (or a fixed
 // buffer).
 // ---------------------------------------------------------------------------
@@ -402,8 +420,8 @@ void arena_temp_end(arena_temp t) {
 }
 
 // Thin C-string wrapper over the vstringf primitive (which keeps the length
-// vsnprintf already computed). The arena-owned buffer is genuinely mutable; the
-// const on string.data is only the string layer's immutability contract.
+// vsnprintf already computed). The arena-owned buffer is genuinely mutable;
+// the const on string.data is only the string layer's immutability contract.
 char *arena_vsprintf(arena *a, const char *fmt, va_list args) {
    return (char *)vstringf(a, fmt, args).data;
 }
@@ -449,8 +467,8 @@ string stringf(arena *a, const char *fmt, ...) {
    return s;
 }
 
-// The formatting primitive: vsnprintf tells us the length, so we keep it rather
-// than strlen the result. arena_vsprintf/arena_sprintf wrap this.
+// The formatting primitive: vsnprintf tells us the length, so we keep it
+// rather than strlen the result. arena_vsprintf/arena_sprintf wrap this.
 string vstringf(arena *a, const char *fmt, va_list args) {
    va_list args_copy;
    va_copy(args_copy, args);
@@ -676,6 +694,39 @@ string string_join(arena *a, string_array parts, string sep) {
       sb_append(&sb, parts.items[i]);
    }
    return sb_string(&sb);
+}
+
+// clang-format off
+// Stolen from Tsoding who stole from Jai's Unicode module
+static const uint8_t bytes_for_utf8[] = {
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2, 2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
+    3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3, 4,4,4,4,4,4,4,4,5,5,5,5,6,6,6,6,
+};
+// clang-format on
+
+usize string_utf8_len_overrun(string s, usize *bytes_overrun) {
+   usize i = 0;
+   usize n = 0;
+   while (true) {
+      if (i >= s.len) {
+         if (bytes_overrun)
+            *bytes_overrun = i - s.len;
+         return n;
+      }
+      i += bytes_for_utf8[(u8)s.data[i]];
+      n += 1;
+   }
+   UNREACHABLE();
+}
+
+usize string_utf8_len(string s) {
+   return string_utf8_len_overrun(s, NULL);
 }
 
 // -----------------------------------------------------------------------------

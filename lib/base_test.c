@@ -687,6 +687,73 @@ void test_sb_fixed(void) {
    PASS(test_name);
 }
 
+/* ================================================================== */
+/* string: utf8                                                       */
+/* ================================================================== */
+
+/* ascii-only input: codepoint count equals byte count */
+void test_string_utf8_len_ascii(void) {
+   const char *test_name = "string_utf8_len_ascii";
+   ASSERT(string_utf8_len(S("hello")) == 5, "5 ascii bytes == 5 codepoints");
+   ASSERT(string_utf8_len(S("")) == 0, "empty string has 0 codepoints");
+   PASS(test_name);
+}
+
+/* multi-byte utf8: codepoint count is less than byte count */
+void test_string_utf8_len_multibyte(void) {
+   const char *test_name = "string_utf8_len_multibyte";
+   /* "日本語" - three 3-byte codepoints, 9 bytes total */
+   string s = S("\xE6\x97\xA5"
+                "\xE6\x9C\xAC"
+                "\xE8\xAA\x9E");
+   ASSERT(s.len == 9, "source is 9 bytes");
+   ASSERT(string_utf8_len(s) == 3, "3 three-byte codepoints count as 3");
+   PASS(test_name);
+}
+
+/* well-formed input ends on a codepoint boundary: overrun is 0 */
+void test_string_utf8_len_overrun_clean(void) {
+   const char *test_name = "string_utf8_len_overrun_clean";
+   usize overrun = 999;
+   /* "café": c, a, f, e-acute (2-byte) = 5 bytes, 4 codepoints */
+   usize n = string_utf8_len_overrun(S("caf\xC3\xA9"), &overrun);
+   ASSERT(n == 4, "4 codepoints (c, a, f, e-acute)");
+   ASSERT(overrun == 0, "ends cleanly on a codepoint boundary");
+   PASS(test_name);
+}
+
+/* truncated trailing multi-byte sequence: overrun reports the missing bytes */
+void test_string_utf8_len_overrun_truncated(void) {
+   const char *test_name = "string_utf8_len_overrun_truncated";
+   /* "café" with the trailing continuation byte chopped off: "caf" + lead byte
+    */
+   string s = S("caf\xC3");
+   usize overrun = 999;
+   usize n = string_utf8_len_overrun(s, &overrun);
+   ASSERT(n == 4, "partial trailing codepoint is still counted");
+   ASSERT(overrun == 1, "missing exactly 1 byte to complete the sequence");
+   PASS(test_name);
+}
+
+/* bytes_overrun is optional */
+void test_string_utf8_len_null_overrun(void) {
+   const char *test_name = "string_utf8_len_null_overrun";
+   ASSERT(string_utf8_len_overrun(S("hello"), NULL) == 5,
+          "NULL bytes_overrun is accepted");
+   PASS(test_name);
+}
+
+/* string_utf8_len should expose the same bytes_overrun contract as
+ * string_utf8_len_overrun */
+void test_string_utf8_len_overrun_param(void) {
+   const char *test_name = "string_utf8_len_overrun_param";
+   usize overrun = 999;
+   usize n = string_utf8_len_overrun(S("caf\xC3"), &overrun);
+   ASSERT(n == 4, "partial trailing codepoint is still counted");
+   ASSERT(overrun == 1, "bytes_overrun is populated through string_utf8_len");
+   PASS(test_name);
+}
+
 int main(void) {
    printf(COLOR_BOLD "\narena tests\n" COLOR_RESET "\n");
 
@@ -738,6 +805,15 @@ int main(void) {
    test_sb_appendf();
    test_sb_reset();
    test_sb_fixed();
+
+   printf(COLOR_BOLD "\nutf8 tests\n" COLOR_RESET "\n");
+
+   test_string_utf8_len_ascii();
+   test_string_utf8_len_multibyte();
+   test_string_utf8_len_overrun_clean();
+   test_string_utf8_len_overrun_truncated();
+   test_string_utf8_len_null_overrun();
+   test_string_utf8_len_overrun_param();
 
    if (_failed == 0)
       printf("\n" COLOR_BOLD COLOR_GREEN "All tests passed." COLOR_RESET
