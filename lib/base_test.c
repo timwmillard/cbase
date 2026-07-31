@@ -626,6 +626,18 @@ void test_string_join(void) {
 /* string_builder                                                     */
 /* ================================================================== */
 
+void test_sb_empty_snapshot(void) {
+   const char *test_name = "sb_empty_snapshot";
+   arena a = {0};
+   string_builder sb = sb_init(&a);
+   string s = sb_string(&sb);
+   ASSERT(s.data != NULL, "empty snapshot has a valid data pointer");
+   ASSERT(s.len == 0, "empty snapshot has zero length");
+   ASSERT_STR(string_slice(s, 0, 0), "");
+   arena_release(&a);
+   PASS(test_name);
+}
+
 void test_sb_append(void) {
    const char *test_name = "sb_append";
    arena a = {0};
@@ -892,6 +904,7 @@ int main(void) {
    test_string_replace();
    test_string_split();
    test_string_join();
+   test_sb_empty_snapshot();
    test_sb_append();
    test_sb_append_from_n();
    test_sb_appendf();

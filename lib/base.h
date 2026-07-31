@@ -845,7 +845,11 @@ void sb_reset(string_builder *sb) {
 }
 
 string sb_string(string_builder *sb) {
-   return (string){.data = sb->data, .len = sb->len};
+   assert(sb->data != NULL || sb->len == 0);
+   return (string){
+       .data = sb->data ? sb->data : "",
+       .len = sb->len,
+   };
 }
 
 const char *sb_cstr(string_builder *sb) {
