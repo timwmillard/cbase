@@ -556,14 +556,14 @@ string string_trim(string s) {
 
 string string_trim_left(string s) {
    usize i = 0;
-   while (i < s.len && isspace(s.data[i]))
+   while (i < s.len && isspace((unsigned char)s.data[i]))
       i++;
    return (string){.data = s.data + i, .len = s.len - i};
 }
 
 string string_trim_right(string s) {
    usize len = s.len;
-   while (len > 0 && isspace(s.data[len - 1]))
+   while (len > 0 && isspace((unsigned char)s.data[len - 1]))
       len--;
    return (string){.data = s.data, .len = len};
 }
