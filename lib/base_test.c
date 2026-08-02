@@ -626,6 +626,18 @@ void test_string_join(void) {
 /* string_builder                                                     */
 /* ================================================================== */
 
+void test_sb_empty_snapshot(void) {
+   const char *test_name = "sb_empty_snapshot";
+   arena a = {0};
+   string_builder sb = sb_init(&a);
+   string s = sb_string(&sb);
+   ASSERT(s.data != NULL, "empty snapshot has a valid data pointer");
+   ASSERT(s.len == 0, "empty snapshot has zero length");
+   ASSERT_STR(string_slice(s, 0, 0), "");
+   arena_release(&a);
+   PASS(test_name);
+}
+
 void test_sb_append(void) {
    const char *test_name = "sb_append";
    arena a = {0};
@@ -687,6 +699,165 @@ void test_sb_fixed(void) {
    PASS(test_name);
 }
 
+/* ================================================================== */
+/* string: utf8                                                       */
+/* ================================================================== */
+
+/* ascii-only input: codepoint count equals byte count */
+void test_string_utf8_len_ascii(void) {
+   const char *test_name = "string_utf8_len_ascii";
+   ASSERT(string_utf8_len(S("hello")) == 5, "5 ascii bytes == 5 codepoints");
+   ASSERT(string_utf8_len(S("")) == 0, "empty string has 0 codepoints");
+   PASS(test_name);
+}
+
+/* multi-byte utf8: codepoint count is less than byte count */
+void test_string_utf8_len_multibyte(void) {
+   const char *test_name = "string_utf8_len_multibyte";
+   /* "日本語" - three 3-byte codepoints, 9 bytes total */
+   string s = S("\xE6\x97\xA5"
+                "\xE6\x9C\xAC"
+                "\xE8\xAA\x9E");
+   ASSERT(s.len == 9, "source is 9 bytes");
+   ASSERT(string_utf8_len(s) == 3, "3 three-byte codepoints count as 3");
+   PASS(test_name);
+}
+
+/* well-formed input ends on a codepoint boundary: overrun is 0 */
+void test_string_utf8_len_overrun_clean(void) {
+   const char *test_name = "string_utf8_len_overrun_clean";
+   usize overrun = 999;
+   /* "café": c, a, f, e-acute (2-byte) = 5 bytes, 4 codepoints */
+   usize n = string_utf8_len_overrun(S("caf\xC3\xA9"), &overrun);
+   ASSERT(n == 4, "4 codepoints (c, a, f, e-acute)");
+   ASSERT(overrun == 0, "ends cleanly on a codepoint boundary");
+   PASS(test_name);
+}
+
+/* truncated trailing multi-byte sequence: overrun reports the missing bytes */
+void test_string_utf8_len_overrun_truncated(void) {
+   const char *test_name = "string_utf8_len_overrun_truncated";
+   /* "café" with the trailing continuation byte chopped off: "caf" + lead byte
+    */
+   string s = S("caf\xC3");
+   usize overrun = 999;
+   usize n = string_utf8_len_overrun(s, &overrun);
+   ASSERT(n == 4, "partial trailing codepoint is still counted");
+   ASSERT(overrun == 1, "missing exactly 1 byte to complete the sequence");
+   PASS(test_name);
+}
+
+/* bytes_overrun is optional */
+void test_string_utf8_len_null_overrun(void) {
+   const char *test_name = "string_utf8_len_null_overrun";
+   ASSERT(string_utf8_len_overrun(S("hello"), NULL) == 5,
+          "NULL bytes_overrun is accepted");
+   PASS(test_name);
+}
+
+/* string_utf8_len should expose the same bytes_overrun contract as
+ * string_utf8_len_overrun */
+void test_string_utf8_len_overrun_param(void) {
+   const char *test_name = "string_utf8_len_overrun_param";
+   usize overrun = 999;
+   usize n = string_utf8_len_overrun(S("caf\xC3"), &overrun);
+   ASSERT(n == 4, "partial trailing codepoint is still counted");
+   ASSERT(overrun == 1, "bytes_overrun is populated through string_utf8_len");
+   PASS(test_name);
+}
+
+/* ascii: decodes to its own byte value, consumes 1 byte */
+void test_string_utf8_decode_ascii(void) {
+   const char *test_name = "string_utf8_decode_ascii";
+   rune r = 999;
+   usize n = string_utf8_decode(S("hello"), &r);
+   ASSERT(r == 'h', "decodes 'h'");
+   ASSERT(n == 1, "consumes 1 byte");
+   PASS(test_name);
+}
+
+/* multi-byte sequences decode to the correct codepoint value */
+void test_string_utf8_decode_multibyte(void) {
+   const char *test_name = "string_utf8_decode_multibyte";
+   rune r;
+
+   /* e-acute, U+00E9, 2 bytes */
+   usize n1 = string_utf8_decode(S("\xC3\xA9"), &r);
+   ASSERT(r == 0x00E9, "decodes e-acute as U+00E9");
+   ASSERT(n1 == 2, "consumes 2 bytes");
+
+   /* 日, U+65E5, 3 bytes */
+   usize n2 = string_utf8_decode(S("\xE6\x97\xA5"), &r);
+   ASSERT(r == 0x65E5, "decodes U+65E5");
+   ASSERT(n2 == 3, "consumes 3 bytes");
+   PASS(test_name);
+}
+
+/* iterating with string_utf8_decode walks every codepoint in order */
+void test_string_utf8_decode_iterate(void) {
+   const char *test_name = "string_utf8_decode_iterate";
+   /* "café": c, a, f, e-acute (2-byte) */
+   string s = S("caf\xC3\xA9");
+   rune expected[] = {'c', 'a', 'f', 0x00E9};
+   usize i = 0;
+   int idx = 0;
+   while (i < s.len) {
+      rune r;
+      usize n = string_utf8_decode(string_slice(s, i, s.len), &r);
+      ASSERT(idx < 4, "does not overrun expected codepoint count");
+      if (idx < 4)
+         ASSERT(r == expected[idx], "codepoint %d matches", idx);
+      i += n;
+      idx++;
+   }
+   ASSERT(idx == 4, "visited exactly 4 codepoints");
+   PASS(test_name);
+}
+
+/* codepoint output is optional: NULL just skips a codepoint */
+void test_string_utf8_decode_null_codepoint(void) {
+   const char *test_name = "string_utf8_decode_null_codepoint";
+   usize n = string_utf8_decode(S("\xE6\x97\xA5llo"), NULL);
+   ASSERT(n == 3, "NULL codepoint still reports bytes consumed");
+   PASS(test_name);
+}
+
+/* truncated trailing sequence: decode consumes only the bytes present */
+void test_string_utf8_decode_truncated(void) {
+   const char *test_name = "string_utf8_decode_truncated";
+   /* lead byte of a 2-byte sequence with the continuation byte missing */
+   string s = S("\xC3");
+   rune r = 999;
+   usize n = string_utf8_decode(s, &r);
+   ASSERT(n == 1, "consumes only the 1 byte actually present");
+   ASSERT(r == (0xC3 & 0x1F),
+          "masks the lead byte's data bits with no continuation");
+   PASS(test_name);
+}
+
+void test_string_utf8_decode_empty(void) {
+   const char *test_name = "string_utf8_decode_empty";
+   string s = S("");
+   rune r = 999;
+   usize n = string_utf8_decode(s, &r);
+   ASSERT(n == 0, "zero bytes comsumed");
+   ASSERT(r == 0, "codepoint zero");
+   PASS(test_name);
+}
+
+/* a real NUL byte is distinct from empty input: consumes 1 byte, not 0,
+ * even though both decode to rune 0 */
+void test_string_utf8_decode_nul(void) {
+   const char *test_name = "string_utf8_decode_nul";
+   string s = S("\0"); /* one byte: 0x00 */
+   ASSERT(s.len == 1, "source is 1 byte");
+   rune r = 999;
+   usize n = string_utf8_decode(s, &r);
+   ASSERT(r == 0, "decodes as codepoint U+0000");
+   ASSERT(n == 1, "consumes 1 byte, unlike empty input which consumes 0");
+   PASS(test_name);
+}
+
 int main(void) {
    printf(COLOR_BOLD "\narena tests\n" COLOR_RESET "\n");
 
@@ -733,11 +904,28 @@ int main(void) {
    test_string_replace();
    test_string_split();
    test_string_join();
+   test_sb_empty_snapshot();
    test_sb_append();
    test_sb_append_from_n();
    test_sb_appendf();
    test_sb_reset();
    test_sb_fixed();
+
+   printf(COLOR_BOLD "\nutf8 tests\n" COLOR_RESET "\n");
+
+   test_string_utf8_len_ascii();
+   test_string_utf8_len_multibyte();
+   test_string_utf8_len_overrun_clean();
+   test_string_utf8_len_overrun_truncated();
+   test_string_utf8_len_null_overrun();
+   test_string_utf8_len_overrun_param();
+   test_string_utf8_decode_ascii();
+   test_string_utf8_decode_multibyte();
+   test_string_utf8_decode_iterate();
+   test_string_utf8_decode_null_codepoint();
+   test_string_utf8_decode_truncated();
+   test_string_utf8_decode_empty();
+   test_string_utf8_decode_nul();
 
    if (_failed == 0)
       printf("\n" COLOR_BOLD COLOR_GREEN "All tests passed." COLOR_RESET

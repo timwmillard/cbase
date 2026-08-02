@@ -1,0 +1,6 @@
+manifest       = ../sql/manifes.json
+package        = mydb
+queries_header = queries.h
+output         = mydb.go
+cgo_cflags     =
+cgo_ldflags    = -lsqlite3

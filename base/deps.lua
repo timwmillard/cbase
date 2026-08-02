@@ -1,10 +1,11 @@
 return {
     config = {
         dir = 'deps',
-        flatten = true,
     },
     {
         'timwmillard/cbase',
+        subdir = '',
+        flatten = true,
         files = { 'lib/base.h' },
     },
 }

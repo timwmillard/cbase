@@ -5,7 +5,7 @@ return {
     {
         'timwmillard/cbase',
         files = { 'lib/base.h' },
-        subdir = false,
+        subdir = '',
         flatten = true,
     },
     {
@@ -14,7 +14,7 @@ return {
     },
     {
         'h2o/picohttpparser',
-        subdir = false,
+        subdir = '',
         flatten = true,
         files = {
             'picohttpparser.c',

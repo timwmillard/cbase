@@ -7,6 +7,7 @@
 #include <sys/types.h>
 
 #include "base.h"
+#include "net.h"
 #include "picohttpparser.h"
 
 string ip_string(arena *a, struct sockaddr *ip) {
