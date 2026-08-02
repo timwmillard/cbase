@@ -8,7 +8,7 @@ build:
 	@cmake -B build
 
 run: all
-	@./build/base_demo
+	@./build/https_client www.google.com 80
 
 clean:
 	@rm -rf build
