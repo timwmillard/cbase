@@ -1,16 +1,18 @@
 return {
     config = {
         dir = 'deps',
-        subdir = false,
-        flatten = true,
     },
     {
         'timwmillard/cbase',
+        subdir = '',
+        flatten = true,
         dev = '..',
         files = { 'lib/base.h' },
     },
     {
         'https://sqlite.org/2026/sqlite-amalgamation-3530300.zip',
+        subdir = '',
+        flatten = true,
         files = { 'sqlite3.c', 'sqlite3.h' },
     },
     {
@@ -18,6 +20,7 @@ return {
         dev = '..',
         name = 'cbase-tool',
         dir = '.',
+        subdir = '',
         flatten = false,
         files = {
             'tool/embedc/embedc.c',

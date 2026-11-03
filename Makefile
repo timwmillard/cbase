@@ -8,6 +8,7 @@ all:
 	$(MAKE) -C base_nuklear
 	$(MAKE) -C base_raylib
 	$(MAKE) -C base_sokol
+	$(MAKE) -C base_sqlite
 
 clean:
 	$(MAKE) -C lib clean
@@ -17,5 +18,5 @@ clean:
 	$(MAKE) -C base_nanovg clean
 	$(MAKE) -C base_nuklear clean
 	$(MAKE) -C base_raylib clean
-	$(MAKE) -C base_sokol clean
+	$(MAKE) -C base_sqlite clean
 

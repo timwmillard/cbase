@@ -1,0 +1,142 @@
+{
+  "models": [
+    {
+      "table": "boat",
+      "type": "Boat",
+      "columns": [{ "name": "id", "field": "id", "sql_type": "INTEGER", "c_type": "sql_int64", "nullable": false, "pk": true }, { "name": "name", "field": "name", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false, "pk": false }, { "name": "registration", "field": "registration", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false, "pk": false }]
+    },
+    {
+      "table": "catch",
+      "type": "Catch",
+      "columns": [{ "name": "id", "field": "id", "sql_type": "INTEGER", "c_type": "sql_int64", "nullable": false, "pk": true }, { "name": "competitor_id", "field": "competitor_id", "sql_type": "INTEGER", "c_type": "sql_int64", "nullable": false, "pk": false }, { "name": "species", "field": "species", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false, "pk": false }, { "name": "weight_grams", "field": "weight_grams", "sql_type": "INTEGER", "c_type": "sql_int64", "nullable": false, "pk": false }, { "name": "caught_at", "field": "caught_at", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false, "pk": false }]
+    },
+    {
+      "table": "competitor",
+      "type": "Competitor",
+      "columns": [{ "name": "id", "field": "id", "sql_type": "INTEGER", "c_type": "sql_int64", "nullable": false, "pk": true }, { "name": "first_name", "field": "first_name", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false, "pk": false }, { "name": "last_name", "field": "last_name", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false, "pk": false }, { "name": "email", "field": "email", "sql_type": "TEXT", "c_type": "sql_nulltext", "nullable": true, "pk": false }, { "name": "boat_id", "field": "boat_id", "sql_type": "INTEGER", "c_type": "sql_nullint64", "nullable": true, "pk": false }]
+    }
+  ],
+  "queries": [
+    {
+      "name": "CreateBoat",
+      "kind": "one",
+      "sql": "insert into boat (name, registration)\nvalues (:name, :registration)\nreturning *;",
+      "func": "create_boat",
+      "params_type": "CreateBoatParams",
+      "params": [{ "name": "name", "field": "name", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false }, { "name": "registration", "field": "registration", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false }],
+      "result_type": "Boat",
+      "result_list_type": null,
+      "result": [{ "name": "id", "field": "id", "sql_type": "INTEGER", "c_type": "sql_int64", "nullable": false }, { "name": "name", "field": "name", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false }, { "name": "registration", "field": "registration", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false }]
+    },
+    {
+      "name": "GetBoat",
+      "kind": "one",
+      "sql": "select * from boat where id = :id;",
+      "func": "get_boat",
+      "params_type": null,
+      "params": [{ "name": "id", "field": "id", "sql_type": "INTEGER", "c_type": "sql_int64", "nullable": false }],
+      "result_type": "Boat",
+      "result_list_type": null,
+      "result": [{ "name": "id", "field": "id", "sql_type": "INTEGER", "c_type": "sql_int64", "nullable": false }, { "name": "name", "field": "name", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false }, { "name": "registration", "field": "registration", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false }]
+    },
+    {
+      "name": "ListBoats",
+      "kind": "many",
+      "sql": "select * from boat order by name;",
+      "func": "list_boats",
+      "params_type": null,
+      "params": [],
+      "result_type": "Boat",
+      "result_list_type": "BoatList",
+      "result": [{ "name": "id", "field": "id", "sql_type": "INTEGER", "c_type": "sql_int64", "nullable": false }, { "name": "name", "field": "name", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false }, { "name": "registration", "field": "registration", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false }]
+    },
+    {
+      "name": "CreateCompetitor",
+      "kind": "one",
+      "sql": "insert into competitor (first_name, last_name, email, boat_id)\nvalues (:first_name, :last_name, :email, :boat_id)\nreturning *;",
+      "func": "create_competitor",
+      "params_type": "CreateCompetitorParams",
+      "params": [{ "name": "first_name", "field": "first_name", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false }, { "name": "last_name", "field": "last_name", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false }, { "name": "email", "field": "email", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false }, { "name": "boat_id", "field": "boat_id", "sql_type": "INTEGER", "c_type": "sql_int64", "nullable": false }],
+      "result_type": "Competitor",
+      "result_list_type": null,
+      "result": [{ "name": "id", "field": "id", "sql_type": "INTEGER", "c_type": "sql_int64", "nullable": false }, { "name": "first_name", "field": "first_name", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false }, { "name": "last_name", "field": "last_name", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false }, { "name": "email", "field": "email", "sql_type": "TEXT", "c_type": "sql_nulltext", "nullable": true }, { "name": "boat_id", "field": "boat_id", "sql_type": "INTEGER", "c_type": "sql_nullint64", "nullable": true }]
+    },
+    {
+      "name": "CreateCompetitorNoContact",
+      "kind": "one",
+      "sql": "insert into competitor (first_name, last_name)\nvalues (:first_name, :last_name)\nreturning *;",
+      "func": "create_competitor_no_contact",
+      "params_type": "CreateCompetitorNoContactParams",
+      "params": [{ "name": "first_name", "field": "first_name", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false }, { "name": "last_name", "field": "last_name", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false }],
+      "result_type": "Competitor",
+      "result_list_type": null,
+      "result": [{ "name": "id", "field": "id", "sql_type": "INTEGER", "c_type": "sql_int64", "nullable": false }, { "name": "first_name", "field": "first_name", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false }, { "name": "last_name", "field": "last_name", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false }, { "name": "email", "field": "email", "sql_type": "TEXT", "c_type": "sql_nulltext", "nullable": true }, { "name": "boat_id", "field": "boat_id", "sql_type": "INTEGER", "c_type": "sql_nullint64", "nullable": true }]
+    },
+    {
+      "name": "GetCompetitor",
+      "kind": "one",
+      "sql": "select * from competitor where id = :id;",
+      "func": "get_competitor",
+      "params_type": null,
+      "params": [{ "name": "id", "field": "id", "sql_type": "INTEGER", "c_type": "sql_int64", "nullable": false }],
+      "result_type": "Competitor",
+      "result_list_type": null,
+      "result": [{ "name": "id", "field": "id", "sql_type": "INTEGER", "c_type": "sql_int64", "nullable": false }, { "name": "first_name", "field": "first_name", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false }, { "name": "last_name", "field": "last_name", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false }, { "name": "email", "field": "email", "sql_type": "TEXT", "c_type": "sql_nulltext", "nullable": true }, { "name": "boat_id", "field": "boat_id", "sql_type": "INTEGER", "c_type": "sql_nullint64", "nullable": true }]
+    },
+    {
+      "name": "ListCompetitors",
+      "kind": "many",
+      "sql": "select * from competitor order by last_name, first_name;",
+      "func": "list_competitors",
+      "params_type": null,
+      "params": [],
+      "result_type": "Competitor",
+      "result_list_type": "CompetitorList",
+      "result": [{ "name": "id", "field": "id", "sql_type": "INTEGER", "c_type": "sql_int64", "nullable": false }, { "name": "first_name", "field": "first_name", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false }, { "name": "last_name", "field": "last_name", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false }, { "name": "email", "field": "email", "sql_type": "TEXT", "c_type": "sql_nulltext", "nullable": true }, { "name": "boat_id", "field": "boat_id", "sql_type": "INTEGER", "c_type": "sql_nullint64", "nullable": true }]
+    },
+    {
+      "name": "UpdateCompetitorEmail",
+      "kind": "exec",
+      "sql": "update competitor set email = :email where id = :id;",
+      "func": "update_competitor_email",
+      "params_type": "UpdateCompetitorEmailParams",
+      "params": [{ "name": "email", "field": "email", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false }, { "name": "id", "field": "id", "sql_type": "INTEGER", "c_type": "sql_int64", "nullable": false }],
+      "result_type": null,
+      "result_list_type": null,
+      "result": null
+    },
+    {
+      "name": "DeleteCompetitor",
+      "kind": "exec",
+      "sql": "delete from competitor where id = :id;",
+      "func": "delete_competitor",
+      "params_type": null,
+      "params": [{ "name": "id", "field": "id", "sql_type": "INTEGER", "c_type": "sql_int64", "nullable": false }],
+      "result_type": null,
+      "result_list_type": null,
+      "result": null
+    },
+    {
+      "name": "CreateCatch",
+      "kind": "one",
+      "sql": "insert into catch (competitor_id, species, weight_grams, caught_at)\nvalues (:competitor_id, :species, :weight_grams, :caught_at)\nreturning *;",
+      "func": "create_catch",
+      "params_type": "CreateCatchParams",
+      "params": [{ "name": "competitor_id", "field": "competitor_id", "sql_type": "INTEGER", "c_type": "sql_int64", "nullable": false }, { "name": "species", "field": "species", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false }, { "name": "weight_grams", "field": "weight_grams", "sql_type": "INTEGER", "c_type": "sql_int64", "nullable": false }, { "name": "caught_at", "field": "caught_at", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false }],
+      "result_type": "Catch",
+      "result_list_type": null,
+      "result": [{ "name": "id", "field": "id", "sql_type": "INTEGER", "c_type": "sql_int64", "nullable": false }, { "name": "competitor_id", "field": "competitor_id", "sql_type": "INTEGER", "c_type": "sql_int64", "nullable": false }, { "name": "species", "field": "species", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false }, { "name": "weight_grams", "field": "weight_grams", "sql_type": "INTEGER", "c_type": "sql_int64", "nullable": false }, { "name": "caught_at", "field": "caught_at", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false }]
+    },
+    {
+      "name": "ListCatchesByCompetitor",
+      "kind": "many",
+      "sql": "select * from catch where competitor_id = :competitor_id order by caught_at;",
+      "func": "list_catches_by_competitor",
+      "params_type": null,
+      "params": [{ "name": "competitor_id", "field": "competitor_id", "sql_type": "INTEGER", "c_type": "sql_int64", "nullable": false }],
+      "result_type": "Catch",
+      "result_list_type": "CatchList",
+      "result": [{ "name": "id", "field": "id", "sql_type": "INTEGER", "c_type": "sql_int64", "nullable": false }, { "name": "competitor_id", "field": "competitor_id", "sql_type": "INTEGER", "c_type": "sql_int64", "nullable": false }, { "name": "species", "field": "species", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false }, { "name": "weight_grams", "field": "weight_grams", "sql_type": "INTEGER", "c_type": "sql_int64", "nullable": false }, { "name": "caught_at", "field": "caught_at", "sql_type": "TEXT", "c_type": "sql_text", "nullable": false }]
+    }
+  ]
+}

@@ -4,7 +4,7 @@ return {
     },
     {
         'floooh/sokol',
-        subdir = false,
+        subdir = '',
         flatten = true,
         files = {
             'sokol_app.h', 'sokol_gfx.h', 'sokol_glue.h',
@@ -16,7 +16,6 @@ return {
         "cimgui/cimgui",
         branch = "docking_inter",
         submodules = true,
-        subdir = true,
         flatten = false,
         files = {
             "cimconfig.h", "cimgui.h", "cimgui.cpp",

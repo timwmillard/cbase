@@ -16,9 +16,9 @@ return {
     -- them and point FETCHCONTENT_SOURCE_DIR_* at deps/ in CMakeLists.txt.
     {
         'libuv/libuv',
-        tag = 'v1.52.0',
+        name = 'libuv',
         flatten = false,
-        dest = 'deps/libuv',
+        tag = 'v1.52.0',
         files = {
             'include/**',
             'src/**',
@@ -37,7 +37,7 @@ return {
         -- slog.h lives at base/slog.h in the cbase repo; flatten it to
         -- deps/slog.h so #include "slog.h" resolves via include_directories(deps).
         'timwmillard/cbase',
-        dest = 'deps',
+        subdir = '',
         flatten = true,
         files = {
             'base/slog.h',

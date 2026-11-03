@@ -3,7 +3,6 @@ return {
     {
         'raysan5/raylib',
         tag = '6.0',
-        dest = 'deps/raylib',
         files = {
             'src/**',
             'cmake/**',

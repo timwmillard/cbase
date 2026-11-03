@@ -13,7 +13,7 @@
  *
  * Example:
  *   net_init();
- *   net_socket_t s = net_connect("example.com", "443");
+ *   net_socket s = net_connect("example.com", "443");
  *   if (s == NET_INVALID_SOCKET) { ... net_last_error() ... }
  *   net_set_nonblocking(s, 1);              // optional
  *   int n = net_send(s, buf, len);          // -1 err, -2 would-block
@@ -39,10 +39,10 @@
 #ifdef _MSC_VER
 #pragma comment(lib, "ws2_32.lib")
 #endif
-typedef SOCKET net_socket_t;
+typedef SOCKET net_socket;
 #define NET_INVALID_SOCKET INVALID_SOCKET
 #else
-typedef int net_socket_t;
+typedef int net_socket;
 #define NET_INVALID_SOCKET (-1)
 #endif
 
@@ -56,30 +56,30 @@ void net_shutdown_lib(void);
 
 /* Resolve host (name or IP literal) and connect. Blocking.
  * Returns NET_INVALID_SOCKET on failure. */
-net_socket_t net_connect(const char *host, const char *port);
+net_socket net_connect(const char *host, const char *port);
 
 /* 1 = non-blocking, 0 = blocking. Returns 0 on success. */
-int net_set_nonblocking(net_socket_t s, int nonblocking);
+int net_set_nonblocking(net_socket s, int nonblocking);
 
 /* Disable Nagle (useful for request/response protocols like TLS
  * handshakes). Returns 0 on success. */
-int net_set_nodelay(net_socket_t s, int nodelay);
+int net_set_nodelay(net_socket s, int nodelay);
 
 /* Returns bytes sent/received (>0), or:
  *   0  : (recv only) peer closed the connection
  *  -1  : error
  *  -2  : would block (non-blocking socket, try again later)      */
-int net_send(net_socket_t s, const void *buf, int len);
-int net_recv(net_socket_t s, void *buf, int cap);
+int net_send(net_socket s, const void *buf, int len);
+int net_recv(net_socket s, void *buf, int cap);
 
 /* Wait until socket is readable (net_wait_read) or writable
  * (net_wait_write). timeout_ms < 0 waits forever.
  * Returns 1 = ready, 0 = timeout, -1 = error.
  * net_wait_write is also how you complete a non-blocking connect. */
-int net_wait_read(net_socket_t s, int timeout_ms);
-int net_wait_write(net_socket_t s, int timeout_ms);
+int net_wait_read(net_socket s, int timeout_ms);
+int net_wait_write(net_socket s, int timeout_ms);
 
-void net_close(net_socket_t s);
+void net_close(net_socket s);
 
 /* Last OS error code (errno / WSAGetLastError). */
 int net_last_error(void);
@@ -137,7 +137,7 @@ int net_last_error(void) {
 #endif
 }
 
-static int net__would_block(void) {
+static int net_would_block(void) {
 #ifdef _WIN32
    int e = WSAGetLastError();
    return e == WSAEWOULDBLOCK || e == WSAEINPROGRESS;
@@ -148,13 +148,14 @@ static int net__would_block(void) {
 
 /* ---- connect ------------------------------------------------------ */
 
-net_socket_t net_connect(const char *host, const char *port) {
-   struct addrinfo hints, *res = NULL, *ai;
-   net_socket_t s = NET_INVALID_SOCKET;
-
-   memset(&hints, 0, sizeof(hints));
-   hints.ai_family = AF_UNSPEC; /* IPv4 or IPv6 */
-   hints.ai_socktype = SOCK_STREAM;
+net_socket net_connect(const char *host, const char *port) {
+   struct addrinfo hints = {
+       .ai_family = AF_UNSPEC, // IPv4 or IPv6
+       .ai_socktype = SOCK_STREAM,
+   };
+   struct addrinfo *res = NULL;
+   struct addrinfo *ai;
+   net_socket s = NET_INVALID_SOCKET;
 
    if (getaddrinfo(host, port, &hints, &res) != 0)
       return NET_INVALID_SOCKET;
@@ -176,7 +177,7 @@ net_socket_t net_connect(const char *host, const char *port) {
 
 /* ---- socket options ----------------------------------------------- */
 
-int net_set_nonblocking(net_socket_t s, int nonblocking) {
+int net_set_nonblocking(net_socket s, int nonblocking) {
 #ifdef _WIN32
    u_long mode = nonblocking ? 1 : 0;
    return ioctlsocket(s, FIONBIO, &mode) == 0 ? 0 : -1;
@@ -189,7 +190,7 @@ int net_set_nonblocking(net_socket_t s, int nonblocking) {
 #endif
 }
 
-int net_set_nodelay(net_socket_t s, int nodelay) {
+int net_set_nodelay(net_socket s, int nodelay) {
    int v = nodelay ? 1 : 0;
    return setsockopt(s, IPPROTO_TCP, TCP_NODELAY, (const char *)&v,
                      sizeof(v)) == 0
@@ -199,25 +200,25 @@ int net_set_nodelay(net_socket_t s, int nodelay) {
 
 /* ---- I/O ----------------------------------------------------------- */
 
-int net_send(net_socket_t s, const void *buf, int len) {
+int net_send(net_socket s, const void *buf, int len) {
    int n = (int)send(s, (const char *)buf, len, 0);
    if (n >= 0)
       return n;
-   return net__would_block() ? -2 : -1;
+   return net_would_block() ? -2 : -1;
 }
 
-int net_recv(net_socket_t s, void *buf, int cap) {
+int net_recv(net_socket s, void *buf, int cap) {
    int n = (int)recv(s, (char *)buf, cap, 0);
    if (n > 0)
       return n;
    if (n == 0)
       return 0; /* peer closed */
-   return net__would_block() ? -2 : -1;
+   return net_would_block() ? -2 : -1;
 }
 
 /* ---- readiness waiting (select: portable everywhere) --------------- */
 
-static int net__wait(net_socket_t s, int for_write, int timeout_ms) {
+static int net_wait(net_socket s, int for_write, int timeout_ms) {
    fd_set set;
    struct timeval tv, *ptv = NULL;
 
@@ -244,17 +245,17 @@ static int net__wait(net_socket_t s, int for_write, int timeout_ms) {
    return -1;
 }
 
-int net_wait_read(net_socket_t s, int timeout_ms) {
-   return net__wait(s, 0, timeout_ms);
+int net_wait_read(net_socket s, int timeout_ms) {
+   return net_wait(s, 0, timeout_ms);
 }
 
-int net_wait_write(net_socket_t s, int timeout_ms) {
-   return net__wait(s, 1, timeout_ms);
+int net_wait_write(net_socket s, int timeout_ms) {
+   return net_wait(s, 1, timeout_ms);
 }
 
 /* ---- close --------------------------------------------------------- */
 
-void net_close(net_socket_t s) {
+void net_close(net_socket s) {
    if (s == NET_INVALID_SOCKET)
       return;
 #ifdef _WIN32

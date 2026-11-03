@@ -169,6 +169,8 @@ typedef struct {
    const char *schema;
    const char *queries;
    const char *output;
+   const char *manifest; // optional path for the JSON query manifest; "" disables it
+   const char *mode; // "split" (queries.h + queries.c) or "single" (stb-style)
    const char *struct_style;
    const char *field_style;
    const char *func_style;
@@ -191,6 +193,8 @@ static int config_set(Config *c, const char *key, const char *value, Arena *a) {
    if (strcmp(key, "schema") == 0) c->schema = v;
    else if (strcmp(key, "queries") == 0) c->queries = v;
    else if (strcmp(key, "output") == 0) c->output = v;
+   else if (strcmp(key, "manifest") == 0) c->manifest = v;
+   else if (strcmp(key, "mode") == 0) c->mode = v;
    else if (strcmp(key, "struct-style") == 0) c->struct_style = v;
    else if (strcmp(key, "field-style") == 0) c->field_style = v;
    else if (strcmp(key, "func-style") == 0) c->func_style = v;
@@ -262,6 +266,16 @@ static Style parse_style(const char *s) {
    if (strcmp(s, "snake") == 0) return STYLE_SNAKE;
    if (strcmp(s, "camel") == 0) return STYLE_CAMEL;
    return STYLE_PASCAL;
+}
+
+// split: <output> declarations + <output minus ext>.c implementations.
+// single: everything in <output>, implementation gated behind an
+// <GUARD>_IMPLEMENTATION #ifdef (stb-style).
+typedef enum { MODE_SPLIT, MODE_SINGLE } Mode;
+
+static Mode parse_mode(const char *s) {
+   if (strcmp(s, "single") == 0) return MODE_SINGLE;
+   return MODE_SPLIT;
 }
 
 static int is_sep(char c) { return c == '-' || c == '_' || c == ' '; }
@@ -549,7 +563,7 @@ static const char *MODELS_ALLOCATOR =
     "\n"
     "static inline sql_text sql_dup_text(sql_allocator a, sql_text s) {\n"
     "    if (s.data == NULL) return s;\n"
-    "    sql_byte *p = a.alloc(a.ctx, s.len + 1);\n"
+    "    sql_byte *p = (sql_byte *)a.alloc(a.ctx, s.len + 1);\n"
     "    memcpy(p, s.data, s.len);\n"
     "    p[s.len] = 0;\n"
     "    return (sql_text){ .data = p, .len = s.len };\n"
@@ -557,7 +571,7 @@ static const char *MODELS_ALLOCATOR =
     "\n"
     "static inline sql_nulltext sql_dup_nulltext(sql_allocator a, sql_nulltext s) {\n"
     "    if (s.null || s.data == NULL) return s;\n"
-    "    char *p = a.alloc(a.ctx, s.len + 1);\n"
+    "    char *p = (char *)a.alloc(a.ctx, s.len + 1);\n"
     "    memcpy(p, s.data, s.len);\n"
     "    p[s.len] = 0;\n"
     "    return (sql_nulltext){ .data = p, .len = s.len, .null = false };\n"
@@ -565,14 +579,14 @@ static const char *MODELS_ALLOCATOR =
     "\n"
     "static inline sql_blob sql_dup_blob(sql_allocator a, sql_blob s) {\n"
     "    if (s.data == NULL) return s;\n"
-    "    sql_byte *p = a.alloc(a.ctx, s.len);\n"
+    "    sql_byte *p = (sql_byte *)a.alloc(a.ctx, s.len);\n"
     "    memcpy(p, s.data, s.len);\n"
     "    return (sql_blob){ .data = p, .len = s.len };\n"
     "}\n"
     "\n"
     "static inline sql_nullblob sql_dup_nullblob(sql_allocator a, sql_nullblob s) {\n"
     "    if (s.null || s.data == NULL) return s;\n"
-    "    sql_byte *p = a.alloc(a.ctx, s.len);\n"
+    "    sql_byte *p = (sql_byte *)a.alloc(a.ctx, s.len);\n"
     "    memcpy(p, s.data, s.len);\n"
     "    return (sql_nullblob){ .data = p, .len = s.len, .null = false };\n"
     "}\n"
@@ -600,44 +614,6 @@ static char *type_name(Gen *g, const char *name) {
    return styled;
 }
 
-static void emit_models(Gen *g, StrBuf *sb) {
-   sb_puts(sb, "// Generated from SQL - do not edit\n\n");
-   sb_puts(sb, "#ifndef SQL_MODEL_H\n");
-   sb_puts(sb, "#define SQL_MODEL_H\n\n");
-   sb_puts(sb, "#include <stdint.h>\n");
-   sb_puts(sb, "#include <stdbool.h>\n");
-   sb_puts(sb, "#include <stddef.h>\n");
-   sb_puts(sb, "#include <string.h>\n\n");
-   sb_puts(sb, MODELS_PRELUDE);
-   sb_puts(sb, MODELS_ALLOCATOR);
-
-   sb_puts(sb, "// ============ Table Structs ============\n\n");
-   for (int t = 0; t < g->ntables; t++) {
-      Table *tbl = &g->tables[t];
-      sb_puts(sb, "typedef struct {\n");
-      for (int c = 0; c < tbl->ncols; c++) {
-         Column *col = &tbl->cols[c];
-         const char *ctype = sqlite_type_to_sqltype(g->a, col->decltype, col_nullable(col));
-         char *fname = apply_style(g->a, col->name, g->field_style);
-         sb_printf(sb, "    %s %s;\n", ctype, fname);
-      }
-      sb_printf(sb, "} %s;\n\n", type_name(g, tbl->name));
-   }
-
-   sb_puts(sb, "#endif // SQL_MODEL_H\n");
-}
-
-// Directory portion of a path ("a/b/c.h" -> "a/b"), or "." if none.
-static char *path_dir(Arena *a, const char *path) {
-   const char *slash = strrchr(path, '/');
-   if (!slash) return arena_strdup(a, ".");
-   size_t n = (size_t)(slash - path);
-   char *d = arena_alloc(a, n + 1);
-   memcpy(d, path, n);
-   d[n] = 0;
-   return d;
-}
-
 static char *func_name(Gen *g, const char *name) {
    char *styled = apply_style(g->a, name, g->func_style);
    if (g->cfg->func_prefix && g->cfg->func_prefix[0]) {
@@ -657,8 +633,9 @@ static char *func_name(Gen *g, const char *name) {
 typedef enum { Q_ONE, Q_MANY, Q_EXEC } QueryKind;
 
 typedef struct {
-   char *name;        // bind name (':' stripped), or "argN" for positional
-   const char *type;  // sql_* C type
+   char *name;            // bind name (':' stripped), or "argN" for positional
+   const char *type;      // sql_* C type
+   const char *sql_type;  // raw declared SQL type (e.g. "INTEGER"), for the manifest
 } Param;
 
 typedef struct {
@@ -711,6 +688,18 @@ static const char *param_type(Gen *g, const char *name) {
    return result;
 }
 
+// Raw declared SQL type for a named parameter (first matching column), for
+// the manifest. Mirrors the lookup in param_type() above.
+static const char *param_sql_type(Gen *g, const char *name) {
+   for (int t = 0; t < g->ntables; t++) {
+      for (int c = 0; c < g->tables[t].ncols; c++) {
+         if (strcasecmp(g->tables[t].cols[c].name, name) != 0) continue;
+         return g->tables[t].cols[c].decltype ? g->tables[t].cols[c].decltype : "TEXT";
+      }
+   }
+   return "TEXT";
+}
+
 static void introspect_query(Gen *g, sqlite3 *db, Query *q) {
    sqlite3_stmt *st;
    if (sqlite3_prepare_v2(db, q->sql, -1, &st, NULL) != SQLITE_OK) {
@@ -732,6 +721,7 @@ static void introspect_query(Gen *g, sqlite3 *db, Query *q) {
       }
       q->params[i - 1].name = arena_strdup(g->a, namebuf);
       q->params[i - 1].type = pn ? param_type(g, namebuf) : "sql_text";
+      q->params[i - 1].sql_type = pn ? param_sql_type(g, namebuf) : "TEXT";
    }
 
    int nc = sqlite3_column_count(st);
@@ -1116,18 +1106,185 @@ static void emit_wrapper_impl(Gen *g, StrBuf *sb, Query *q) {
    }
 }
 
-static void emit_header(Gen *g, StrBuf *sb, Query *qs, int nq, const char *output) {
+// ============================================================================
+// manifest.json emit — machine-readable query metadata for other codegen
+// (e.g. a separate SQL-manifest -> Lua generator that doesn't want to
+// re-derive struct/field names from schema + naming-style config itself).
+// ============================================================================
+
+static void json_escape(StrBuf *sb, const char *s) {
+   sb_puts(sb, "\"");
+   for (const unsigned char *p = (const unsigned char *)s; *p; p++) {
+      switch (*p) {
+         case '"': sb_puts(sb, "\\\""); break;
+         case '\\': sb_puts(sb, "\\\\"); break;
+         case '\n': sb_puts(sb, "\\n"); break;
+         case '\r': sb_puts(sb, "\\r"); break;
+         case '\t': sb_puts(sb, "\\t"); break;
+         default:
+            if (*p < 0x20) sb_printf(sb, "\\u%04x", *p);
+            else sb_printf(sb, "%c", *p);
+      }
+   }
+   sb_puts(sb, "\"");
+}
+
+static const char *query_kind_name(QueryKind k) {
+   switch (k) {
+      case Q_ONE: return "one";
+      case Q_MANY: return "many";
+      default: return "exec";
+   }
+}
+
+// One param or result column: SQL-level name/type plus the exact generated
+// C identifier/type, so a downstream generator doesn't need to reimplement
+// apply_style()/type mapping to call into the emitted C correctly.
+static void emit_manifest_column(StrBuf *sb, const char *name, const char *field,
+                                  const char *sql_type, const char *c_type, int nullable) {
+   sb_puts(sb, "{ \"name\": ");
+   json_escape(sb, name);
+   sb_puts(sb, ", \"field\": ");
+   json_escape(sb, field);
+   sb_puts(sb, ", \"sql_type\": ");
+   json_escape(sb, sql_type);
+   sb_printf(sb, ", \"c_type\": \"%s\", \"nullable\": %s }", c_type, nullable ? "true" : "false");
+}
+
+// Schema tables, independent of which queries reference them — lets a
+// downstream generator define full model types even for tables no query
+// touches directly.
+static void emit_manifest_models(Gen *g, StrBuf *sb) {
+   sb_puts(sb, "  \"models\": [\n");
+   for (int t = 0; t < g->ntables; t++) {
+      Table *tbl = &g->tables[t];
+      if (t > 0) sb_puts(sb, ",\n");
+      sb_puts(sb, "    {\n");
+      sb_puts(sb, "      \"table\": "); json_escape(sb, tbl->name); sb_puts(sb, ",\n");
+      sb_puts(sb, "      \"type\": "); json_escape(sb, type_name(g, tbl->name)); sb_puts(sb, ",\n");
+      sb_puts(sb, "      \"columns\": [");
+      for (int c = 0; c < tbl->ncols; c++) {
+         if (c > 0) sb_puts(sb, ", ");
+         Column *col = &tbl->cols[c];
+         const char *ctype = sqlite_type_to_sqltype(g->a, col->decltype, col_nullable(col));
+         const char *field = apply_style(g->a, col->name, g->field_style);
+         sb_puts(sb, "{ \"name\": ");
+         json_escape(sb, col->name);
+         sb_puts(sb, ", \"field\": ");
+         json_escape(sb, field);
+         sb_puts(sb, ", \"sql_type\": ");
+         json_escape(sb, col->decltype);
+         sb_printf(sb, ", \"c_type\": \"%s\", \"nullable\": %s, \"pk\": %s }",
+                   ctype, col_nullable(col) ? "true" : "false", col->pk ? "true" : "false");
+      }
+      sb_puts(sb, "]\n");
+      sb_puts(sb, "    }");
+   }
+   sb_puts(sb, "\n  ],\n");
+}
+
+static void emit_manifest(Gen *g, StrBuf *sb, Query *qs, int nq) {
+   sb_puts(sb, "{\n");
+   emit_manifest_models(g, sb);
+   sb_puts(sb, "  \"queries\": [\n");
+   for (int qi = 0; qi < nq; qi++) {
+      Query *q = &qs[qi];
+      const char *fn = func_name(g, q->name);
+      if (qi > 0) sb_puts(sb, ",\n");
+      sb_puts(sb, "    {\n");
+      sb_puts(sb, "      \"name\": "); json_escape(sb, q->name); sb_puts(sb, ",\n");
+      sb_printf(sb, "      \"kind\": \"%s\",\n", query_kind_name(q->kind));
+      sb_puts(sb, "      \"sql\": "); json_escape(sb, q->sql); sb_puts(sb, ",\n");
+      sb_puts(sb, "      \"func\": "); json_escape(sb, fn); sb_puts(sb, ",\n");
+
+      if (q->nparams > 1) {
+         sb_puts(sb, "      \"params_type\": ");
+         json_escape(sb, params_type_name(g, q));
+         sb_puts(sb, ",\n");
+      } else {
+         sb_puts(sb, "      \"params_type\": null,\n");
+      }
+
+      sb_puts(sb, "      \"params\": [");
+      for (int i = 0; i < q->nparams; i++) {
+         if (i > 0) sb_puts(sb, ", ");
+         const char *field = apply_style(g->a, q->params[i].name, g->field_style);
+         emit_manifest_column(sb, q->params[i].name, field, q->params[i].sql_type, q->params[i].type, 0);
+      }
+      sb_puts(sb, "],\n");
+
+      if (q->kind == Q_EXEC) {
+         sb_puts(sb, "      \"result_type\": null,\n");
+         sb_puts(sb, "      \"result_list_type\": null,\n");
+         sb_puts(sb, "      \"result\": null\n");
+      } else {
+         sb_puts(sb, "      \"result_type\": "); json_escape(sb, q->result_type); sb_puts(sb, ",\n");
+         if (q->kind == Q_MANY) {
+            sb_puts(sb, "      \"result_list_type\": ");
+            json_escape(sb, slice_type(g, q->result_type));
+            sb_puts(sb, ",\n");
+         } else {
+            sb_puts(sb, "      \"result_list_type\": null,\n");
+         }
+         sb_puts(sb, "      \"result\": [");
+         for (int i = 0; i < q->nresults; i++) {
+            if (i > 0) sb_puts(sb, ", ");
+            Column *col = &q->results[i].col;
+            const char *ctype = sqlite_type_to_sqltype(g->a, col->decltype, col_nullable(col));
+            emit_manifest_column(sb, col->name, q->results[i].field, col->decltype, ctype, col_nullable(col));
+         }
+         sb_puts(sb, "]\n");
+      }
+      sb_puts(sb, "    }");
+   }
+   sb_puts(sb, "\n  ]\n}\n");
+}
+
+// Uppercased, dot-to-underscore basename of a path, for use as a header
+// guard ("a/b/queries.h" -> "QUERIES_H").
+static char *header_guard(Arena *a, const char *output) {
    const char *base = strrchr(output, '/');
    base = base ? base + 1 : output;
    StrBuf guard = {0};
    for (const char *p = base; *p; p++) sb_printf(&guard, "%c", *p == '.' ? '_' : to_upper(*p));
-
-   sb_puts(sb, "// Generated from SQL - do not edit\n\n");
-   sb_printf(sb, "#ifndef %s\n", guard.data);
-   sb_printf(sb, "#define %s\n\n", guard.data);
-   sb_puts(sb, "#include \"sqlite3.h\"\n\n");
-   sb_puts(sb, "#include \"models.h\"\n\n");
+   char *r = arena_strdup(a, guard.data);
    sb_free(&guard);
+   return r;
+}
+
+// Uppercased basename with its extension stripped, for use as an
+// implementation-macro stem ("a/b/queries.h" -> "QUERIES").
+static char *header_stem(Arena *a, const char *output) {
+   const char *base = strrchr(output, '/');
+   base = base ? base + 1 : output;
+   const char *dot = strrchr(base, '.');
+   size_t n = dot ? (size_t)(dot - base) : strlen(base);
+   StrBuf stem = {0};
+   for (size_t i = 0; i < n; i++) sb_printf(&stem, "%c", to_upper(base[i]));
+   char *r = arena_strdup(a, stem.data ? stem.data : "");
+   sb_free(&stem);
+   return r;
+}
+
+// Base types, allocator, table structs, result-list typedefs, param structs,
+// and query function declarations — shared by both output modes.
+static void emit_declarations(Gen *g, StrBuf *sb, Query *qs, int nq) {
+   sb_puts(sb, "// ============ Base Types ============\n\n");
+   sb_puts(sb, MODELS_PRELUDE);
+   sb_puts(sb, MODELS_ALLOCATOR);
+
+   sb_puts(sb, "// ============ Table Structs ============\n\n");
+   for (int t = 0; t < g->ntables; t++) {
+      Table *tbl = &g->tables[t];
+      sb_puts(sb, "typedef struct {\n");
+      for (int c = 0; c < tbl->ncols; c++) {
+         Column *col = &tbl->cols[c];
+         const char *ctype = sqlite_type_to_sqltype(g->a, col->decltype, col_nullable(col));
+         char *fname = apply_style(g->a, col->name, g->field_style);
+         sb_printf(sb, "    %s %s;\n", ctype, fname);
+      }
+      sb_printf(sb, "} %s;\n\n", type_name(g, tbl->name));
+   }
 
    // Result slices for :many wrappers (deduped by result type).
    const char *seen[256];
@@ -1155,25 +1312,68 @@ static void emit_header(Gen *g, StrBuf *sb, Query *qs, int nq, const char *outpu
       emit_query_decl(g, sb, &qs[i]);
       emit_wrapper_decl(g, sb, &qs[i]);
    }
-
-   sb_puts(sb, "\n");
-   const char *base2 = strrchr(output, '/');
-   base2 = base2 ? base2 + 1 : output;
-   StrBuf guard2 = {0};
-   for (const char *p = base2; *p; p++) sb_printf(&guard2, "%c", *p == '.' ? '_' : to_upper(*p));
-   sb_printf(sb, "#endif // %s\n", guard2.data);
-   sb_free(&guard2);
 }
 
+// Query function implementations — shared by both output modes.
+static void emit_definitions(Gen *g, StrBuf *sb, Query *qs, int nq) {
+   for (int i = 0; i < nq; i++) {
+      emit_query_impl(g, sb, &qs[i]);
+      emit_wrapper_impl(g, sb, &qs[i]);
+   }
+}
+
+// mode=split: declarations only, for <output>.
+static void emit_header(Gen *g, StrBuf *sb, Query *qs, int nq, const char *output) {
+   char *guard = header_guard(g->a, output);
+
+   sb_puts(sb, "// Generated from SQL - do not edit\n\n");
+   sb_printf(sb, "#ifndef %s\n", guard);
+   sb_printf(sb, "#define %s\n\n", guard);
+   sb_puts(sb, "#include <stdint.h>\n");
+   sb_puts(sb, "#include <stdbool.h>\n");
+   sb_puts(sb, "#include <stddef.h>\n");
+   sb_puts(sb, "#include <string.h>\n\n");
+   sb_puts(sb, "#include \"sqlite3.h\"\n\n");
+
+   emit_declarations(g, sb, qs, nq);
+
+   sb_puts(sb, "\n");
+   sb_printf(sb, "#endif // %s\n", guard);
+}
+
+// mode=split: implementations, for <output minus ext>.c.
 static void emit_impl(Gen *g, StrBuf *sb, Query *qs, int nq, const char *header_base) {
    sb_puts(sb, "// Generated from SQL - do not edit\n\n");
    sb_puts(sb, "#include <stdlib.h>\n");
    sb_puts(sb, "#include <string.h>\n");
    sb_printf(sb, "#include \"%s\"\n\n", header_base);
-   for (int i = 0; i < nq; i++) {
-      emit_query_impl(g, sb, &qs[i]);
-      emit_wrapper_impl(g, sb, &qs[i]);
-   }
+   emit_definitions(g, sb, qs, nq);
+}
+
+// mode=single: declarations plus implementations gated behind
+// <STEM>_IMPLEMENTATION, all in <output> (stb-style single header).
+static void emit_single(Gen *g, StrBuf *sb, Query *qs, int nq, const char *output) {
+   char *guard = header_guard(g->a, output);
+   char *stem = header_stem(g->a, output);
+
+   sb_puts(sb, "// Generated from SQL - do not edit\n\n");
+   sb_printf(sb, "#ifndef %s\n", guard);
+   sb_printf(sb, "#define %s\n\n", guard);
+   sb_puts(sb, "#include <stdint.h>\n");
+   sb_puts(sb, "#include <stdbool.h>\n");
+   sb_puts(sb, "#include <stddef.h>\n");
+   sb_puts(sb, "#include <string.h>\n\n");
+   sb_puts(sb, "#include \"sqlite3.h\"\n\n");
+
+   emit_declarations(g, sb, qs, nq);
+
+   sb_puts(sb, "\n");
+   sb_printf(sb, "#endif // %s\n\n", guard);
+
+   sb_printf(sb, "#ifdef %s_IMPLEMENTATION\n\n", stem);
+   sb_puts(sb, "#include <stdlib.h>\n\n");
+   emit_definitions(g, sb, qs, nq);
+   sb_printf(sb, "#endif // %s_IMPLEMENTATION\n", stem);
 }
 
 // ============================================================================
@@ -1187,6 +1387,8 @@ int main(int argc, char **argv) {
        .schema = "schema.sql",
        .queries = "queries.sql",
        .output = "queries.h",
+       .manifest = "",
+       .mode = "split",
        .struct_style = "pascal",
        .field_style = "pascal",
        .func_style = "snake",
@@ -1229,36 +1431,43 @@ int main(int argc, char **argv) {
    Query *qs = parse_queries(&g, queries_text, &nq);
    for (int i = 0; i < nq; i++) introspect_query(&g, db, &qs[i]);
 
-   char *dir = path_dir(&arena, cfg.output);
-   const char *base = strrchr(cfg.output, '/');
-   base = base ? base + 1 : cfg.output;
+   Mode mode = parse_mode(cfg.mode);
 
-   // Emit models.h next to the output header.
-   StrBuf models = {0};
-   emit_models(&g, &models);
-   char models_path[1024];
-   snprintf(models_path, sizeof(models_path), "%s/models.h", dir);
-   write_file(models_path, models.data, models.len);
-   sb_free(&models);
+   if (mode == MODE_SINGLE) {
+      StrBuf out = {0};
+      emit_single(&g, &out, qs, nq, cfg.output);
+      write_file(cfg.output, out.data, out.len);
+      sb_free(&out);
+   } else {
+      const char *base = strrchr(cfg.output, '/');
+      base = base ? base + 1 : cfg.output;
 
-   // Emit the query header (<output>) and implementation (<output>.c).
-   StrBuf header = {0};
-   emit_header(&g, &header, qs, nq, cfg.output);
-   write_file(cfg.output, header.data, header.len);
-   sb_free(&header);
+      // Emit the query header (<output>) and implementation (<output>.c).
+      StrBuf header = {0};
+      emit_header(&g, &header, qs, nq, cfg.output);
+      write_file(cfg.output, header.data, header.len);
+      sb_free(&header);
 
-   // Implementation path: output with extension replaced by .c.
-   char impl_path[1024];
-   snprintf(impl_path, sizeof(impl_path), "%s", cfg.output);
-   char *dot = strrchr(impl_path, '.');
-   char *slash = strrchr(impl_path, '/');
-   if (dot && (!slash || dot > slash)) strcpy(dot, ".c");
-   else strncat(impl_path, ".c", sizeof(impl_path) - strlen(impl_path) - 1);
+      // Implementation path: output with extension replaced by .c.
+      char impl_path[1024];
+      snprintf(impl_path, sizeof(impl_path), "%s", cfg.output);
+      char *dot = strrchr(impl_path, '.');
+      char *slash = strrchr(impl_path, '/');
+      if (dot && (!slash || dot > slash)) strcpy(dot, ".c");
+      else strncat(impl_path, ".c", sizeof(impl_path) - strlen(impl_path) - 1);
 
-   StrBuf impl = {0};
-   emit_impl(&g, &impl, qs, nq, base);
-   write_file(impl_path, impl.data, impl.len);
-   sb_free(&impl);
+      StrBuf impl = {0};
+      emit_impl(&g, &impl, qs, nq, base);
+      write_file(impl_path, impl.data, impl.len);
+      sb_free(&impl);
+   }
+
+   if (cfg.manifest && cfg.manifest[0]) {
+      StrBuf manifest = {0};
+      emit_manifest(&g, &manifest, qs, nq);
+      write_file(cfg.manifest, manifest.data, manifest.len);
+      sb_free(&manifest);
+   }
 
    sqlite3_close(db);
    arena_free(&arena);
