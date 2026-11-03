@@ -24,6 +24,18 @@
  *                                 to one top-level block regardless of which
  *                                 section pulled them in.
  *
+ *   preamble <path>               copy this file verbatim to the very top
+ *                                 of the output, before the guard and the
+ *                                 hoisted #includes (a license or usage
+ *                                 comment). At most one.
+ *
+ *   search <dir>                  add a directory to the local-include
+ *                                 search path (like -I). A local
+ *                                 #include "x.h" resolves relative to the
+ *                                 including file first, then against each
+ *                                 search dir in manifest order. May appear
+ *                                 anywhere; applies to every include entry.
+ *
  *   include <path>                inline this .c/.h. Its own local
  *                                 #include "..." lines are resolved
  *                                 recursively and inlined in place (each
@@ -49,10 +61,11 @@
  * include and embed entries may be interleaved in any order; each is
  * appended to the output in the order it appears in the manifest.
  *
- * Known limitation: the #include scanner is line-based — it does not parse
- * comments or string literals, so a line that merely *looks* like an
- * #include directive (e.g. one commented out) would be misread. Real
- * source doesn't tend to do this in practice.
+ * The #include scanner is line-based but tracks block comments and skips
+ * line comments, so an #include inside a comment (e.g. shader source that
+ * a code generator quotes in a comment) is copied through untouched. It
+ * doesn't evaluate #if, so a conditional #include is still inlined or
+ * hoisted unconditionally.
  */
 
 #include <ctype.h>
@@ -360,6 +373,39 @@ static int match_include(const char *line, IncludeMatch *out)
     return 1;
 }
 
+/* Manifest `search` dirs, consulted after the including file's own dir. */
+static StrList search_dirs;
+
+static int file_exists(const char *path)
+{
+    FILE *f = fopen(path, "rb");
+    if (!f) return 0;
+    fclose(f);
+    return 1;
+}
+
+/* Advances the block-comment state across one line: returns whether the
+ * line ends inside a block comment. String and char literals are skipped so
+ * a comment opener inside one doesn't count; a line comment ends the scan. */
+static int scan_comments(const char *line, int in_comment)
+{
+    for (const char *p = line; *p; p++) {
+        if (in_comment) {
+            if (p[0] == '*' && p[1] == '/') { in_comment = 0; p++; }
+            continue;
+        }
+        if (p[0] == '/' && p[1] == '*') { in_comment = 1; p++; continue; }
+        if (p[0] == '/' && p[1] == '/') break;
+        if (*p == '"' || *p == '\'') {
+            char q = *p;
+            for (p++; *p && *p != q; p++)
+                if (*p == '\\' && p[1]) p++;
+            if (!*p) break;
+        }
+    }
+    return in_comment;
+}
+
 static void dirname_of(const char *path, char *out, size_t cap)
 {
     const char *slash = strrchr(path, '/');
@@ -416,18 +462,29 @@ static void inline_file(Arena *a, StrBuf *body, StrList *seen_local,
     char *text = read_file(a, path);
     char *cursor = text;
     int lineno = 0;
+    int in_comment = 0;
     for (char *line = next_line(&cursor); line; line = next_line(&cursor)) {
         lineno++;
         IncludeMatch m;
-        if (match_include(line, &m)) {
+        int starts_in_comment = in_comment;
+        in_comment = scan_comments(line, in_comment);
+        if (!starts_in_comment && match_include(line, &m)) {
             if (m.is_system) {
-                if (!strlist_has(sys_includes, line))
-                    strlist_add(sys_includes, arena_strdup(a, line));
+                char *t = str_trim(line); /* dedupe indented copies too */
+                if (!strlist_has(sys_includes, t))
+                    strlist_add(sys_includes, arena_strdup(a, t));
             } else {
-                char child[PATH_MAX];
+                /* room for dir + '/' + name, so the joins can't truncate */
+                char child[PATH_MAX + sizeof m.inner + 1];
                 if (m.inner[0] == '/')
                     snprintf(child, sizeof child, "%s", m.inner);
                 else
+                    snprintf(child, sizeof child, "%s/%s", dir, m.inner);
+                for (int s = 0; m.inner[0] != '/' && !file_exists(child) &&
+                                s < search_dirs.n; s++)
+                    snprintf(child, sizeof child, "%s/%s", search_dirs.items[s],
+                             m.inner);
+                if (!file_exists(child)) /* report the include-relative path */
                     snprintf(child, sizeof child, "%s/%s", dir, m.inner);
                 inline_file(a, body, seen_local, sys_includes, child, path, lineno);
             }
@@ -461,6 +518,7 @@ typedef struct
     const char *output;
     const char *guard;       /* NULL -> no #ifndef/#define/#endif wrapper */
     const char *impl_guard;  /* NULL -> no #ifdef/#endif around SECTION_IMPL */
+    const char *preamble;    /* NULL -> none */
     Entry *entries;
     int n_entries, cap_entries;
 } Manifest;
@@ -486,6 +544,16 @@ static void manifest_load(Manifest *m, const char *path, Arena *a)
 
         if (strcmp(t, "declarations") == 0) { section = SECTION_DECL; continue; }
         if (strcmp(t, "implementation") == 0) { section = SECTION_IMPL; continue; }
+
+        if (strncmp(t, "preamble", 8) == 0 && isspace((unsigned char)t[8])) {
+            m->preamble = arena_strdup(a, str_trim(t + 8));
+            continue;
+        }
+
+        if (strncmp(t, "search", 6) == 0 && isspace((unsigned char)t[6])) {
+            strlist_add(&search_dirs, arena_strdup(a, str_trim(t + 6)));
+            continue;
+        }
 
         if (strncmp(t, "include", 7) == 0 && isspace((unsigned char)t[7])) {
             Entry e = {0};
@@ -552,7 +620,8 @@ static void manifest_load(Manifest *m, const char *path, Arena *a)
         }
 
         fprintf(stderr,
-                "singleh: %s:%d: expected 'include <path>', "
+                "singleh: %s:%d: expected 'include <path>', 'search <dir>', "
+                "'preamble <path>', "
                 "'embed <path> [name=] [mode=]', 'key = value', "
                 "or 'declarations'/'implementation'\n",
                 path, lineno);
@@ -635,6 +704,11 @@ int main(int argc, char **argv)
     if (!out) {
         fprintf(stderr, "singleh: cannot write %s\n", m.output);
         return 1;
+    }
+    if (m.preamble) {
+        char *text = read_file(&arena, m.preamble);
+        fputs(text, out);
+        fputs("\n", out);
     }
     if (m.guard) fprintf(out, "#ifndef %s\n#define %s\n\n", m.guard, m.guard);
     for (int i = 0; i < sys_includes.n; i++)
