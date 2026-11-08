@@ -8,12 +8,13 @@ return {
     url = "https://github.com/RainerXE/Raven.git",
   },
   cbase = {
-    commit = "d0df427c45deb8fad7e5f1e4f9fb33a8a7bfc11f",
+    branch = "master",
+    commit = "5c02e9ff43b32ee47d4c3e86d406c6bff9306ff9",
     dest = "deps",
     files = {
       {
         path = "deps/base.h",
-        sha256 = "b2721ba2cd59d243f25cf283f2eb01dbe55cc1f684fe0651e5b50c26fa95d889",
+        sha256 = "201034f1040c137d6715079ecefb7700ef9fe2f82f5ba6a46ea5683407e3cc03",
       },
     },
     spec_files = {
