@@ -21,5 +21,22 @@ return {
     },
     url = "https://github.com/timwmillard/cbase.git",
   },
+  ["cbase-tool"] = {
+    dest = ".",
+    dev = "..",
+    files = {
+      {
+        path = "tool/embedc/CMakeLists.txt",
+      },
+      {
+        path = "tool/embedc/embedc.c",
+      },
+    },
+    spec_files = {
+      "tool/embedc/embedc.c",
+      "tool/embedc/CMakeLists.txt",
+    },
+    url = "https://github.com/timwmillard/cbase.git",
+  },
   lockfile_version = 1,
 }

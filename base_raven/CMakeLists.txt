@@ -5,7 +5,24 @@ set(CMAKE_C_STANDARD 11)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+set(RAVEN_BACKEND_SOKOL ON CACHE BOOL "" FORCE)
+set(RAVEN_BACKEND_VULKAN OFF CACHE BOOL "" FORCE)
+
 add_subdirectory(deps/Raven)
+
+# Build the embedc tool (standalone) and embed gui.xml into gui_xml.h as a
+# null-terminated C string (gui_xml_data / gui_xml_len).
+add_subdirectory(tool/embedc)
+
+embedc_generate(
+    INPUT  ${CMAKE_SOURCE_DIR}/src/gui.xml
+    OUTPUT ${CMAKE_SOURCE_DIR}/src/gui_xml.h
+    NAME   gui_xml
+    TEXT
+)
+add_custom_target(generate_gui DEPENDS
+    ${CMAKE_SOURCE_DIR}/src/gui_xml.h
+)
 
 include_directories(.)
 include_directories(deps)
@@ -15,5 +32,8 @@ add_executable(${PROJECT_NAME}
     src/deps.c
 )
 
-target_link_libraries(${PROJECT_NAME})
+add_dependencies(${PROJECT_NAME}
+    generate_gui
+)
+target_link_libraries(${PROJECT_NAME} raven::raven)
 
