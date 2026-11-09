@@ -401,11 +401,11 @@ void test_string_view(void) {
    PASS(test_name);
 }
 
-/* string_view_n: non-owning view of n bytes (not null-terminated) */
-void test_string_view_n(void) {
-   const char *test_name = "string_view_n";
+/* string_view_bytes: non-owning view of n bytes (not null-terminated) */
+void test_string_view_bytes(void) {
+   const char *test_name = "string_view_bytes";
    const char *lit = "hello world";
-   string s = string_view_n(lit, 5);
+   string s = string_view_bytes(lit, 5);
    ASSERT(s.len == 5, "len is 5");
    ASSERT(s.data == lit, "view aliases the source pointer");
    ASSERT_STR(s, "hello");
@@ -460,7 +460,7 @@ void test_string_dup(void) {
 void test_string_cstr(void) {
    const char *test_name = "string_cstr";
    arena a = {0};
-   string s = string_view_n("hello world", 5); /* slice, not terminated */
+   string s = string_view_bytes("hello world", 5); /* slice, not terminated */
    const char *cs = string_cstr(&a, s);
    ASSERT(strcmp(cs, "hello") == 0, "cstr is null-terminated \"hello\"");
    arena_release(&a);
@@ -886,7 +886,7 @@ int main(void) {
 
    test_S_macro();
    test_string_view();
-   test_string_view_n();
+   test_string_view_bytes();
    test_stringf();
    test_string_from();
    test_string_from_n();

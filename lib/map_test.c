@@ -37,7 +37,7 @@ typedef MAP(int) int_map;
 /* build a stack-backed "key-<n>" string; the map must not depend on it */
 static string tmp_key(char *buf, usize bufsz, int n) {
    int len = snprintf(buf, bufsz, "key-%d", n);
-   return string_view_n(buf, (usize)len);
+   return string_view_bytes(buf, (usize)len);
 }
 
 /* ================================================================== */

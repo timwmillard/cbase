@@ -192,8 +192,8 @@ typedef struct {
 #define S(lit) ((string){(lit), sizeof(lit) - 1})
 
 // Views — borrow existing bytes, no allocation, no copy.
-string string_view(const char *cstr);               // strlen-terminated
-string string_view_n(const char *bytes, usize len); // explicit length
+string string_view(const char *cstr);                   // strlen-terminated
+string string_view_bytes(const char *bytes, usize len); // explicit length
 
 // Owned copies — bytes are duplicated into the arena.
 string stringf(arena *a, const char *fmt, ...); // printf-style
@@ -434,7 +434,7 @@ string string_view(const char *cstr) {
    };
 }
 
-string string_view_n(const char *bytes, usize len) {
+string string_view_bytes(const char *bytes, usize len) {
    return (string){
        .data = bytes,
        .len = len,
@@ -726,7 +726,7 @@ void sb_append_from(string_builder *sb, const char *cstr) {
 }
 
 void sb_append_from_n(string_builder *sb, const char *bytes, usize len) {
-   sb_append(sb, string_view_n(bytes, len));
+   sb_append(sb, string_view_bytes(bytes, len));
 }
 
 void sb_appendf(string_builder *sb, const char *fmt, ...) {
