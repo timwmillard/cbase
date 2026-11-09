@@ -198,7 +198,7 @@ string string_view_bytes(const char *bytes, usize len); // explicit length
 // Owned copies — bytes are duplicated into the arena.
 string string_from(arena *a, const char *fmt, ...); // printf-style
 string string_vfrom(arena *a, const char *fmt, va_list args);
-string string_from_n(arena *a, const char *bytes, usize len);
+string string_from_bytes(arena *a, const char *bytes, usize len);
 string string_dup(arena *a, string s); // copy of an existing slice
 
 // Null-terminated C string copied into the arena (for APIs that need char*).
@@ -422,7 +422,7 @@ char *arena_sprintf(arena *a, const char *fmt, ...) {
 
 // A view borrows `cstr` without copying. `string.data` is const, so the view
 // cannot be written through -- matching the immutability contract. To get a
-// mutable, owned copy, use string_from_n or string_dup.
+// mutable, owned copy, use string_from_bytes or string_dup.
 string string_view(const char *cstr) {
    usize len = strlen(cstr);
    return (string){
@@ -464,7 +464,7 @@ string string_vfrom(arena *a, const char *fmt, va_list args) {
    };
 }
 
-string string_from_n(arena *a, const char *bytes, usize len) {
+string string_from_bytes(arena *a, const char *bytes, usize len) {
    char *buf = (char *)arena_alloc(a, len + 1);
    memcpy(buf, bytes, len);
    buf[len] = '\0';
@@ -475,7 +475,7 @@ string string_from_n(arena *a, const char *bytes, usize len) {
 }
 
 string string_dup(arena *a, string s) {
-   return string_from_n(a, s.data, s.len);
+   return string_from_bytes(a, s.data, s.len);
 }
 
 const char *string_cstr(arena *a, string s) {

@@ -434,11 +434,11 @@ void test_string_from(void) {
    PASS(test_name);
 }
 
-/* string_from_n: copy n bytes into arena */
-void test_string_from_n(void) {
-   const char *test_name = "string_from_n";
+/* string_from_bytes: copy n bytes into arena */
+void test_string_from_bytes(void) {
+   const char *test_name = "string_from_bytes";
    arena a = {0};
-   string s = string_from_n(&a, "hello world", 5);
+   string s = string_from_bytes(&a, "hello world", 5);
    ASSERT_STR(s, "hello");
    arena_release(&a);
    PASS(test_name);
@@ -889,7 +889,7 @@ int main(void) {
    test_string_view_bytes();
    test_stringf();
    test_string_from();
-   test_string_from_n();
+   test_string_from_bytes();
    test_string_dup();
    test_string_cstr();
    test_string_slice();
