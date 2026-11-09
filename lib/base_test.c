@@ -652,12 +652,12 @@ void test_sb_append(void) {
    PASS(test_name);
 }
 
-void test_sb_append_from_n(void) {
-   const char *test_name = "sb_append_from_n";
+void test_sb_append_from_bytes(void) {
+   const char *test_name = "sb_append_from_bytes";
    arena a = {0};
    string_builder sb = sb_init(&a);
-   sb_append_from_n(&sb, "hello world", 5);
-   sb_append_from_n(&sb, " bytes", 6);
+   sb_append_from_bytes(&sb, "hello world", 5);
+   sb_append_from_bytes(&sb, " bytes", 6);
    ASSERT_STR(sb_string(&sb), "hello bytes");
    arena_release(&a);
    PASS(test_name);
@@ -906,7 +906,7 @@ int main(void) {
    test_string_join();
    test_sb_empty_snapshot();
    test_sb_append();
-   test_sb_append_from_n();
+   test_sb_append_from_bytes();
    test_sb_appendf();
    test_sb_reset();
    test_sb_fixed();

@@ -98,7 +98,7 @@ int main(int argc, char *argv[]) {
 
    int i = 0;
    while ((n = recv(sock, buf, BUF_SIZE - 1, 0)) > 0) {
-      sb_append_from_n(&sb, (const char *)buf, n);
+      sb_append_from_bytes(&sb, (const char *)buf, n);
       i++;
    }
    close(sock);
