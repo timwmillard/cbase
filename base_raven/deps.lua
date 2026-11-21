@@ -9,8 +9,8 @@ return {
         files = { 'lib/base.h' },
     },
     {
-        'RainerXE/Raven',
-        branch = 'sokol-backend',
+        'oscar-soirey/Raven',
+        tag = 'v0.3.0',
     },
     {
         'timwmillard/cbase',

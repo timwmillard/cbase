@@ -45,6 +45,16 @@ typedef struct rvn_texture_t {
 	uint8_t* kept_pixels;
 	/** Texels per logical unit: 1 for a picture, the scale an SVG was drawn at (0 counts as 1). */
 	float density;
+	/*
+	 * An SVG drawn at the size it is shown (no scale asked for): the most
+	 * pixels per logical unit it was painted with during the last frame, and
+	 * R_TRUE while it is being drawn again at a new scale on a worker.
+	 * (svg_wanted holds the bits of a float that is never negative: paint
+	 * jobs on several threads raise it at once, and those bits order like it.)
+	 */
+	int svg_auto;
+	rvn_atomic_t svg_wanted;
+	int svg_pending;
 } rvn_texture_t;
 
 rvn_texture_t* rvn_texture_get(Rid id);
@@ -69,6 +79,7 @@ typedef struct rvn_shader_t {
 	/** Built-in effect it stands for, or -1. */
 	int effect;
 	/** Its SPIR-V, to make it again after the loss of the device. */
+	char* source_glsl; /* Browser effect source, when supplied instead of SPIR-V. */
 	uint32_t* spirv;
 	size_t spirv_size;
 } rvn_shader_t;
@@ -79,6 +90,8 @@ void rvn_shaders_shutdown(void);
 void rvn_shader_restore(rvn_shader_t* shader);
 /** The shader of a .spv file, made once per path and flags and kept until the end (the Effect attribute). */
 Rid rvn_shader_from_file_cached(const char* path, Ruint flags);
+/** Index of the built-in effect whose SPIR-V this is (REffect - R_EFFECT_AURORA), or -1. Thread-safe. */
+int rvn_effect_index_of(const uint32_t* spirv, size_t size);
 /** The SPIR-V words are rvn_alloc'ed; the renderer takes ownership. */
 void rvn_renderer_create_shader(Rid shader, uint32_t* spirv, size_t size);
 void rvn_renderer_destroy_shader(Rid shader);
@@ -91,8 +104,14 @@ uint8_t* rvn_image_decode(const uint8_t* data, size_t size, int* width, int* hei
  * logical unit of the result: the scale of an SVG, 1 for the other images.
  */
 uint8_t* rvn_image_decode_at(const uint8_t* data, size_t size, float svg_scale, int* width, int* height, float* density);
-/** Pixels per unit an SVG is drawn at when nothing else is asked: sharp on a screen of scale 2, and below. */
+/** Pixels per unit an SVG is first drawn at, before it has been shown (then: at the size it is shown, rvn_textures_update_svg). */
 #define RVN_SVG_DENSITY 2.0f
+/**
+ * Once a frame: draws again, on a worker, the SVGs that were painted bigger
+ * than their pixels (a screen of a higher density, a stretched Image, a zoom)
+ * or much smaller.
+ */
+void rvn_textures_update_svg(void);
 /* ---- render/svg_decode.c (nanosvg) ---- */
 int rvn_svg_detect(const uint8_t* data, size_t size);
 uint8_t* rvn_svg_decode(const uint8_t* data, size_t size, float scale, int* width, int* height);
@@ -129,6 +148,10 @@ typedef void (*rvn_render_fn)(void* arg);
 void rvn_renderer_call(rvn_render_fn function, void* arg, int wait);
 /** Blocks until every command queued so far has been executed. */
 void rvn_renderer_sync(void);
+/** Blocks until every command queued so far has been executed and the GPU has finished all its work (the application goes to the background). */
+void rvn_renderer_wait_idle(void);
+/** Frees the draw lists kept for the next frames (low memory): they are made again when needed. */
+void rvn_renderer_trim(void);
 
 /** R_TRUE once the backend reported the loss of its device (Rbackend_device_lost). */
 int rvn_renderer_device_lost(void);
@@ -161,12 +184,21 @@ void rvn_renderer_throttle(rvn_atomic_t* frames_in_flight, int max_frames);
 void rvn_renderer_submit_frame(rvn_frame_t* frame);
 
 /* Built-in backends */
+#if defined(RAVEN_BACKEND_WEBGL_ENABLED)
+const RBackendVTable* rvn_backend_webgl(void);
+#endif
 const RBackendVTable* rvn_backend_null(void);
 #if defined(RAVEN_BACKEND_VULKAN_ENABLED)
 const RBackendVTable* rvn_backend_vulkan(void);
 #endif
-#if defined(RAVEN_BACKEND_SOKOL_ENABLED)
-const RBackendVTable* rvn_backend_sokol(void);
+#if defined(RAVEN_BACKEND_METAL_ENABLED)
+const RBackendVTable* rvn_backend_metal(void);
+/**
+ * iOS: R_TRUE stops every commit of the Metal backend and waits until the GPU
+ * is idle (the application goes to the background); R_FALSE draws again.
+ * Called by the UIKit platform from the main thread.
+ */
+void rvn_metal_set_suspended(int suspended);
 #endif
 
 #endif /* RVN_RENDERER_H */

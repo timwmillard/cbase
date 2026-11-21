@@ -41,8 +41,15 @@ void rvn_dispatch_end(void) {
 	if (--g_rvn.dispatch_depth > 0) return;
 	g_rvn.dispatch_depth = 0;
 	/* nobody up the stack holds pointers any more: release what was deleted */
-	if (g_rvn.dead_widget_count) rvn_widgets_collect();
-	if (g_rvn.dead_window_count) rvn_windows_collect();
+	rvn_collect_dead();
+}
+
+void rvn_collect_dead(void) {
+	/* (freeing a widget can close a window, and a window going takes widgets with it) */
+	while (g_rvn.dead_widget_count || g_rvn.dead_window_count) {
+		rvn_widgets_collect();
+		rvn_windows_collect();
+	}
 }
 
 void rvn_wake(void) {
@@ -77,15 +84,26 @@ static const RBackendVTable* rvn_select_backend(RBackend backend) {
 			rvn_error(R_ERROR_BACKEND, R_SEVERITY_FATAL, "Raven was built without the Vulkan backend");
 			return NULL;
 #endif
-		case R_BACKEND_SOKOL:
-#if defined(RAVEN_BACKEND_SOKOL_ENABLED)
-			return rvn_backend_sokol();
+		        case R_BACKEND_WEBGL:
+#if defined(RAVEN_BACKEND_WEBGL_ENABLED)
+            return rvn_backend_webgl();
 #else
-			rvn_error(R_ERROR_BACKEND, R_SEVERITY_FATAL, "Raven was built without the Sokol backend (RAVEN_BACKEND_SOKOL)");
+            rvn_error(R_ERROR_BACKEND, R_SEVERITY_FATAL,
+                      "Raven was built without the WebGL backend");
+            return NULL;
+#endif
+		case R_BACKEND_METAL:
+#if defined(RAVEN_BACKEND_METAL_ENABLED)
+			return rvn_backend_metal();
+#else
+			rvn_error(R_ERROR_BACKEND, R_SEVERITY_FATAL, "Raven was built without the Metal backend");
 			return NULL;
 #endif
-		case R_BACKEND_NULL:
+        case R_BACKEND_NULL:
 			return rvn_backend_null();
+		case R_BACKEND_DEFAULT:
+			/* (resolved by Rinit_ex before) */
+			break;
 		case R_BACKEND_CUSTOM:
 			if (!g_custom_backend_set) {
 				rvn_error(R_ERROR_BACKEND, R_SEVERITY_FATAL, "R_BACKEND_CUSTOM needs Rbackend_register first");
@@ -95,26 +113,6 @@ static const RBackendVTable* rvn_select_backend(RBackend backend) {
 	}
 	rvn_error(R_ERROR_INVALID_ENUM, R_SEVERITY_FATAL, "Rinit: unknown backend");
 	return NULL;
-}
-
-/* The backend of a default RInitDesc: the one RAVEN_BACKEND names, else Vulkan, else the one that is compiled in. */
-static RBackend rvn_default_backend(void) {
-	const char* name = getenv("RAVEN_BACKEND");
-	if (name && *name) {
-		if (strcmp(name, "vulkan") == 0) return R_BACKEND_VULKAN;
-		if (strcmp(name, "sokol") == 0) return R_BACKEND_SOKOL;
-		if (strcmp(name, "null") == 0) return R_BACKEND_NULL;
-		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_WARNING, "RAVEN_BACKEND=%s: expected vulkan, sokol or null; using vulkan", name);
-	}
-#if !defined(RAVEN_BACKEND_VULKAN_ENABLED) && defined(RAVEN_BACKEND_SOKOL_ENABLED)
-	return R_BACKEND_SOKOL;
-#else
-	return R_BACKEND_VULKAN;
-#endif
-}
-
-RBackend Rget_backend(void) {
-	return g_rvn.initialized ? g_rvn.backend : (RBackend)0;
 }
 
 int Rinit(RBackend backend) {
@@ -136,7 +134,22 @@ int Rinit_ex(const RInitDesc* user_desc) {
 	}
 	memset(&desc, 0, sizeof(desc));
 	if (user_desc) desc = *user_desc;
-	if (desc.backend == 0) desc.backend = rvn_default_backend();
+	if (desc.backend == R_BACKEND_DEFAULT) {
+#if defined(RAVEN_BACKEND_WEBGL_ENABLED)
+        desc.backend = R_BACKEND_WEBGL;
+#elif defined(RAVEN_BACKEND_METAL_ENABLED)
+		desc.backend = R_BACKEND_METAL;
+#else
+        desc.backend = R_BACKEND_VULKAN;
+#endif
+    }
+#if defined(__EMSCRIPTEN__)
+    /* DOM and WebGL contexts belong to the browser main thread. */
+    desc.disable_render_thread = R_TRUE;
+#if !defined(__EMSCRIPTEN_PTHREADS__)
+    desc.worker_threads = -1;
+#endif
+#endif
 
 	backend = rvn_select_backend(desc.backend);
 	if (!backend) return R_FALSE;
@@ -166,14 +179,9 @@ int Rinit_ex(const RInitDesc* user_desc) {
 			g_rvn.platform ? g_rvn.platform->name : "native");
 		goto fail_platform;
 	}
-	g_rvn.single_window = desc.single_window || g_rvn.platform->single_window;
-	if (!(desc.ui_scale > 0.0f) && g_rvn.platform->default_ui_scale) {
-		float scale = g_rvn.platform->default_ui_scale();
-		if (scale >= 0.25f && scale <= 4.0f) g_rvn.ui_scale = scale;
-	}
 
 	/* job system: leave one core to the UI thread and one to the render thread */
-	threaded = !desc.disable_render_thread && !g_rvn.platform->single_thread_render;
+	threaded = !desc.disable_render_thread;
 	if (desc.worker_threads < 0) {
 		workers = 0;
 	} else if (desc.worker_threads > 0) {
@@ -190,7 +198,7 @@ int Rinit_ex(const RInitDesc* user_desc) {
 	g_rvn.enable_validation = desc.enable_validation;
 	info.app_name = g_rvn.app_name;
 	info.enable_validation = desc.enable_validation;
-	info.vsync = g_rvn.vsync;
+	info.vsync = rvn_present_vsync();
 	info.window_system = g_rvn.platform->system;
 	info.native_display = g_rvn.platform->native_display();
 	if (!rvn_renderer_init(backend, &info, threaded)) {
@@ -228,13 +236,21 @@ fail_platform:
 	return R_FALSE;
 }
 
+#if defined(__EMSCRIPTEN__)
+void rvn_web_images_shutdown(void);
+#endif
 void Rshutdown(void) {
 	uint32_t i;
 	if (!rvn_api_check(__func__)) return;
 
-	/* Stop native filesystem notifications before draining posted UI tasks. */
+	#if defined(__EMSCRIPTEN__)
+    rvn_web_images_shutdown();
+#endif
+    /* Stop native filesystem notifications before draining posted UI tasks. */
 	rvn_fs_watch_stop();
 	/* windows first: this deletes every widget that is shown */
+	/* (the inspectors first: they are windows that follow other windows) */
+	rvn_inspector_shutdown();
 	rvn_windows_destroy_all();
 	/* then the widgets the application created but never attached */
 	for (i = 0; i < g_rvn.widgets.used; i++) {
@@ -242,7 +258,7 @@ void Rshutdown(void) {
 		/* internal widgets are destroyed by the widget that owns them */
 		if (widget && !widget->parent && !(widget->flags & RVN_WF_INTERNAL)) rvn_widget_destroy(widget);
 	}
-	rvn_widgets_collect();
+	rvn_collect_dead();
 
 	/* let the running jobs finish and deliver their results */
 	rvn_jobs_shutdown();
@@ -256,6 +272,8 @@ void Rshutdown(void) {
 		}
 	}
 
+	/* (the scripts before the XML: their actions are unbound, their memory goes) */
+	rvn_script_shutdown();
 	rvn_xml_shutdown();
 	rvn_taskbar_shutdown();
 	rvn_tray_shutdown();
@@ -265,6 +283,7 @@ void Rshutdown(void) {
 	rvn_look_shutdown();
 	rvn_dialogs_shutdown();
 	rvn_islands_shutdown();
+	rvn_pdf_shutdown();
 	rvn_languages_shutdown();
 	rvn_fonts_shutdown();
 	rvn_shaders_shutdown();
@@ -520,6 +539,14 @@ void Raction_fire(const char* name, Rid sender) {
 	rvn_free(copy);
 }
 
+int rvn_action_lookup(const char* name, RActionCallback* callback, void** user_data) {
+	rvn_action_t* action = name ? rvn_action_find(name) : NULL;
+	if (!action) return R_FALSE;
+	if (callback) *callback = action->callback;
+	if (user_data) *user_data = action->user_data;
+	return R_TRUE;
+}
+
 void Raction_set_default_handler(RActionCallback callback, void* user_data) {
 	RVN_API_GUARD_VOID();
 	g_rvn.default_action = callback;
@@ -615,6 +642,60 @@ double Rget_time(void) {
 	return g_rvn.initialized ? rvn_clock_seconds() - g_rvn.start_time : 0.0;
 }
 
+/* ---------------------------------------------------------------------------
+ *  Application lifecycle
+ * ------------------------------------------------------------------------- */
+
+void rvn_app_event(RAppEvent event) {
+	switch (event) {
+		case R_APP_DID_PAUSE:
+			/* nothing is drawn from now on (rvn_window_can_paint); what is queued is finished before the system takes the GPU away */
+			g_rvn.app_paused = R_TRUE;
+			rvn_renderer_wait_idle();
+			break;
+		case R_APP_WILL_RESUME:
+		case R_APP_DID_RESUME:
+			/* (DID_RESUME alone too: a platform may miss the first) */
+			if (g_rvn.app_paused) {
+				g_rvn.app_paused = R_FALSE;
+				rvn_repaint_all_windows();
+				rvn_wake();
+			}
+			break;
+		default:
+			break;
+	}
+	if (g_rvn.app_event_callback) {
+		rvn_dispatch_begin();
+		g_rvn.app_event_callback(event, g_rvn.app_event_user);
+		rvn_dispatch_end();
+	}
+	if (event == R_APP_LOW_MEMORY) {
+		/* after the application freed its own: Raven's caches that are made again on use, then the empty pages of the heap */
+		rvn_renderer_trim();
+		Rmemory_trim();
+	}
+}
+
+void Rset_app_event_callback(RAppEventCallback callback, void* user_data) {
+	RVN_API_GUARD_VOID();
+	g_rvn.app_event_callback = callback;
+	g_rvn.app_event_user = user_data;
+}
+
+int Ris_app_paused(void) {
+	return g_rvn.initialized && g_rvn.app_paused ? R_TRUE : R_FALSE;
+}
+
+void Rinject_app_event(RAppEvent event) {
+	RVN_API_GUARD_VOID();
+	if ((int)event < (int)R_APP_WILL_PAUSE || (int)event > (int)R_APP_WILL_TERMINATE) {
+		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rinject_app_event: %d is not an RAppEvent", (int)event);
+		return;
+	}
+	rvn_app_event(event);
+}
+
 void Rpoll_events(void) {
 	RVN_API_GUARD_VOID();
 	g_rvn.platform->pump(0.0);
@@ -631,7 +712,9 @@ void Rwait_events(double timeout_seconds) {
 	}
 	for (i = 0; i < g_rvn.windows.used && timeout_seconds != 0.0; i++) {
 		rvn_window_t* window = (rvn_window_t*)rvn_pool_at(&g_rvn.windows, i);
-		if (window && rvn_window_wants_frame(window)) timeout_seconds = 0.0;
+		/* (a window waiting for the compositor sleeps until it answers, or until its wait runs out) */
+		double frame_in = window ? rvn_window_frame_in(window) : -1.0;
+		if (frame_in >= 0.0 && (timeout_seconds < 0.0 || frame_in < timeout_seconds)) timeout_seconds = frame_in;
 	}
 	timer_delay = rvn_timers_next_delay();
 	if (timer_delay >= 0.0 && (timeout_seconds < 0.0 || timer_delay < timeout_seconds)) timeout_seconds = timer_delay;
@@ -663,11 +746,26 @@ void rvn_update(void) {
 	/* the menu of the icon of the application follows its Menu */
 	rvn_taskbar_update();
 	rvn_tray_update();
+	rvn_textures_update_svg();
+	rvn_inspector_update();
+	/* (a callback of the layout may close a window: it is freed once they all are done) */
+	rvn_dispatch_begin();
 	for (i = 0; i < g_rvn.windows.used; i++) {
 		rvn_window_t* window = (rvn_window_t*)rvn_pool_at(&g_rvn.windows, i);
 		if (window) rvn_window_update(window);
 	}
+	rvn_dispatch_end();
 	g_rvn.in_update = R_FALSE;
+}
+
+int rvn_frame_pacing(void) {
+	/* (only the Vulkan and Metal backends present to the window: a frame of the null backend would never be answered) */
+	return (g_rvn.backend == R_BACKEND_VULKAN || g_rvn.backend == R_BACKEND_METAL) && g_rvn.platform &&
+		g_rvn.platform->window_frame_wait && g_rvn.platform->window_frame_begin;
+}
+
+int rvn_present_vsync(void) {
+	return g_rvn.vsync && !rvn_frame_pacing();
 }
 
 int Rdraw_frame(void) {
@@ -686,60 +784,6 @@ int Rwait_frame(double timeout_seconds) {
 	g_rvn.platform->pump(0.0);
 	rvn_update();
 	return Ris_running();
-}
-
-/* ---------------------------------------------------------------------------
- *  Rrun: the loop of the application, or of the system
- * ------------------------------------------------------------------------- */
-
-static struct {
-	RRunFinishedCallback finished;
-	void* user_data;
-	/** The system calls the frames: nobody is left to shut Raven down but Raven. */
-	int system_loop;
-} g_run;
-
-/* The application has quit: tell it, or, when the system owns the loop and nobody was told to, shut down. */
-static void rvn_run_finish(void) {
-	RRunFinishedCallback finished = g_run.finished;
-	void* user_data = g_run.user_data;
-	int system_loop = g_run.system_loop;
-	int exit_code = Rget_exit_code();
-	memset(&g_run, 0, sizeof(g_run));
-	if (finished) finished(exit_code, user_data);
-	else if (system_loop) Rshutdown();
-}
-
-/* One frame of a loop owned by the system (Platform::run). R_FALSE: the application has quit. */
-static int rvn_run_tick(void* user_data) {
-	RVN_UNUSED(user_data);
-	if (!g_rvn.initialized) return R_FALSE;
-	if (Rdraw_frame()) return R_TRUE;
-	rvn_run_finish();
-	return R_FALSE;
-}
-
-int Rrun(RRunFinishedCallback finished, void* user_data) {
-	int exit_code;
-	RVN_API_GUARD(R_FALSE);
-	g_run.finished = finished;
-	g_run.user_data = user_data;
-	g_run.system_loop = R_FALSE;
-	/* the first frame does not wait for an event */
-	Rwake_up();
-	if (g_rvn.platform->run) {
-		g_run.system_loop = R_TRUE;
-		if (g_rvn.platform->run(rvn_run_tick, NULL)) return 0;
-		g_run.system_loop = R_FALSE;
-	}
-	while (Rwait_frame(-1.0)) {}
-	exit_code = Rget_exit_code();
-	rvn_run_finish();
-	return exit_code;
-}
-
-int Rsingle_window_mode(void) {
-	return g_rvn.initialized && g_rvn.single_window;
 }
 
 int Rget_exit_code(void) {

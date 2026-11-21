@@ -86,7 +86,7 @@
 <tr><th scope="col">Topic</th><th scope="col">Qt</th><th scope="col">Raven</th></tr>
 </thead>
 <tbody>
-<tr><th scope="row">Language of the library</th><td>C++ with moc</td><td>C11; bindings for C++, Rust, Python, Go, C#, Zig, LuaJIT generated from the headers</td></tr>
+<tr><th scope="row">Language of the library</th><td>C++ with moc</td><td>C11; bindings for C++, Rust, Python, Go, C#, Zig, LuaJIT, Java, Odin, Bun, Node.js, D, Nim, C3 generated from the headers</td></tr>
 <tr><th scope="row">Objects</th><td>QObject tree, parent owns children, signals</td><td>Handles (<code>Rid</code>) checked on every call; a parent widget owns its children</td></tr>
 <tr><th scope="row">Events</th><td>Event loop in <code>exec()</code>, virtual handlers, signals</td><td>Your loop draws frames; callbacks per widget; named actions</td></tr>
 <tr><th scope="row">Interfaces</th><td><code>.ui</code> (Designer), QML</td><td>XML read at run time, with live reload</td></tr>
@@ -174,7 +174,7 @@ int main(int argc, char** argv) {
 static void on_quit(Rid button, void* user_data) { Rquit(0); }
 
 int main(void) {
-    if (!Rinit(R_BACKEND_VULKAN)) return 1;
+    if (!Rinit(R_BACKEND_DEFAULT)) return 1;
     Rid window = Rwindow_create("Hello", 320, 160, R_WINDOW_DEFAULT);
     Rid button = Rbutton_create("Quit");
     Rbutton_set_clicked_callback(button, on_quit, NULL);
@@ -292,7 +292,7 @@ static Rid window;
 static int clicks = 0;
 
 int main() {
-    if (!Rinit(R_BACKEND_VULKAN)) return 1;
+    if (!Rinit(R_BACKEND_DEFAULT)) return 1;
     Raction_bind("hello.clicked", [](Rid, const char*, void*) {
         clicks++;
         Rlabel_set_text(Rwidget_find(window, "status"), (std::to_string(clicks) + " clicks").c_str());
@@ -459,7 +459,7 @@ target_link_libraries(tool PRIVATE raven::raven)</code></pre>
 <h3>Shipping</h3>
 <ul>
 <li>Static linking puts everything in the executable; there are no plug-ins to deploy (no <code>platforms/qwindows.dll</code>, no <code>windeployqt</code>).</li>
-<li>The machine needs a Vulkan driver, which current graphics drivers include on Windows and Linux; on macOS, MoltenVK.</li>
+<li>The machine needs a Vulkan driver, which current graphics drivers include on Windows and Linux; on macOS, Raven draws with Metal (backend 0) and needs nothing.</li>
 <li>Interfaces loaded from <code>.xml</code> files are shipped next to the program, with their images and fonts; an interface compiled into the program as text needs no file at run time.</li>
 </ul>
 </section>

@@ -11,7 +11,7 @@
  * are computed once per line and per width, and kept until the line changes.
  * Only the rows that are visible are measured, colored and painted.
  *
- * Every change goes through one function, rvn_ed_replace, which also records
+ * Every change goes through one function, rvn_ed_replace_exact, which also records
  * what is needed to undo it.
  */
 
@@ -104,6 +104,11 @@ typedef struct rvn_text_editor_t {
 	rvn_widget_t* complete;
 	RCompletionCallback completion_callback;
 	void* completion_user;
+	/** R_TRUE: the proposals are only the application's (Rtext_editor_set_completion_words). */
+	int no_completion_words;
+	/** Text for the pointer resting on the text where no marker is (Rtext_editor_set_hover_callback). */
+	RTextEditorHoverCallback hover_callback;
+	void* hover_user;
 	Rid font;
 	float font_size;
 	/** Zoom of the text, a factor of the font size (0: 1). Ctrl + wheel, Ctrl + '+' / '-' / 0. */
@@ -214,14 +219,12 @@ static rvn_ed_pos_t rvn_ed_end(const rvn_text_editor_t* ed) {
 	return rvn_ed_pos((int)ed->line_count - 1, ed->lines[ed->line_count - 1].length);
 }
 
-/* Position reached after inserting `text` at `start` (carriage returns before a line break are dropped, as rvn_ed_replace does). */
+/* Position reached after inserting `text` at `start`, byte for byte (as rvn_ed_replace_exact does). */
 static rvn_ed_pos_t rvn_ed_pos_after(rvn_ed_pos_t start, const char* text, int length) {
 	int i, begin = 0;
 	for (i = 0; i <= length; i++) {
 		if (i == length || text[i] == '\n') {
-			int piece = i - begin;
-			while (piece > 0 && text[begin + piece - 1] == '\r') piece--;
-			start.column += piece;
+			start.column += i - begin;
 			if (i < length) {
 				start.line++;
 				start.column = 0;
@@ -334,9 +337,11 @@ static void rvn_ed_changed_state(rvn_text_editor_t* ed, int first_line) {
 /*
  * The one function that changes the text: replaces what lies between two
  * positions by `text` (either may be empty) and returns the position after
- * the inserted text. `record` stores the step in the history.
+ * the inserted text. `record` stores the step in the history. The text is
+ * inserted byte for byte, so that undo and redo give back exactly what was
+ * there; new text goes through rvn_ed_replace, which cleans it first.
  */
-static rvn_ed_pos_t rvn_ed_replace(rvn_text_editor_t* ed, rvn_ed_pos_t from, rvn_ed_pos_t to,
+static rvn_ed_pos_t rvn_ed_replace_exact(rvn_text_editor_t* ed, rvn_ed_pos_t from, rvn_ed_pos_t to,
 	const char* text, int length, int record) {
 
 	rvn_ed_pos_t end;
@@ -344,6 +349,8 @@ static rvn_ed_pos_t rvn_ed_replace(rvn_text_editor_t* ed, rvn_ed_pos_t from, rvn
 	char* tail;
 	int tail_length, pieces = 1, i, begin, index;
 
+	from = rvn_ed_clamp(ed, from);
+	to = rvn_ed_clamp(ed, to);
 	if (rvn_ed_pos_cmp(from, to) > 0) {
 		rvn_ed_pos_t swap = from;
 		from = to;
@@ -416,7 +423,7 @@ static rvn_ed_pos_t rvn_ed_replace(rvn_text_editor_t* ed, rvn_ed_pos_t from, rvn
 
 	rvn_ed_lines_insert(ed, (uint32_t)from.line + 1, (uint32_t)(pieces - 1));
 
-	/* the pieces between line breaks, without carriage returns */
+	/* the pieces between line breaks */
 	begin = 0;
 	index = from.line;
 	end = from;
@@ -424,7 +431,6 @@ static rvn_ed_pos_t rvn_ed_replace(rvn_text_editor_t* ed, rvn_ed_pos_t from, rvn
 		if (i == length || text[i] == '\n') {
 			int piece = i - begin;
 			line = &ed->lines[index];
-			while (piece > 0 && text[begin + piece - 1] == '\r') piece--;
 			rvn_ed_line_reserve(line, line->length + piece + (i == length ? tail_length : 0));
 			if (piece > 0) memcpy(line->text + line->length, text + begin, (size_t)piece);
 			line->length += piece;
@@ -442,6 +448,39 @@ static rvn_ed_pos_t rvn_ed_replace(rvn_text_editor_t* ed, rvn_ed_pos_t from, rvn
 	rvn_free(tail);
 
 	rvn_ed_changed_state(ed, from.line);
+	return end;
+}
+
+/*
+ * Replaces a range by new text, as rvn_ed_replace_exact does, after dropping
+ * the carriage returns that end each line of the text (CRLF line breaks).
+ */
+static rvn_ed_pos_t rvn_ed_replace(rvn_text_editor_t* ed, rvn_ed_pos_t from, rvn_ed_pos_t to,
+	const char* text, int length, int record) {
+
+	rvn_ed_pos_t end;
+	char* clean = NULL;
+
+	if (!text) text = "";
+	if (length < 0) length = (int)strlen(text);
+	if (length > 0 && memchr(text, '\r', (size_t)length)) {
+		int i, begin = 0, out = 0;
+		clean = (char*)rvn_calloc((size_t)length + 1);
+		for (i = 0; i <= length; i++) {
+			if (i == length || text[i] == '\n') {
+				int piece = i - begin;
+				while (piece > 0 && text[begin + piece - 1] == '\r') piece--;
+				if (piece > 0) memcpy(clean + out, text + begin, (size_t)piece);
+				out += piece;
+				if (i < length) clean[out++] = '\n';
+				begin = i + 1;
+			}
+		}
+		text = clean;
+		length = out;
+	}
+	end = rvn_ed_replace_exact(ed, from, to, text, length, record);
+	rvn_free(clean);
 	return end;
 }
 
@@ -466,7 +505,7 @@ static int rvn_ed_undo(rvn_text_editor_t* ed) {
 	if (ed->undo_count == 0 || ed->read_only) return R_FALSE;
 	edit = &ed->undo[ed->undo_count - 1];
 	edit->typing = R_FALSE;
-	rvn_ed_replace(ed, edit->start, rvn_ed_pos_after(edit->start, edit->inserted, edit->inserted_length),
+	rvn_ed_replace_exact(ed, edit->start, rvn_ed_pos_after(edit->start, edit->inserted, edit->inserted_length),
 		edit->removed, edit->removed_length, R_FALSE);
 	ed->caret = rvn_ed_clamp(ed, edit->caret_before);
 	ed->anchor = rvn_ed_clamp(ed, edit->anchor_before);
@@ -478,7 +517,7 @@ static int rvn_ed_redo(rvn_text_editor_t* ed) {
 	rvn_ed_edit_t* edit;
 	if (ed->redo_count == 0 || ed->read_only) return R_FALSE;
 	edit = &ed->redo[ed->redo_count - 1];
-	rvn_ed_replace(ed, edit->start, rvn_ed_pos_after(edit->start, edit->removed, edit->removed_length),
+	rvn_ed_replace_exact(ed, edit->start, rvn_ed_pos_after(edit->start, edit->removed, edit->removed_length),
 		edit->inserted, edit->inserted_length, R_FALSE);
 	ed->caret = ed->anchor = rvn_ed_clamp(ed, edit->caret_after);
 	rvn_ed_move_edit(&ed->undo, &ed->undo_count, &ed->undo_cap, ed->redo, &ed->redo_count);
@@ -1526,6 +1565,8 @@ static int rvn_ed_toggle_comment(rvn_text_editor_t* ed) {
 typedef struct rvn_edc_item_t {
 	char* text;
 	char* detail;
+	/** What choosing it writes in place of the word, when not `text` (Rtext_editor_add_completion_insert). */
+	char* insert;
 	/** 0: given by the application; 1: starts as what was typed; 2: starts so, whatever the case. */
 	int rank;
 	/** When it was added: the proposals of the application stay in the order it gave them. */
@@ -1553,6 +1594,7 @@ static void rvn_edc_clear(rvn_ed_complete_t* list) {
 	for (i = 0; i < list->count; i++) {
 		rvn_free(list->items[i].text);
 		rvn_free(list->items[i].detail);
+		rvn_free(list->items[i].insert);
 	}
 	list->count = 0;
 }
@@ -1564,6 +1606,7 @@ static void rvn_edc_add(rvn_ed_complete_t* list, const char* text, int length, c
 	item = &list->items[list->count++];
 	item->text = rvn_strndup(text, (size_t)length);
 	item->detail = detail ? rvn_strdup(detail) : NULL;
+	item->insert = NULL;
 	item->rank = rank;
 	item->order = list->count;
 }
@@ -1681,7 +1724,7 @@ static void rvn_ed_complete_accept(rvn_text_editor_t* ed, int index) {
 	rvn_widget_t* widget = &ed->base;
 	char* text;
 	if (!list || index < 0 || index >= (int)list->count) return;
-	text = rvn_strdup(list->items[index].text);
+	text = rvn_strdup(list->items[index].insert ? list->items[index].insert : list->items[index].text);
 	rvn_ed_complete_close(ed);
 	if (list->start.line == ed->caret.line && list->start.column <= ed->caret.column && !ed->read_only) {
 		rvn_ed_break_typing(ed);
@@ -1837,7 +1880,7 @@ static void rvn_ed_complete_update(rvn_widget_t* widget, int mode) {
 		if (!rvn_widget_get(id)) return;
 		list->collecting = R_FALSE;
 	}
-	if (language) {
+	if (language && !ed->no_completion_words) {
 		for (k = 0; k < 3; k++) {
 			int count = rvn_language_word_count(language, k);
 			for (i = 0; i < count; i++) {
@@ -1847,7 +1890,7 @@ static void rvn_ed_complete_update(rvn_widget_t* widget, int mode) {
 			}
 		}
 	}
-	if (prefix_length > 0) rvn_ed_complete_document(ed, list, prefix, prefix_length);
+	if (prefix_length > 0 && !ed->no_completion_words) rvn_ed_complete_document(ed, list, prefix, prefix_length);
 
 	if (list->count > 1) qsort(list->items, list->count, sizeof(rvn_edc_item_t), rvn_edc_compare);
 	for (write = 0, read = 0; read < list->count; read++) {
@@ -1860,6 +1903,7 @@ static void rvn_ed_complete_update(rvn_widget_t* widget, int mode) {
 		if (twice) {
 			rvn_free(list->items[read].text);
 			rvn_free(list->items[read].detail);
+			rvn_free(list->items[read].insert);
 			continue;
 		}
 		list->items[write++] = list->items[read];
@@ -2072,6 +2116,8 @@ static int rvn_ed_key(rvn_widget_t* widget, const REvent* event) {
 			return R_TRUE;
 		case R_KEY_UP:
 		case R_KEY_DOWN:
+			/* Alt+Up / Alt+Down are left to the window shortcuts (previous / next...) */
+			if (alt) return R_FALSE;
 			if (command) {
 				/* Ctrl + arrows scroll without moving the caret */
 				rvn_scrollbar_wheel(&ed->vbar, event->key == R_KEY_UP ? -m.line_height : m.line_height);
@@ -2130,6 +2176,8 @@ static int rvn_ed_key(rvn_widget_t* widget, const REvent* event) {
 			break;
 		case R_KEY_ENTER:
 		case R_KEY_KP_ENTER:
+			/* Ctrl/Alt+Enter is left to the window shortcuts (send, run...) */
+			if (command || alt) return R_FALSE;
 			if (ed->read_only) return R_TRUE;
 			rvn_ed_new_line(ed);
 			changed = R_TRUE;
@@ -2295,19 +2343,30 @@ static int rvn_text_editor_event(rvn_widget_t* widget, const REvent* event) {
 				return R_TRUE;
 			}
 			if (event->type == R_EVENT_MOUSE_MOVE && !ed->selecting) {
-				if (ed->marker_count > 0 || ed->marker_tip) {
-					/* the message of the marker under the pointer is the tooltip of the editor */
+				if (ed->marker_count > 0 || ed->marker_tip || ed->hover_callback) {
+					/* the message of the marker under the pointer is the tooltip of the editor; elsewhere on the
+					   text, what the hover callback says */
 					const rvn_ed_marker_t* marker = NULL;
 					const char* message;
+					int over_text = R_FALSE;
 					if (rvn_rect_contains(m.area, event->local_x, event->local_y)) {
 						float tx = event->local_x - m.area.x + ed->hbar.offset, ty = event->local_y - m.area.y + ed->vbar.offset;
 						rvn_vec2_t point;
 						pos = rvn_ed_point_pos(ed, &m, tx, ty);
 						point = rvn_ed_pos_point(ed, &m, pos);
 						/* (the nearest position is not under the pointer when it is past the end of the line, or below the text) */
-						if (ty >= point.y && ty < point.y + m.line_height && fabsf(tx - point.x) <= m.space) marker = rvn_ed_marker_at(ed, pos);
+						if (ty >= point.y && ty < point.y + m.line_height && fabsf(tx - point.x) <= m.space) {
+							marker = rvn_ed_marker_at(ed, pos);
+							over_text = R_TRUE;
+						}
 					}
 					message = marker ? marker->message : NULL;
+					if (!message && over_text && ed->hover_callback) {
+						Rid id = widget->id;
+						message = ed->hover_callback(id, pos.line, pos.column, ed->hover_user);
+						if (!rvn_widget_get(id)) return R_TRUE;
+						if (message && !message[0]) message = NULL;
+					}
 					if (message ? (!widget->tooltip || strcmp(widget->tooltip, message) != 0) : ed->marker_tip) {
 						rvn_str_set(&widget->tooltip, message);
 						ed->marker_tip = message != NULL;
@@ -2500,7 +2559,7 @@ const rvn_widget_class_t rvn_class_text_editor = {
 	.type = R_WIDGET_TEXT_EDITOR,
 	.name = "TextEditor",
 	.size = sizeof(rvn_text_editor_t),
-	.flags = RVN_CF_NO_CHILDREN | RVN_CF_FOCUSABLE | RVN_CF_SURFACE | RVN_CF_NO_MIRROR | RVN_CF_TEXT_INPUT,
+	.flags = RVN_CF_NO_CHILDREN | RVN_CF_FOCUSABLE | RVN_CF_SURFACE | RVN_CF_NO_MIRROR,
 	.init = rvn_text_editor_init,
 	.destroy = rvn_text_editor_destroy,
 	.measure = rvn_text_editor_measure,
@@ -2544,8 +2603,12 @@ Rid Rtext_editor_create(const char* text) {
 }
 
 void Rtext_editor_set_text(Rid id, const char* text) {
+	char* copy;
 	RVN_EDITOR_VOID(ed, id);
-	rvn_ed_set_text(ed, text);
+	/* the text may be one of the editor's own lines (Rtext_editor_get_line), which the edit frees or rewrites */
+	copy = text ? rvn_strdup(text) : NULL;
+	rvn_ed_set_text(ed, copy);
+	rvn_free(copy);
 }
 
 const char* Rtext_editor_get_text(Rid id) {
@@ -2576,10 +2639,14 @@ const char* Rtext_editor_get_line(Rid id, int line) {
 }
 
 void Rtext_editor_insert_text(Rid id, const char* text) {
+	char* copy;
 	RVN_EDITOR_VOID(ed, id);
 	if (!text) return;
+	/* as in Rtext_editor_set_text, the text may live in a line that the edit changes */
+	copy = rvn_strdup(text);
 	rvn_ed_break_typing(ed);
-	rvn_ed_insert(ed, text, -1);
+	rvn_ed_insert(ed, copy, -1);
+	rvn_free(copy);
 	rvn_ed_break_typing(ed);
 	rvn_ed_caret_moved(ed, R_FALSE);
 	rvn_ed_notify(widget);
@@ -2801,6 +2868,36 @@ void Rtext_editor_add_completion(Rid id, const char* text, const char* detail) {
 	if ((int)strlen(text) < list->prefix_length || rvn_strnicmp(text, ed->lines[list->start.line].text + list->start.column,
 		(size_t)list->prefix_length) != 0) return;
 	rvn_edc_add(list, text, (int)strlen(text), detail && detail[0] ? detail : NULL, 0);
+}
+
+void Rtext_editor_add_completion_insert(Rid id, const char* text, const char* detail, const char* insert) {
+	rvn_ed_complete_t* list;
+	uint32_t count;
+	RVN_EDITOR_VOID(ed, id);
+	list = (rvn_ed_complete_t*)ed->complete;
+	if (!list || !list->collecting) {
+		rvn_error(R_ERROR_INVALID_OPERATION, R_SEVERITY_ERROR, "Rtext_editor_add_completion_insert: only from a completion callback");
+		return;
+	}
+	count = list->count;
+	Rtext_editor_add_completion(id, text, detail);
+	if (list->count > count && insert && insert[0]) list->items[list->count - 1].insert = rvn_strdup(insert);
+}
+
+void Rtext_editor_set_completion_words(Rid id, int enabled) {
+	RVN_EDITOR_VOID(ed, id);
+	ed->no_completion_words = !enabled;
+}
+
+void Rtext_editor_set_hover_callback(Rid id, RTextEditorHoverCallback callback, void* user_data) {
+	RVN_EDITOR_VOID(ed, id);
+	ed->hover_callback = callback;
+	ed->hover_user = user_data;
+	if (!callback && ed->marker_tip) {
+		rvn_str_set(&widget->tooltip, NULL);
+		ed->marker_tip = R_FALSE;
+		if (widget->window) rvn_window_rearm_tooltip(widget->window);
+	}
 }
 
 void Rtext_editor_set_auto_pairs(Rid id, int enabled) {

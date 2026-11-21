@@ -1067,6 +1067,21 @@ float rvn_widget_metric(const rvn_widget_t* widget, RMetric metric) {
 				break;
 		}
 	}
+	/*
+	 * a finger (RTouchSettings::min_touch_size, phones and tablets): what it
+	 * presses is at least that high (check boxes and sliders are a row high),
+	 * and the box and the handle drawn in it grow to half of it
+	 */
+	switch (metric) {
+		case R_METRIC_CONTROL_HEIGHT: case R_METRIC_ROW_HEIGHT:
+			value = rvn_maxf(value, rvn_touch_min_size(widget->window));
+			break;
+		case R_METRIC_CHECK_SIZE: case R_METRIC_SLIDER_HANDLE_SIZE:
+			value = rvn_maxf(value, rvn_touch_min_size(widget->window) * 0.5f);
+			break;
+		default:
+			break;
+	}
 	return value;
 }
 
@@ -1076,6 +1091,10 @@ int rvn_widget_has_color(const rvn_widget_t* widget, RColorRole role) {
 	if (widget->style && (widget->style->color_mask & bit)) return R_TRUE;
 	match = rvn_widget_match(widget);
 	return match && (match->style.color_mask & bit) != 0;
+}
+
+int rvn_widget_own_color(const rvn_widget_t* widget, RColorRole role) {
+	return widget->style && (widget->style->color_mask & ((uint64_t)1 << RVN_COLOR_INDEX(role))) != 0;
 }
 
 int rvn_widget_has_metric(const rvn_widget_t* widget, RMetric metric) {
@@ -1167,6 +1186,7 @@ void Rtheme_set_metric(RMetric metric, float value) {
 		return;
 	}
 	RVN_THEME_METRIC(metric) = value;
+	g_rvn.theme_metric_mask |= 1u << RVN_METRIC_INDEX(metric);
 	rvn_theme_changed();
 }
 

@@ -717,6 +717,20 @@ void rvn_paint_image(RPainter* painter, rvn_rect_t rect, Rid texture, const floa
 	if (box.x1 <= box.x0 || box.y1 <= box.y0) return;
 	instance = rvn_paint_emit(painter, box, texture);
 	if (!instance) return;
+	if (object->svg_auto && object->width > 0 && object->height > 0) {
+		/* the pixels per logical unit this SVG is shown with, here: the next frame draws it at that scale */
+		float span_x = fabsf((uv ? uv[2] - uv[0] : 1.0f)) * (float)object->width;
+		float span_y = fabsf((uv ? uv[3] - uv[1] : 1.0f)) * (float)object->height;
+		float density = object->density > 0.0f ? object->density : 1.0f;
+		float wanted = 0.0f;
+		if (span_x > 0.0f) wanted = (box.x1 - box.x0) / span_x * density;
+		if (span_y > 0.0f) wanted = rvn_maxf(wanted, (box.y1 - box.y0) / span_y * density);
+		if (wanted > 0.0f) {
+			int32_t bits;
+			memcpy(&bits, &wanted, sizeof(bits));
+			rvn_atomic_max(&object->svg_wanted, (int)bits);
+		}
+	}
 	limit = rvn_minf(box.x1 - box.x0, box.y1 - box.y0) * 0.5f;
 	r = rvn_clampf(radius * painter->scale, 0.0f, limit);
 	instance->rect[0] = box.x0;
@@ -825,6 +839,12 @@ void Rdraw_rect(RPainter* painter, float x, float y, float width, float height,
 	float radius, float r, float g, float b, float a) {
 	if (!painter) return;
 	rvn_paint_box(painter, rvn_rect(x, y, width, height), radius, rvn_rgba(r, g, b, a), 0.0f, 0);
+}
+
+void Rdraw_shadow(RPainter* painter, float x, float y, float width, float height,
+	float radius, float blur, float r, float g, float b, float a) {
+	if (!painter || width <= 0.0f || height <= 0.0f) return;
+	rvn_paint_shadow(painter, rvn_rect(x, y, width, height), radius, blur, rvn_rgba(r, g, b, a));
 }
 
 void Rdraw_glass(RPainter* painter, float x, float y, float width, float height,

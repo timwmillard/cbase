@@ -31,7 +31,7 @@ static int rvn_vk_init(const RBackendInitInfo* info) {
 
 static void rvn_vk_wait_idle(void) {
 	if (!rvn_vk_usable()) return;
-	rvn_vk_uploads_flush();
+	rvn_vk_uploads_finish();
 	rvn_vk_wait_frames();
 }
 
@@ -49,9 +49,7 @@ const RBackendVTable* rvn_backend_vulkan(void) {
 		rvn_vk_render_frame,
 		rvn_vk_wait_idle,
 		rvn_vk_shader_create,
-		rvn_vk_shader_destroy,
-		R_BACKEND_CAP_GLASS | R_BACKEND_CAP_ERASE | R_BACKEND_CAP_SHADERS | R_BACKEND_CAP_READBACK |
-			R_BACKEND_CAP_CALLBACK | R_BACKEND_CAP_PRESENT
+		rvn_vk_shader_destroy
 	};
 	return &vtable;
 }

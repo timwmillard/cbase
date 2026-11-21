@@ -3,7 +3,8 @@ const char gui_xml_data[] =
 	"  <VBox Spacing=\"8\">\n"
 	"    <Label Name=\"count\" Text=\"Count: 0\" Slot.Padding=\"8\" Slot.HAlign=\"Center\"/>\n"
 	"    <Button Text=\"Increment\" OnClicked=\"counter.increment\" Slot.HAlign=\"Center\"/>\n"
+	"    <Button Text=\"Decrement\" OnClicked=\"counter.decrement\" Slot.HAlign=\"Center\"/>\n"
 	"  </VBox>\n"
 	"</Window>\n"
 	"";
-const unsigned int gui_xml_len = 253;
+const unsigned int gui_xml_len = 335;

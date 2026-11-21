@@ -21,6 +21,10 @@
 
 #include <Raven.h>
 
+#if defined(__EMSCRIPTEN__)
+#include <emscripten.h>
+#endif
+
 #include "glass_xml.h"
 
 #define CARD_COUNT 9
@@ -97,7 +101,7 @@ static void add_card(Rid grid, int index) {
 
 static void on_action(Rid sender, const char *action, void *user_data) {
    (void)user_data;
-   if (strcmp(action, "theme.toggle") == 0) {
+   if (strcmp(action, "glass.toggle") == 0) {
       Rtheme_apply(Rcheckbox_is_checked(sender) ? R_THEME_GLASS_DARK
                                                 : R_THEME_GLASS_LIGHT);
    } else if (strcmp(action, "player.toggle") == 0) {
@@ -130,11 +134,14 @@ static void on_frame(double delta_seconds, void *user_data) {
    Rprogress_bar_set_value(app.progress, (float)(app.seconds / 240.0));
 }
 
-static void on_finished(int exit_code, void *user_data) {
-   (void)exit_code;
-   (void)user_data;
-   Rshutdown();
+#if defined(__EMSCRIPTEN__)
+static void browser_frame(void) {
+   if (!Rdraw_frame()) {
+      emscripten_cancel_main_loop();
+      Rshutdown();
+   }
 }
+#endif
 
 #if defined(__EMSCRIPTEN__)
 /* (a page has no command line; Emscripten before 3.1.7 does not find a main
@@ -149,8 +156,11 @@ int main(int argc, char **argv) {
    int light = argc > 1 && strcmp(argv[1], "light") == 0;
    Rid grid, item;
    int i;
+#if !defined(__EMSCRIPTEN__)
+   int exit_code;
+#endif
 
-   if (!Rinit(R_BACKEND_SOKOL))
+   if (!Rinit(R_BACKEND_METAL))
       return 1;
 
    /* before the window is built: sizes depend on the metrics of the theme */
@@ -191,7 +201,15 @@ int main(int argc, char **argv) {
    /* the player moves: keep producing frames */
    Rwindow_set_continuous_redraw(app.window, R_TRUE);
 
-   /* Rrun is the loop (see examples/hello): it returns when the application
-    * quits, or at once in a browser */
-   return Rrun(on_finished, NULL);
+   /* Raven has no loop of its own: one frame per call (see Rdraw_frame) */
+#if defined(__EMSCRIPTEN__)
+   emscripten_set_main_loop(browser_frame, 0, 0);
+   return 0;
+#else
+   while (Rwait_frame(-1.0)) {
+   }
+   exit_code = Rget_exit_code();
+   Rshutdown();
+   return exit_code;
+#endif
 }

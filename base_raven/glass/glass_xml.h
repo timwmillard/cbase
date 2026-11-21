@@ -66,7 +66,7 @@ const char glass_xml_data[] =
 	"\t\t\t\t<Separator/>\n"
 	"\t\t\t\t<HBox>\n"
 	"\t\t\t\t\t<Label Slot.Fill=\"1\" Slot.VAlign=\"Center\">Dark glass</Label>\n"
-	"\t\t\t\t\t<Checkbox Name=\"dark\" Style=\"Switch\" Checked=\"true\" OnChanged=\"theme.toggle\"/>\n"
+	"\t\t\t\t\t<Checkbox Name=\"dark\" Style=\"Switch\" Checked=\"true\" OnChanged=\"glass.toggle\"/>\n"
 	"\t\t\t\t</HBox>\n"
 	"\t\t\t\t<HBox>\n"
 	"\t\t\t\t\t<Label Slot.Fill=\"1\" Slot.VAlign=\"Center\">Crossfade</Label>\n"

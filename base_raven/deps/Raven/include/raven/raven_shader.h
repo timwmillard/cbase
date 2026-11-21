@@ -24,16 +24,6 @@
  *
  *     glslangValidator -V -I<raven package>/include/raven/shaders wave.frag -o wave.spv
  *
- * An effect written this way works on the Vulkan backend as a .spv. To run on every backend (Vulkan, and the Sokol backend:
- * OpenGL ES 3 / WebGL 2 and Metal, so also iOS, macOS and the web), make an effect bundle (.rfx) from it: the effect compiled
- * for each of them in one file (tools/rfx/rfx.py, which needs glslangValidator and spirv-cross when the bundle is made, and
- * nothing at run time):
- *
- *     python3 tools/rfx/rfx.py wave.frag -o wave.rfx --animated [--backdrop]
- *
- * and use wave.rfx wherever wave.spv was used (Rshader_create_from_file, Effect="wave.rfx"); the flags of the bundle
- * (--backdrop, --animated) are added to the ones given.
- *
  * Then, in XML:   <Border Effect="wave.spv" EffectColor="#0A84FF" EffectColor2="#BF5AF2" CornerRadius="16"/>
  * or in C:        Rid wave = Rshader_create_from_file("wave.spv", 0);
  *                 Rborder_set_effect(border, wave, &look);   // or Rdraw_shader in a paint callback
@@ -43,8 +33,10 @@
  * widget and pressing it. The effects of Raven all react to it.
  *
  * The guide docs/shaders.html describes everything an effect can use.
- * The Vulkan backend runs effects from SPIR-V or from a bundle, the Sokol backend from a bundle (and the effects of Raven);
- * a backend without them (R_BACKEND_NULL, a custom backend whose CreateShader is NULL) draws the rectangle in `color`.
+ * The Vulkan backend runs effects; a backend without them (R_BACKEND_NULL, a
+ * custom backend whose CreateShader is NULL) draws the rectangle in `color`.
+ * The Metal backend runs the built-in effects (REffect) and draws the effects
+ * given as SPIR-V as rectangles in `color` (ask for R_BACKEND_VULKAN to run them).
  */
 
 #ifndef RAVEN_SHADER_H
@@ -101,7 +93,8 @@ typedef struct RShaderLook {
 	 * How much the pointer is over it and how much it is pressed, 0..1, as
 	 * the effect reads them (fx.hover, fx.press). -1 (the default): 1 while
 	 * the pointer is in the rectangle, and while the left button is down
-	 * there; a Border eases them itself.
+	 * there; a Border eases them itself. The rectangle is clipped to the
+	 * visible painting area; overlaid siblings do not interrupt its hover.
 	 */
 	float hover;
 	float press;
@@ -113,14 +106,12 @@ extern "C" {
 
 	/**
 	 * @brief A shader from SPIR-V code (a fragment shader written with
-	 * raven_effect.glsl, as in a .spv file) or from an effect bundle (a .rfx
-	 * file, see above): `size` bytes, copied. R_INVALID_ID when the data is
-	 * neither, or a bundle is damaged; a backend that cannot run it (the
-	 * Sokol backend with SPIR-V, a bundle without the variant of its graphics
-	 * API) reports an error and the effect is drawn as a rectangle.
+	 * raven_effect.glsl, as in a .spv file): `size` bytes, copied. R_INVALID_ID
+	 * when the code is not SPIR-V; a backend that refuses it reports an error
+	 * and the effect is drawn as a rectangle.
 	 */
 	RAVEN_API Rid Rshader_create(const void* spirv, size_t size, Ruint flags);
-	/** @brief The same, from a .spv or .rfx file (UTF-8 path, relative to the current folder). */
+	/** @brief The same, from a .spv file (UTF-8 path, relative to the current folder). */
 	RAVEN_API Rid Rshader_create_from_file(const char* path, Ruint flags);
 	RAVEN_API void Rshader_destroy(Rid shader);
 	RAVEN_API int Rshader_is_valid(Rid shader);

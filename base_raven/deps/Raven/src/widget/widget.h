@@ -40,6 +40,7 @@ struct rvn_xml_node_t;
 #define RVN_WF_INTERNAL      (1u << 11) /* owned by another widget without being its child */
 #define RVN_WF_WINDOW_DRAG   (1u << 12) /* part of the title bar of a window with a custom header */
 #define RVN_WF_NO_TAB        (1u << 13) /* focusable with a click, but Tab passes it by (a selectable label) */
+#define RVN_WF_FLOAT_LAYER   (1u << 14) /* logical child painted/hit-tested by its window above the content */
 #define RVN_WF_LAYOUT_DIRTY  (RVN_WF_MEASURE_DIRTY | RVN_WF_ARRANGE_DIRTY)
 
 /* class traits (rvn_widget_class_t::flags) */
@@ -52,7 +53,6 @@ struct rvn_xml_node_t;
 #define RVN_CF_CLIP         (1u << 6)   /* instances start with RVN_WF_CLIP */
 #define RVN_CF_SURFACE     (1u << 7)   /* draws its own surface, in the material of the widget */
 #define RVN_CF_OWN_CHILDREN (1u << 8)  /* paints its children itself, from its paint function */
-#define RVN_CF_TEXT_INPUT   (1u << 11) /* focus means the user types: a platform with a soft keyboard shows it */
 #define RVN_CF_NO_MIRROR    (1u << 9)   /* a surface of its own: its children are not mirrored in a right-to-left layout */
 #define RVN_CF_TOUCH_DRAG   (1u << 10)  /* a finger on it drags it at once as the mouse would (a slider), it never scrolls what contains it */
 
@@ -185,6 +185,14 @@ typedef struct rvn_widget_class_t {
 	 * passes the movement to what contains the widget.
 	 */
 	int  (*pan)(rvn_widget_t* widget, float dx, float dy, int coasting);
+	/**
+	 * The finger that panned the widget left, moving at (vx, vy) logical
+	 * units per second (0, 0 when it rested or was cancelled; also called
+	 * when two fingers that panned it leave). Returns R_TRUE when the widget
+	 * settles by itself (pages that snap): nothing coasts then. NULL: the
+	 * content coasts.
+	 */
+	int  (*pan_end)(rvn_widget_t* widget, float vx, float vy);
 	/** Zooms by `factor` around a point of the widget (local units). Returns R_TRUE when the zoom changed. */
 	int  (*zoom)(rvn_widget_t* widget, float factor, float x, float y);
 	/**
@@ -336,7 +344,8 @@ rvn_widget_t* rvn_widget_create_class(const rvn_widget_class_t* cls);
 /** Detaches and destroys a widget and its subtree. */
 void rvn_widget_destroy(rvn_widget_t* widget);
 /** @param index Position among the children, or -1 to append. */
-void rvn_widget_add_child(rvn_widget_t* parent, rvn_widget_t* child, int index);
+/** R_FALSE when the destroy callbacks of the child replaced (single-child containers) destroyed the parent or the child. */
+int rvn_widget_add_child(rvn_widget_t* parent, rvn_widget_t* child, int index);
 /** Removes the widget from its parent without destroying it. */
 void rvn_widget_detach(rvn_widget_t* widget);
 int  rvn_widget_child_index(const rvn_widget_t* parent, const rvn_widget_t* child);
@@ -418,6 +427,8 @@ int rvn_parse_material(const char* text, RMaterial* material);
 rvn_color_t rvn_widget_color(const rvn_widget_t* widget, RColorRole role);
 float rvn_widget_metric(const rvn_widget_t* widget, RMetric metric);
 int   rvn_widget_has_color(const rvn_widget_t* widget, RColorRole role);
+/** R_TRUE when the widget itself gives the color (its XML or the code), not a style of its theme. */
+int   rvn_widget_own_color(const rvn_widget_t* widget, RColorRole role);
 /** R_TRUE when the widget itself, or a style of the theme for it, gives the metric (not only the theme). */
 int   rvn_widget_has_metric(const rvn_widget_t* widget, RMetric metric);
 void  rvn_widget_set_color(rvn_widget_t* widget, RColorRole role, rvn_color_t color);
@@ -488,8 +499,43 @@ typedef enum rvn_part_t {
 	RVN_PART_CLOSE_BUTTON,
 	/** The ring of the keyboard focus. */
 	RVN_PART_FOCUS,
+	/** NodeGraph, Timeline: the lines or dots of the canvas, the lines of time. */
+	RVN_PART_GRID,
+	/** NodeGraph: a node, its pins, the links between them. */
+	RVN_PART_NODE,
+	RVN_PART_PIN,
+	RVN_PART_LINK,
+	/** Timeline: the ruler of time, a clip, a key, the playhead, a marker. */
+	RVN_PART_RULER,
+	RVN_PART_CLIP,
+	RVN_PART_KEY,
+	RVN_PART_PLAYHEAD,
+	RVN_PART_MARKER,
 	RVN_PART_COUNT
 } rvn_part_t;
+
+/**
+ * Forms a part can take (<Style Part="Pin" Shape="Diamond">, rvn_part_look_t::shape).
+ * Each part reads the ones that mean something for it; 0 is the one of the look.
+ */
+enum {
+	RVN_SHAPE_DEFAULT = 0,
+	/* pins, keys */
+	RVN_SHAPE_CIRCLE, RVN_SHAPE_RING, RVN_SHAPE_SQUARE, RVN_SHAPE_DIAMOND, RVN_SHAPE_TRIANGLE, RVN_SHAPE_ARROW,
+	/* links */
+	RVN_SHAPE_BEZIER, RVN_SHAPE_STRAIGHT, RVN_SHAPE_STEP, RVN_SHAPE_ANGLED,
+	/* grids */
+	RVN_SHAPE_DOTS, RVN_SHAPE_LINES, RVN_SHAPE_CROSS,
+	/* headers of nodes, clips */
+	RVN_SHAPE_SOLID, RVN_SHAPE_GRADIENT, RVN_SHAPE_STRIPE, RVN_SHAPE_TINT, RVN_SHAPE_OUTLINE,
+	RVN_SHAPE_NONE,
+	RVN_SHAPE_COUNT
+};
+/** RVN_SHAPE_ by name ("Diamond", "Step"...); R_FALSE when unknown. */
+int rvn_shape_by_name(const char* name, int* shape);
+const char* rvn_shape_name(int shape);
+/** Lays the values of `mask` (RVN_LOOK_ bits) of `from` over `look`. */
+void rvn_part_look_apply(rvn_part_look_t* look, const rvn_part_look_t* from, uint32_t mask);
 
 /** States a style can ask for (<Style State="Hovered Checked">). */
 #define RVN_STATE_HOVERED  (1u << 0)
@@ -572,6 +618,8 @@ void  rvn_theme_clear(rvn_theme_t* theme);
 void  rvn_theme_copy(rvn_theme_t* destination, const rvn_theme_t* source);
 /** Something a widget may read from a theme changed: every widget is styled, measured and painted again. */
 void  rvn_theme_changed(void);
+/** Rtheme_follow_system is on: applies the dark or light look of the system. */
+void  rvn_theme_follow_system_apply(void);
 /** Empties the caches of the styles after a rule or the classes of a widget changed. */
 void  rvn_styles_changed(void);
 /** The accent color and what follows from it. */
@@ -672,6 +720,8 @@ typedef struct rvn_popup_t {
 	void* closed_user;
 	/** Dialogs: the widget that had the keyboard before, which gets it back. */
 	Rid focus_back;
+	/** Being closed with the popups above it (one that a closed callback opens meanwhile stays open). */
+	int closing;
 } rvn_popup_t;
 
 /**
@@ -730,6 +780,8 @@ struct rvn_window_t {
 	int surface_ready;
 	/** RWindowFlags given at creation. */
 	uint32_t window_flags;
+	/** The window that owns this one (Rwindow_set_owner), or R_INVALID_ID. */
+	Rid owner;
 	rvn_pwindow_state_t state;
 	/** R_TRUE while the window is the one the user works in. */
 	int active;
@@ -739,6 +791,19 @@ struct rvn_window_t {
 	uint32_t a11y_generation;
 
 	int needs_layout;
+	/** The safe area from window_get_safe_area, in logical units: top, right, bottom, left. */
+	float safe_area[4];
+	/** The height of the on-screen keyboard over the bottom of the window, in logical units (0: hidden). */
+	float keyboard_height;
+	/** The focused widget is to be scrolled into view after the next layout (rvn_window_reveal_focus). */
+	int reveal_focus;
+	RKeyboardCallback keyboard_callback;
+	void* keyboard_user;
+	/** Back (Rwindow_set_back_callback, _set_back_enabled), and what the platform was told last (window_set_back_wanted). */
+	RBackCallback back_callback;
+	void* back_user;
+	int back_enabled;
+	int back_wanted;
 	int needs_paint;
 	int continuous;
 	/** Set from any thread by Rwindow_request_redraw. */
@@ -804,6 +869,8 @@ struct rvn_window_t {
 	int drop_accepted;
 	/** Highlight of the target: where it is and how much of it shows. */
 	rvn_rect_t drop_rect;
+	int drop_custom;
+	rvn_rect_t drop_custom_rect;
 	float drop_radius;
 	RSpring drop_shown;
 
@@ -812,6 +879,8 @@ struct rvn_window_t {
 	uint32_t popup_count;
 	uint32_t popup_cap;
 	rvn_ghost_t* ghosts;
+	Rid* float_layers;
+	uint32_t float_layer_count, float_layer_cap;
 	uint32_t ghost_count;
 	uint32_t ghost_cap;
 	/** The subtree that is leaving the window right now (rvn_window_forget_widget), or NULL. */
@@ -819,10 +888,6 @@ struct rvn_window_t {
 	rvn_layout_spring_t* layout_springs;
 	uint32_t layout_spring_count;
 	uint32_t layout_spring_cap;
-
-	/* what the platform was told about the text being typed (rvn_window_sync_text_input) */
-	int text_input_active;
-	float text_input_x, text_input_y, text_input_w, text_input_h;
 
 	/* tooltip */
 	rvn_widget_t* tooltip_widget;
@@ -884,12 +949,6 @@ void rvn_window_set_theme(rvn_window_t* window, const rvn_theme_t* theme);
 rvn_window_t* rvn_window_check(Rid id, const char* function);
 /** Entry point of the platform events. */
 void rvn_window_on_platform_event(const rvn_pevent_t* event);
-
-/* input entry points shared with the touch layer (widget/touch.c) */
-rvn_widget_t* rvn_window_hit(rvn_window_t* window, float x, float y, int* popup_index);
-void rvn_window_mouse_move(rvn_window_t* window, float x, float y);
-void rvn_window_mouse_leave(rvn_window_t* window);
-void rvn_window_mouse_button(rvn_window_t* window, RMouseButton button, int pressed);
 /** What a pixel of a window with a custom header is, for the window system (rvn_pregion_handler_t). */
 rvn_pregion_t rvn_window_region_at(void* user, int x, int y);
 /** Asks to close the window as the user would: the close callback may refuse. */
@@ -902,6 +961,8 @@ void rvn_window_update(rvn_window_t* window);
 void rvn_window_layout(rvn_window_t* window);
 /** R_TRUE when the window will produce a frame at the next update. */
 int  rvn_window_wants_frame(rvn_window_t* window);
+/** Seconds until the window wants a frame: 0 = now, negative = nothing to do (it waits for an event). */
+double rvn_window_frame_in(rvn_window_t* window);
 /*
  * Waits until the windows that will paint can take a frame (the previous one
  * left for the renderer). Called before the input is read: the frame that
@@ -914,6 +975,8 @@ void rvn_window_set_focus(rvn_window_t* window, rvn_widget_t* widget);
 void rvn_window_destroy(rvn_window_t* window);
 void rvn_windows_destroy_all(void);
 void rvn_windows_collect(void);
+void rvn_window_set_float_layer(rvn_window_t* window, rvn_widget_t* widget, int enabled);
+void rvn_dock_float_arrange(rvn_widget_t* widget);
 /** Logical size of the client area. */
 rvn_vec2_t rvn_window_size(const rvn_window_t* window);
 
@@ -946,6 +1009,18 @@ void rvn_touch_window_free(rvn_window_t* window);
 void rvn_touch_widget_free(rvn_widget_t* widget);
 /** Touch.* and Pen.* attributes of a widget. Returns -1 when the name is not one of them. */
 int  rvn_touch_attribute(rvn_widget_t* widget, const char* name, const char* value);
+/**
+ * Scrolls every ScrollBox above the widget so that it shows, with `margin`
+ * around it (widgets/scroll_box.c; Rwidget_scroll_into_view with 0).
+ */
+void rvn_widget_reveal(rvn_widget_t* widget, float margin);
+/**
+ * The focused widget is to be seen: after the next layout, the ScrollBoxes
+ * above it scroll it into view, above the on-screen keyboard.
+ */
+void rvn_window_reveal_focus(rvn_window_t* window);
+/** RTouchSettings::min_touch_size of the window (NULL: of the application). */
+float rvn_touch_min_size(const rvn_window_t* window);
 /** Touch.*, Pen.* and Trackpad.* attributes of <Window>, applied to its settings. -1: not one of them. */
 int  rvn_touch_window_attribute(RTouchSettings* settings, const char* name, const char* value);
 /** R_TRUE when what is behind the window on the screen shows where the window draws nothing. */
@@ -982,6 +1057,7 @@ float rvn_a11y_text_scale(void);
 int   rvn_a11y_focus_always(void);
 float rvn_a11y_focus_width(void);
 void  rvn_a11y_structure_changed(void);
+void  rvn_a11y_selection_changed(rvn_widget_t* widget);
 void  rvn_a11y_widget_destroyed(rvn_widget_t* widget);
 void  rvn_a11y_shutdown(void);
 void  rvn_a11y_filter_instances(RDrawInstance* instances, uint32_t count);
@@ -1009,10 +1085,18 @@ void rvn_window_open_dialog(rvn_window_t* window, rvn_widget_t* root, RDialogClo
 int  rvn_window_close_dialog(rvn_widget_t* inside, int result);
 /** Root of the dialog on top of the others, or NULL. */
 rvn_widget_t* rvn_window_top_dialog(const rvn_window_t* window);
+/** R_TRUE while the window takes Back: a popup or dialog is open, or the application can go back (Rwindow_wants_back). */
+int  rvn_window_wants_back(const rvn_window_t* window);
 int  rvn_window_popup_index(const rvn_window_t* window, const rvn_widget_t* root);
+/** A popup or dialog that was closed and is still drawn on its way out (its ghost). */
+int  rvn_window_is_leaving(const rvn_window_t* window, const rvn_widget_t* root);
 
 /** Triggers a menu item (shortcuts). Implemented in widgets/menu.c. */
 void rvn_menu_item_trigger(rvn_widget_t* item);
+int rvn_menu_item_is_header(const rvn_widget_t* item);
+int rvn_table_multi_select(const rvn_widget_t* table);
+rvn_rect_t rvn_table_accessible_rect(rvn_widget_t* table, int row);
+int rvn_table_accessible_row_at(rvn_widget_t* table, float x, float y);
 /** Destroys the native child windows of the viewports inside a subtree leaving the window. */
 void rvn_window_release_natives(rvn_window_t* window, rvn_widget_t* subtree);
 /** Native viewports (widgets/viewport.c): release the child window / apply its state after a paint. */
@@ -1043,12 +1127,26 @@ void rvn_tray_update(void);
 int  rvn_tray_count(void);
 void rvn_tray_on_event(const struct rvn_pevent_t* event);
 void rvn_tray_shutdown(void);
+
+/* ---- widget/inspector.c (Rwindow_set_inspector) ---- */
+/** Once a frame: the inspectors follow the windows they inspect. */
+void rvn_inspector_update(void);
+/** A window goes: its inspector with it, or it was the window of an inspector. */
+void rvn_inspector_window_destroyed(rvn_window_t* window);
+/** Outlines, over the window, the widget selected in its inspector. */
+void rvn_inspector_paint(rvn_window_t* window, RPainter* painter);
+/** While "Pick" is on: the pointer shows which widget a click selects, and the click goes to the inspector only. */
+int  rvn_inspector_pick_move(rvn_window_t* window, float x, float y);
+int  rvn_inspector_pick_button(rvn_window_t* window, int pressed);
+void rvn_inspector_shutdown(void);
 /** The same for a window: its menu bars, then the menus that belong to no tree (Rmenu_open, context menus). */
 rvn_widget_t* rvn_menu_find_window_shortcut(rvn_window_t* window, RKey key, uint32_t modifiers);
 /** Parses "Ctrl+Shift+S". Implemented in widgets/menu.c. */
 int rvn_parse_shortcut(const char* text, RKey* key, uint32_t* modifiers);
 /** Opens a menu as a popup at a window position. Implemented in widgets/menu.c. */
 void rvn_menu_popup(rvn_widget_t* menu, rvn_window_t* window, float x, float y);
+/** A label's tooltip was set or cleared: whether it takes the mouse follows (label.c). */
+void rvn_label_tooltip_changed(rvn_widget_t* widget);
 
 /* ---------------------------------------------------------------------------
  *  Attribute parsing (xml/xml_attributes.c), shared by all set_attribute functions
@@ -1068,5 +1166,7 @@ int rvn_parse_orientation(const char* text, ROrientation* orientation);
 int rvn_widget_set_base_attribute(rvn_widget_t* widget, const char* name, const char* value);
 /** Sets any attribute: the ones of the widget class first, then the base ones. */
 int rvn_widget_set_attribute(rvn_widget_t* widget, const char* name, const char* value);
+/** The name of an action as an XML attribute gives it: "app.quit()" is "app.quit" (a reference, never a call). Free with rvn_free. */
+char* rvn_action_name_normalize(const char* value);
 
 #endif /* RVN_WIDGET_INTERNAL_H */

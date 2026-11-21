@@ -78,6 +78,9 @@ static void rvn_dialog_wait_closed(Rid content, int result, void* user_data) {
 	wait->result = result;
 }
 
+/* The longest a function that waits lets its answered dialog leave before it returns. */
+#define RVN_DIALOG_LEAVE_SECONDS 0.6
+
 /* One frame of the application, from inside a function that waits. */
 static void rvn_dialog_frame(double timeout) {
 	Rwait_events(timeout);
@@ -85,7 +88,7 @@ static void rvn_dialog_frame(double timeout) {
 }
 
 /* Shows a dialog and runs the application until it closes. */
-static int rvn_dialog_wait(rvn_window_t* window, rvn_widget_t* content) {
+int rvn_dialog_wait(rvn_window_t* window, rvn_widget_t* content) {
 	rvn_dialog_wait_t wait;
 	Rid window_id = window->id, content_id = content->id;
 	/* (called from a timer or a task, the frames must still run) */
@@ -94,13 +97,31 @@ static int rvn_dialog_wait(rvn_window_t* window, rvn_widget_t* content) {
 	wait.done = R_FALSE;
 	wait.result = 0;
 	rvn_window_open_dialog(window, content, rvn_dialog_wait_closed, &wait);
-	if (rvn_window_popup_index(window, content) < 0) {
+	/* (a callback of the focus may have closed the window) */
+	window = rvn_window_get(window_id);
+	if (!window || rvn_window_popup_index(window, content) < 0) {
 		/* it could not be shown */
 		if (rvn_widget_get(content_id)) rvn_widget_destroy(content);
 		return 0;
 	}
 	g_rvn.in_update = R_FALSE;
 	while (!wait.done && Ris_running() && rvn_window_get(window_id)) rvn_dialog_frame(-1.0);
+	/*
+	 * Answered: the function returns once the dialog is off the screen. What
+	 * the caller does next is often slow work before the next frame (a device
+	 * to open...); with the dialog still leaving, it would stay frozen half
+	 * faded, then crawl out a frame at a time (a frame after a pause moves the
+	 * animations by 1/30 s at most).
+	 */
+	if (wait.done) {
+		double until = rvn_clock_seconds() + RVN_DIALOG_LEAVE_SECONDS;
+		while (Ris_running() && rvn_clock_seconds() < until) {
+			rvn_window_t* shown = rvn_window_get(window_id);
+			if (!shown || !rvn_window_is_leaving(shown, rvn_widget_get(content_id))) break;
+			Rwindow_request_redraw(window_id);
+			rvn_dialog_frame(1.0 / 120.0);
+		}
+	}
 	g_rvn.in_update = in_update;
 	if (!wait.done) {
 		/* the application is quitting: nothing may keep a pointer to this stack */
@@ -111,7 +132,7 @@ static int rvn_dialog_wait(rvn_window_t* window, rvn_widget_t* content) {
 }
 
 /* A window to show a dialog in: the one given, else any, else a new one (*created). */
-static rvn_window_t* rvn_dialog_window(Rid id, const char* title, int width, int height, int* created) {
+rvn_window_t* rvn_dialog_window(Rid id, const char* title, int width, int height, int* created) {
 	rvn_window_t* window = rvn_window_get(id);
 	uint32_t i;
 	*created = R_FALSE;
@@ -139,6 +160,45 @@ void Rdialog_open(Rid window_id, Rid content_id, RDialogClosedCallback closed, v
 void Rdialog_close(Rid id, int result) {
 	RVN_WIDGET_VOID(widget, id, 0);
 	rvn_window_close_dialog(widget, result);
+}
+
+void Rpopup_open(Rid window_id, Rid content_id, float x, float y, RDialogClosedCallback closed, void* user_data) {
+	rvn_window_t* window;
+	rvn_widget_t* content;
+	rvn_popup_t* popup;
+	RVN_API_GUARD_VOID();
+	window = rvn_window_check(window_id, __func__);
+	content = rvn_widget_check(content_id, 0, __func__);
+	if (!window || !content) return;
+	if (content->parent) {
+		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rpopup_open: the content is already inside another widget");
+		return;
+	}
+	rvn_window_open_popup(window, content, NULL, rvn_rect(x, y, 0.0f, 0.0f), RVN_POPUP_AT, 0.0f);
+	popup = &window->popups[window->popup_count - 1];
+	if (popup->root != content) return;
+	popup->closed = closed;
+	popup->closed_user = user_data;
+}
+
+void Rpopup_close(Rid id, int result) {
+	rvn_window_t* window;
+	uint32_t i;
+	RVN_WIDGET_VOID(widget, id, 0);
+	window = widget->window;
+	if (!window) return;
+	for (i = window->popup_count; i > 0; i--) {
+		rvn_popup_t* popup = &window->popups[i - 1];
+		if (popup->placement == RVN_POPUP_DIALOG || !rvn_widget_is_inside(widget, popup->root)) continue;
+		popup->result = result;
+		rvn_window_close_popup(window, popup->root);
+		return;
+	}
+}
+
+int Rpopup_is_open(Rid id) {
+	RVN_WIDGET(widget, id, 0, R_FALSE);
+	return (widget->flags & RVN_WF_POPUP) != 0;
 }
 
 int Rdialog_run(Rid window_id, Rid content_id) {
@@ -191,6 +251,7 @@ RMessageResult Rmessage_box(Rid window_id, const char* title, const char* text, 
 	rvn_widget_t* label;
 	rvn_widget_t* row;
 	RMessageResult main_result = R_MESSAGE_RESULT_OK;
+	Rid id;
 	int created, result;
 
 	RVN_API_GUARD(R_MESSAGE_RESULT_CANCEL);
@@ -245,8 +306,11 @@ RMessageResult Rmessage_box(Rid window_id, const char* title, const char* text, 
 	box->event_callback = rvn_message_event;
 	box->event_user = (void*)(intptr_t)main_result;
 
+	id = window->id;
 	result = rvn_dialog_wait(window, box);
-	if (created && !window->dead) rvn_window_destroy(window);
+	/* (the user may have closed the window while it waited) */
+	window = rvn_window_get(id);
+	if (created && window && !window->dead) rvn_window_destroy(window);
 	/* a question dismissed with Escape is answered "no" when there is no Cancel */
 	if (result == 0 && buttons == R_MESSAGE_YES_NO) return R_MESSAGE_RESULT_NO;
 	return (RMessageResult)result;
@@ -648,13 +712,6 @@ static void rvn_dialog_args_kdialog(rvn_dialog_args_t* args, const RFileDialogDe
  * line. The application keeps running its frames meanwhile, without taking
  * input. Returns R_FALSE when the program could not show a dialog.
  */
-#if defined(RVN_NO_SUBPROCESS)
-/* no dialog program to run (iOS, a browser): the native dialogs come with the platform layer (document picker, <input type=file>) */
-static int rvn_dialog_run_tool(rvn_dialog_args_t* args) {
-	RVN_UNUSED(args);
-	return R_FALSE;
-}
-#else
 static int rvn_dialog_run_tool(rvn_dialog_args_t* args) {
 	int fds[2], status = 0, shown = R_FALSE;
 	char* output = NULL;
@@ -733,7 +790,6 @@ static int rvn_dialog_run_tool(rvn_dialog_args_t* args) {
 	rvn_free(output);
 	return shown;
 }
-#endif
 
 static int rvn_file_dialog_native(const RFileDialogDesc* desc, RFileBrowserMode mode, const char* directory) {
 	rvn_dialog_args_t args;

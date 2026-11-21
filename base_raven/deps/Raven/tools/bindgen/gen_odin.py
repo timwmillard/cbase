@@ -42,6 +42,8 @@ def odin_type(api, ctype):
         return "[^]u8"
     if kind == "out":
         return "^%s" % (SCALAR[detail[1]] if detail[0] == "scalar" else detail[1])
+    if kind == "carray":
+        return "[^]%s" % SCALAR[detail]
     if kind in ("struct_ptr", "cstruct_ptr", "opaque_ptr"):
         return "^%s" % detail
     raise ValueError(ctype)
@@ -75,7 +77,7 @@ def generate(api):
     w("//   import r \"raven\"")
     w("//")
     w("//   main :: proc() {")
-    w("//       r.Rinit(r.R_BACKEND_VULKAN)")
+    w("//       r.Rinit(r.R_BACKEND_DEFAULT)")
     w("//       xml :: \"<Window Title='Hi'><Button Text='Quit' OnClicked='quit'/></Window>\"")
     w("//       r.Rwindow_create_from_xml(xml, len(xml))")
     w("//       r.Raction_bind(\"quit\", proc \"c\" (sender: r.Rid, action: cstring, user_data: rawptr) {")

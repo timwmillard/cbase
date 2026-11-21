@@ -93,6 +93,18 @@ static void test_content(void) {
 	CHECK_STR(Rtext_editor_get_text(g_editor), "alpX\nYta\ngamma");
 	CHECK_CURSOR(1, 1);
 	CHECK(g_changes == 1);
+
+	/* a line of the editor can be given back to it, though the edit frees or rewrites that line */
+	Rtext_editor_set_text(g_editor, "first\nsecond\nthird");
+	Rtext_editor_set_text(g_editor, Rtext_editor_get_line(g_editor, 1));
+	CHECK_STR(Rtext_editor_get_text(g_editor), "second");
+	Rtext_editor_set_text(g_editor, "hello\nworld");
+	Rtext_editor_set_cursor(g_editor, 0, 0);
+	Rtext_editor_insert_text(g_editor, Rtext_editor_get_line(g_editor, 0));
+	CHECK_STR(Rtext_editor_get_text(g_editor), "hellohello\nworld");
+	Rtext_editor_select(g_editor, 0, 0, 1, 2);
+	Rtext_editor_insert_text(g_editor, Rtext_editor_get_line(g_editor, 1));
+	CHECK_STR(Rtext_editor_get_text(g_editor), "worldrld");
 	Rwindow_destroy(g_window);
 }
 
@@ -161,6 +173,110 @@ static void test_typing(void) {
 	CHECK(g_changes == 0);
 	key(R_KEY_END, R_MOD_SHIFT);
 	CHECK_STR(Rtext_editor_get_selected_text(g_editor), "fixed");
+	Rwindow_destroy(g_window);
+}
+
+static int g_sends;
+
+static void on_send(Rid sender, const char* action, void* user_data) {
+	(void)sender;
+	(void)action;
+	(void)user_data;
+	g_sends++;
+}
+
+/* Ctrl+Enter and Alt+Enter are left to the shortcuts of the window (send, run...) */
+static void test_enter_shortcuts(void) {
+	open_editor("");
+	Raction_bind("test.send", on_send, NULL);
+	Rwindow_register_shortcut(g_window, R_KEY_ENTER, R_MOD_CTRL, "test.send");
+	Rwindow_register_shortcut(g_window, R_KEY_ENTER, R_MOD_ALT, "test.send");
+	g_sends = 0;
+
+	type("hi");
+	key(R_KEY_ENTER, R_MOD_CTRL);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "hi");
+	CHECK(g_sends == 1);
+	key(R_KEY_ENTER, R_MOD_ALT);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "hi");
+	CHECK(g_sends == 2);
+	key(R_KEY_KP_ENTER, R_MOD_CTRL);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "hi");
+
+	/* Enter and Shift+Enter still break the line */
+	key(R_KEY_ENTER, 0);
+	key(R_KEY_ENTER, R_MOD_SHIFT);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "hi\n\n");
+	CHECK(g_sends == 2);
+
+	/* without a shortcut, Ctrl+Enter does nothing */
+	Rwindow_unregister_shortcut(g_window, R_KEY_ENTER, R_MOD_CTRL);
+	key(R_KEY_ENTER, R_MOD_CTRL);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "hi\n\n");
+	CHECK(g_sends == 2);
+
+	/* a read-only editor lets the shortcut through too */
+	Rwindow_register_shortcut(g_window, R_KEY_ENTER, R_MOD_CTRL, "test.send");
+	Rtext_editor_set_read_only(g_editor, R_TRUE);
+	key(R_KEY_ENTER, R_MOD_CTRL);
+	CHECK(g_sends == 3);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "hi\n\n");
+
+	Raction_unbind("test.send");
+	Rwindow_destroy(g_window);
+}
+
+static int g_prev, g_next;
+
+static void on_prev(Rid sender, const char* action, void* user_data) {
+	(void)sender;
+	(void)action;
+	(void)user_data;
+	g_prev++;
+}
+
+static void on_next(Rid sender, const char* action, void* user_data) {
+	(void)sender;
+	(void)action;
+	(void)user_data;
+	g_next++;
+}
+
+/* Alt+Up and Alt+Down are left to the shortcuts of the window (previous / next...) */
+static void test_alt_arrow_shortcuts(void) {
+	open_editor("");
+	Raction_bind("test.prev", on_prev, NULL);
+	Raction_bind("test.next", on_next, NULL);
+	Rwindow_register_shortcut(g_window, R_KEY_UP, R_MOD_ALT, "test.prev");
+	Rwindow_register_shortcut(g_window, R_KEY_DOWN, R_MOD_ALT, "test.next");
+	g_prev = 0;
+	g_next = 0;
+
+	Rtext_editor_set_text(g_editor, "one\ntwo\nthree");
+	Rtext_editor_set_cursor(g_editor, 1, 1);
+	key(R_KEY_UP, R_MOD_ALT);
+	CHECK(g_prev == 1);
+	CHECK_CURSOR(1, 1);
+	key(R_KEY_DOWN, R_MOD_ALT);
+	CHECK(g_next == 1);
+	CHECK_CURSOR(1, 1);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "one\ntwo\nthree");
+
+	/* the arrows alone still move the caret, and fire nothing */
+	key(R_KEY_UP, 0);
+	CHECK_CURSOR(0, 1);
+	key(R_KEY_DOWN, 0);
+	CHECK_CURSOR(1, 1);
+	CHECK(g_prev == 1 && g_next == 1);
+
+	/* without a shortcut, Alt+Up does nothing */
+	Rwindow_unregister_shortcut(g_window, R_KEY_UP, R_MOD_ALT);
+	key(R_KEY_UP, R_MOD_ALT);
+	CHECK_CURSOR(1, 1);
+	CHECK(g_prev == 1);
+
+	Raction_unbind("test.prev");
+	Raction_unbind("test.next");
 	Rwindow_destroy(g_window);
 }
 
@@ -299,6 +415,37 @@ static void test_clipboard_and_history(void) {
 		for (i = 0; i < 200; i++) Rtext_editor_redo(g_editor);
 		CHECK(strncmp(Rtext_editor_get_text(g_editor), expected, 200) == 0);
 	}
+
+	/* a lone carriage return is text like any other: undo gives it back, and the steps before it still line up */
+	Rtext_editor_set_text(g_editor, "a\rb");
+	Rtext_editor_set_cursor(g_editor, 0, 3);
+	key(R_KEY_BACKSPACE, 0);
+	key(R_KEY_BACKSPACE, 0);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "a");
+	key(R_KEY_Z, R_MOD_CTRL);
+	CHECK(Rtext_editor_get_length(g_editor) == 2);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "a\r");
+	key(R_KEY_Z, R_MOD_CTRL);
+	CHECK(Rtext_editor_get_length(g_editor) == 3);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "a\rb");
+	Rtext_editor_redo(g_editor);
+	Rtext_editor_redo(g_editor);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "a");
+	Rtext_editor_undo(g_editor);
+	Rtext_editor_undo(g_editor);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "a\rb");
+	/* one that ends up before a line break too */
+	Rtext_editor_set_text(g_editor, "x\ry");
+	Rtext_editor_set_cursor(g_editor, 0, 2);
+	key(R_KEY_ENTER, 0);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "x\r\ny");
+	key(R_KEY_A, R_MOD_CTRL);
+	key(R_KEY_DELETE, 0);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "");
+	key(R_KEY_Z, R_MOD_CTRL);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "x\r\ny");
+	key(R_KEY_Z, R_MOD_CTRL);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "x\ry");
 	Rwindow_destroy(g_window);
 }
 
@@ -537,6 +684,8 @@ static void test_languages(void) {
 	EXPECT_ERRORS_END(1);
 	CHECK_STR(Rtext_editor_get_language(g_editor), "");
 	CHECK_STR(Rlanguage_for_file("/src/main.rs"), "Rust");
+	CHECK_STR(Rlanguage_for_file("build.zig"), "Zig");
+	CHECK_STR(Rlanguage_for_file("build.zig.zon"), "Zig");
 	CHECK_STR(Rlanguage_for_file("a.b/Thing.CS"), "C#");
 	CHECK_STR(Rlanguage_for_file("index.html"), "HTML");
 	CHECK_STR(Rlanguage_for_file("x.hpp"), "C++");
@@ -1283,6 +1432,128 @@ static void test_completion(void) {
 	Rwindow_destroy(g_window);
 }
 
+/* ---- a language server: its own proposals only, another text inserted, hover ---- */
+
+static int g_server_calls;
+
+static void on_server_complete(Rid editor, const char* prefix, void* user_data) {
+	(void)prefix;
+	(void)user_data;
+	g_server_calls++;
+	/* shown and matched as "Threshold", writes "Threshold(" */
+	Rtext_editor_add_completion_insert(editor, "Threshold", "T  Threshold · Segmentation", "Threshold(");
+	Rtext_editor_add_completion_insert(editor, "ThresholdMax", "A", NULL);
+	Rtext_editor_add_completion_insert(editor, "Tolerance", NULL, "");
+}
+
+static int g_hover_calls;
+static int g_hover_line, g_hover_column;
+static char g_hover_text[64];
+
+static const char* on_hover(Rid editor, int line, int column, void* user_data) {
+	(void)editor;
+	CHECK(user_data == (void*)&g_hover_calls);
+	g_hover_calls++;
+	g_hover_line = line;
+	g_hover_column = column;
+	if (line != 0) return NULL;
+	snprintf(g_hover_text, sizeof(g_hover_text), "node of line %d", line);
+	return g_hover_text;
+}
+
+static void test_language_server(void) {
+	open_editor("Language=\"C\"");
+	Rtext_editor_set_text(g_editor, "int Thread_count;\n");
+	Rtext_editor_set_cursor(g_editor, 1, 0);
+	Rtext_editor_set_completion_callback(g_editor, on_server_complete, NULL);
+
+	/* by default the words of the language and of the text come after the application's */
+	type("Th");
+	CHECK(Rtext_editor_is_completing(g_editor));
+	key(R_KEY_ESCAPE, 0);
+	Rtext_editor_set_text(g_editor, "int Thread_count;\n");
+	Rtext_editor_set_cursor(g_editor, 1, 0);
+
+	/* only the application's: the name of the text is not proposed */
+	Rtext_editor_set_completion_words(g_editor, R_FALSE);
+	g_server_calls = 0;
+	type("Thre");
+	CHECK(g_server_calls >= 1);
+	CHECK(Rtext_editor_is_completing(g_editor));
+	key(R_KEY_DOWN, 0);
+	key(R_KEY_DOWN, 0);
+	/* two proposals start with "Thre": the arrows wrap around to the first */
+	key(R_KEY_ENTER, 0);
+	CHECK_STR(Rtext_editor_get_line(g_editor, 1), "Threshold(");
+	CHECK_CURSOR(1, 10);
+	/* one step of history, as a plain proposal */
+	Rtext_editor_undo(g_editor);
+	CHECK_STR(Rtext_editor_get_line(g_editor, 1), "Thre");
+
+	/* no insert text: the proposal itself */
+	key(R_KEY_SPACE, R_MOD_CTRL);
+	CHECK(Rtext_editor_is_completing(g_editor));
+	key(R_KEY_DOWN, 0);
+	key(R_KEY_ENTER, 0);
+	CHECK_STR(Rtext_editor_get_line(g_editor, 1), "ThresholdMax");
+	Rtext_editor_set_text(g_editor, "");
+	type("To");
+	CHECK(Rtext_editor_is_completing(g_editor));
+	key(R_KEY_TAB, 0);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "Tolerance");
+
+	/* nothing of the application's starts so: no list, even asked for */
+	Rtext_editor_set_text(g_editor, "int Thread_count;\nzz");
+	Rtext_editor_set_cursor(g_editor, 1, 2);
+	key(R_KEY_SPACE, R_MOD_CTRL);
+	CHECK(!Rtext_editor_is_completing(g_editor));
+
+	/* outside of the callback it is an error */
+	EXPECT_ERRORS_BEGIN();
+	Rtext_editor_add_completion_insert(g_editor, "nope", NULL, "nope(");
+	EXPECT_ERRORS_END(1);
+	Rtext_editor_set_completion_words(g_editor, R_TRUE);
+	Rtext_editor_set_completion_callback(g_editor, NULL, NULL);
+
+	/* hover: the callback's text where no marker is, the marker's message on it */
+	Rtext_editor_set_text(g_editor, "int a = b;\nint c;\n");
+	Rtext_editor_add_marker(g_editor, 0, 8, 9, R_MARKER_ERROR, "'b' undeclared");
+	Rtext_editor_set_hover_callback(g_editor, on_hover, &g_hover_calls);
+	Rdraw_frame();
+	{
+		float x, y, w, h, px, py;
+		int node = 0, marker = 0, none = 0;
+		Rwidget_get_rect(g_editor, &x, &y, &w, &h);
+		g_hover_calls = 0;
+		for (py = y + 2.0f; py < y + 60.0f; py += 3.0f) {
+			for (px = x + 4.0f; px < x + 120.0f; px += 3.0f) {
+				const char* tip;
+				Rwindow_inject_mouse_move(g_window, px, py);
+				tip = Rwidget_get_tooltip(g_editor);
+				if (strcmp(tip, "node of line 0") == 0) node++;
+				else if (strcmp(tip, "'b' undeclared") == 0) marker++;
+				else if (tip[0] == '\0') none++;
+				else CHECK(0);
+			}
+		}
+		CHECK(g_hover_calls > 0);
+		CHECK(node > marker && marker > 0 && none > 0);
+		/* the second line: the callback is asked and says nothing */
+		CHECK(g_hover_line >= 0);
+		/* below the text: not asked, nothing */
+		g_hover_calls = 0;
+		Rwindow_inject_mouse_move(g_window, x + 20.0f, y + h - 20.0f);
+		CHECK(g_hover_calls == 0);
+		CHECK_STR(Rwidget_get_tooltip(g_editor), "");
+		/* back on the first line, then the callback removed: the tooltip goes */
+		Rwindow_inject_mouse_move(g_window, x + 8.0f, y + 6.0f);
+		Rtext_editor_set_hover_callback(g_editor, NULL, NULL);
+		CHECK_STR(Rwidget_get_tooltip(g_editor), "");
+	}
+	Rwindow_destroy(g_window);
+	Rdraw_frame();
+}
+
 static void test_markers_and_brackets(void) {
 	open_editor("Language=\"C\" LineNumbers=\"true\"");
 	Rtext_editor_set_text(g_editor, "int a;\nint b = c;\nint d;\nint e;");
@@ -1492,6 +1763,8 @@ int main(void) {
 
 	RUN(test_content);
 	RUN(test_typing);
+	RUN(test_enter_shortcuts);
+	RUN(test_alt_arrow_shortcuts);
 	RUN(test_navigation);
 	RUN(test_clipboard_and_history);
 	RUN(test_indent);
@@ -1503,6 +1776,7 @@ int main(void) {
 	RUN(test_custom_language);
 	RUN(test_assist);
 	RUN(test_completion);
+	RUN(test_language_server);
 	RUN(test_markers_and_brackets);
 	RUN(test_zoom);
 

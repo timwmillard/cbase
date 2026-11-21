@@ -433,6 +433,7 @@ static int rvn_be_attach(rvn_block_editor_t* e, rvn_be_block_t* b, rvn_be_block_
 		rvn_be_block_t* last;
 		int after;
 		if (rvn_be_is_value(kb->shape) || kb->shape == R_BLOCK_HAT || rvn_be_is_value(kt->shape)) return R_FALSE;
+		if (place != R_BLOCK_NEXT && place != R_BLOCK_BODY) return R_FALSE;
 		if (place == R_BLOCK_NEXT && !rvn_be_has_next(kt->shape)) return R_FALSE;
 		if (place == R_BLOCK_BODY && (kt->shape != R_BLOCK_C || index < 0 || index >= kt->sections)) return R_FALSE;
 		rvn_be_detach(e, b);
@@ -1731,6 +1732,7 @@ static int rvn_block_editor_event(rvn_widget_t* widget, const REvent* event) {
 				/* a pan if it moves, the context menu otherwise (on release) */
 				if (rvn_be_in_palette(e, x)) return R_TRUE;
 				rvn_be_finish_field(e);
+				if (!rvn_widget_alive(widget)) return R_TRUE;
 				e->drag = RVN_BE_PRESS_RIGHT;
 				e->pan_from_x = e->pan_x;
 				e->pan_from_y = e->pan_y;
@@ -1739,8 +1741,11 @@ static int rvn_block_editor_event(rvn_widget_t* widget, const REvent* event) {
 			}
 			if (event->button != R_MOUSE_LEFT) return R_FALSE;
 			id = rvn_be_block_at(e, x, y, &slot);
-			b = rvn_be_block(e, id);
+			/* closing the field calls the application back, which may add or remove blocks:
+			 * look the pressed block up again afterwards */
 			rvn_be_finish_field(e);
+			if (!rvn_widget_alive(widget)) return R_TRUE;
+			b = rvn_be_block(e, id);
 			if (!b) {
 				if (rvn_be_in_palette(e, x)) return R_TRUE;
 				/* a selection rectangle (Ctrl / Shift : added to the selection) */
@@ -2062,6 +2067,10 @@ void Rblock_editor_clear(Rid id) {
 int Rblock_editor_attach(Rid id, int block, int target, RBlockPlace place, int index) {
 	rvn_be_block_t *b, *t;
 	RVN_BLOCK_EDITOR(e, id, R_FALSE);
+	if (place != R_BLOCK_NEXT && place != R_BLOCK_BODY && place != R_BLOCK_INPUT) {
+		rvn_error(R_ERROR_INVALID_ENUM, R_SEVERITY_ERROR, "Rblock_editor_attach: invalid place");
+		return R_FALSE;
+	}
 	b = rvn_be_block_checked(e, block, __func__);
 	t = b ? rvn_be_block_checked(e, target, __func__) : NULL;
 	if (!b || !t) return R_FALSE;

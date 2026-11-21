@@ -10,6 +10,7 @@
  */
 
 #include "xml.h"
+#include "../script/script_raven.h"
 #include "../widgets/common.h"
 #include "../core/fs.h"
 
@@ -36,6 +37,9 @@ typedef struct rvn_dom_node_t {
 	uint32_t attribute_cap;
 	int line;
 	int column;
+	/** <Script>: where its text starts (the diagnostics of the scripts). */
+	int text_line;
+	int text_column;
 	/** What the node became the last time the document was built. */
 	Rid widget;
 } rvn_dom_node_t;
@@ -121,6 +125,35 @@ static int rvn_dom_index(const rvn_dom_node_t* node) {
 	return 0;
 }
 
+/*
+ * A document is never nested deeper than the reader accepts
+ * (RVN_XML_MAX_DEPTH): what walks it (freeing, copying, writing, building)
+ * goes down one call per level, and what is written can be read back.
+ */
+static int rvn_dom_depth(const rvn_dom_node_t* node) {
+	int depth = 0;
+	for (; node->parent; node = node->parent) depth++;
+	return depth;
+}
+
+/* Number of levels under a node: 0 when it has no children. */
+static int rvn_dom_height(const rvn_dom_node_t* node) {
+	int height = 0;
+	uint32_t i;
+	for (i = 0; i < node->child_count; i++) {
+		int below = rvn_dom_height(node->children[i]) + 1;
+		if (below > height) height = below;
+	}
+	return height;
+}
+
+/* Can a node with `height` levels under it become a child of `parent`? */
+static int rvn_dom_fits(const rvn_dom_node_t* parent, int height, const char* function) {
+	if (rvn_dom_depth(parent) + 1 + height <= RVN_XML_MAX_DEPTH) return R_TRUE;
+	rvn_error(R_ERROR_XML, R_SEVERITY_ERROR, "%s: elements are nested too deeply (more than %d levels)", function, RVN_XML_MAX_DEPTH);
+	return R_FALSE;
+}
+
 static void rvn_dom_detach(rvn_dom_node_t* node) {
 	rvn_dom_node_t* parent = node->parent;
 	uint32_t at;
@@ -180,6 +213,8 @@ static rvn_dom_node_t* rvn_dom_from_parsed(rvn_dom_document_t* document, const r
 	if (!node) return NULL;
 	node->line = parsed->line;
 	node->column = parsed->column;
+	node->text_line = parsed->text_line;
+	node->text_column = parsed->text_column;
 	for (attribute = parsed->attributes; attribute; attribute = attribute->next) {
 		RVN_ARRAY_RESERVE(node->attributes, node->attribute_cap, node->attribute_count + 1);
 		node->attributes[node->attribute_count].name = rvn_strdup(attribute->name);
@@ -288,7 +323,14 @@ static void rvn_dom_write(rvn_dom_writer_t* writer, rvn_dom_node_t* node, int de
 		return;
 	}
 	rvn_dom_puts(writer, ">");
-	if (node->child_count == 0) {
+	if (rvn_xml_is_script(node->tag)) {
+		/* the code of a script is raw text, as the reader reads it: written as it is */
+		if (track) {
+			node->text_line = writer->line;
+			node->text_column = writer->column;
+		}
+		rvn_dom_puts(writer, node->text);
+	} else if (node->child_count == 0) {
 		rvn_dom_put_escaped(writer, node->text, R_FALSE);
 	} else {
 		rvn_dom_puts(writer, "\n");
@@ -481,6 +523,8 @@ static rvn_xml_node_t* rvn_dom_to_parsed(rvn_arena_t* arena, rvn_dom_node_t* nod
 	parsed->parent = parent;
 	parsed->line = node->line;
 	parsed->column = node->column;
+	parsed->text_line = node->text_line;
+	parsed->text_column = node->text_column;
 	parsed->source = node->id;
 	node->widget = R_INVALID_ID;
 	for (i = 0; i < node->attribute_count; i++) {
@@ -514,12 +558,14 @@ static void rvn_dom_bind(rvn_dom_document_t* document, rvn_widget_t* widget) {
 static Rid rvn_dom_build(rvn_dom_document_t* document, int window, const char* function) {
 	rvn_xml_document_t parsed;
 	char* previous_dir;
+	const char* previous_file;
 	Rid result = R_INVALID_ID;
 
 	memset(&parsed, 0, sizeof(parsed));
 	rvn_arena_init(&parsed.arena, 16384);
 	parsed.root = rvn_dom_to_parsed(&parsed.arena, document->root, NULL);
 	rvn_xml_push_file_dir(document->file, &previous_dir);
+	previous_file = rvn_script_set_file(document->file);
 	if (!rvn_xml_expand(&parsed, NULL)) {
 		rvn_xml_free(&parsed);
 	} else if (!parsed.root) {
@@ -540,6 +586,7 @@ static Rid rvn_dom_build(rvn_dom_document_t* document, int window, const char* f
 		built = rvn_widget_get(result);
 		if (built) rvn_dom_bind(document, built);
 	}
+	rvn_script_set_file(previous_file);
 	rvn_xml_pop_file_dir(previous_dir);
 	return result;
 }
@@ -662,6 +709,7 @@ Rid Rxml_node_add_child(Rid parent_id, const char* tag, int index) {
 		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rxml_node_add_child: \"%.60s\" cannot be the name of a tag", tag ? tag : "");
 		return R_INVALID_ID;
 	}
+	if (!rvn_dom_fits(parent, 0, __func__)) return R_INVALID_ID;
 	node = rvn_dom_new(parent->document, tag, "");
 	if (!node) return R_INVALID_ID;
 	rvn_dom_insert(parent, node, index);
@@ -676,6 +724,7 @@ Rid Rxml_node_add_comment(Rid parent_id, const char* text, int index) {
 		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rxml_node_add_comment: a comment cannot contain \"--\"");
 		return R_INVALID_ID;
 	}
+	if (!rvn_dom_fits(parent, 0, __func__)) return R_INVALID_ID;
 	node = rvn_dom_new(parent->document, NULL, text);
 	if (!node) return R_INVALID_ID;
 	rvn_dom_insert(parent, node, index);
@@ -699,6 +748,10 @@ Rid Rxml_node_add_xml(Rid parent_id, const char* xml, size_t size, int index) {
 	node = rvn_dom_from_parsed(parent->document, parsed.root);
 	rvn_xml_free(&parsed);
 	if (!node) return R_INVALID_ID;
+	if (!rvn_dom_fits(parent, rvn_dom_height(node), __func__)) {
+		rvn_dom_free(node);
+		return R_INVALID_ID;
+	}
 	/* (its lines were those of the piece of text, not of the document) */
 	node->line = 0;
 	node->column = 0;
@@ -725,6 +778,7 @@ int Rxml_node_move(Rid id, Rid new_parent_id, int index) {
 	for (walk = parent; walk; walk = walk->parent) {
 		if (walk == node) return R_FALSE;
 	}
+	if (!rvn_dom_fits(parent, rvn_dom_height(node), __func__)) return R_FALSE;
 	rvn_dom_detach(node);
 	rvn_dom_insert(parent, node, index);
 	return R_TRUE;

@@ -29,6 +29,16 @@ typedef enum RToastKind{
 	R_TOAST_ERROR
 }RToastKind;
 
+/** What a Toast does with a message that comes while another one is shown. */
+typedef enum RToastQueue{
+	/** The new message takes the place of the one shown (the default). */
+	R_TOAST_REPLACE = 0x0500,
+	/** The messages are shown one after the other, each for its own time. */
+	R_TOAST_SEQUENCE,
+	/** Up to Rtoast_set_max_visible messages are shown at once, one above the other; the others wait. */
+	R_TOAST_STACK
+}RToastQueue;
+
 typedef enum RButtonStyle{
 	/** Filled with R_COLOR_CONTROL. */
 	R_BUTTON_DEFAULT = 0x0290,
@@ -56,6 +66,169 @@ typedef enum RStretch{
 	/** Original size, centered. */
 	R_STRETCH_NONE
 }RStretch;
+
+/** The axes of a Plot. */
+typedef enum RPlotAxis{
+	/** The horizontal axis under the data. */
+	R_PLOT_X = 0x0520,
+	/** The vertical axis on the left. */
+	R_PLOT_Y,
+	/** A second horizontal axis, over the data: shown when a series or a drag line uses it. */
+	R_PLOT_X2,
+	/** A second vertical axis, on the right: shown when a series or a drag line uses it. */
+	R_PLOT_Y2
+}RPlotAxis;
+
+/** How a PdfView sizes its pages. */
+typedef enum RPdfFit{
+	/** The widest page fills the width of the view (default). */
+	R_PDF_FIT_WIDTH = 0x05C0,
+	/** The largest page fits whole in the view. */
+	R_PDF_FIT_PAGE,
+	/** The zoom of Rpdf_view_set_zoom; zooming with the wheel or the keys switches to it. */
+	R_PDF_FIT_NONE
+}RPdfFit;
+
+/** What a PdfView holds. */
+typedef enum RPdfStatus{
+	/** No document. */
+	R_PDF_EMPTY = 0x05D0,
+	/** A document is shown. */
+	R_PDF_LOADED,
+	/** The document needs a password, or the one given is wrong: load it again with one. */
+	R_PDF_NEEDS_PASSWORD,
+	/** The file could not be read, or is not a PDF document. */
+	R_PDF_ERROR,
+	/** The PDFium library was not found (see Rpdf_is_available). */
+	R_PDF_UNAVAILABLE
+}RPdfStatus;
+
+/** The fonts of a PDF document (Rpdf_document_set_font): those of Raven, then the ones added (2, 3...). */
+typedef enum RPdfFont{
+	/** Roboto, the font of the interface of Raven. */
+	R_PDF_FONT_SANS = 0,
+	/** Roboto Mono. */
+	R_PDF_FONT_MONO = 1
+}RPdfFont;
+
+/** How a shape of a PDF document is painted: a bitmask. */
+typedef enum RPdfPaint{
+	/** Filled with the fill color. */
+	R_PDF_FILL   = (1 << 0),
+	/** Outlined with the stroke color and the line width. */
+	R_PDF_STROKE = (1 << 1)
+}RPdfPaint;
+
+/** A bitmask of styles of the text of a PDF document. */
+typedef enum RPdfTextStyle{
+	R_PDF_TEXT_BOLD      = (1 << 0),
+	R_PDF_TEXT_ITALIC    = (1 << 1),
+	R_PDF_TEXT_UNDERLINE = (1 << 2)
+}RPdfTextStyle;
+
+typedef enum RPdfPrintFlags{
+	/** No dialog: printed at once on the printer named, else the default one. */
+	R_PDF_PRINT_NO_DIALOG = (1 << 0)
+}RPdfPrintFlags;
+
+/** How a PDF document is printed. Every field may be left to zero. */
+typedef struct RPdfPrintDesc {
+	/** Window the print dialog belongs to (0 or R_INVALID_ID: none). */
+	Rid window;
+	/** Name of the print job, shown in the queue of the printer. NULL: the title of the document or the name of the file. */
+	const char* title;
+	/** Name of the printer, as the system knows it. NULL: the one chosen in the dialog, else the default printer. */
+	const char* printer;
+	/** Copies to print (0: one); the dialog may change it. */
+	int copies;
+	/** Bitmask of RPdfPrintFlags. */
+	Ruint flags;
+	/**
+	 * Path of a file the job is written to instead of a printer. macOS: a
+	 * PDF made by the print system; Windows: what the driver of the printer
+	 * makes; elsewhere: the document itself.
+	 */
+	const char* output;
+	/** Password of a document protected by one. */
+	const char* password;
+} RPdfPrintDesc;
+
+/** Where a tile of a MapView stands (Rmap_view_get_tile_state). */
+typedef enum RMapTileState{
+	/** Not in the view's cache: never asked for, no longer wanted, or evicted. */
+	R_MAP_TILE_NONE = 0x0600,
+	/** Asked for (the tile callback was called, or the file is being read): waiting for its pixels. */
+	R_MAP_TILE_PENDING,
+	/** Its pixels are in the cache. */
+	R_MAP_TILE_LOADED,
+	/** The application said it has none (Rmap_view_set_tile_failed), or its file could not be read. */
+	R_MAP_TILE_FAILED
+}RMapTileState;
+
+/** How an axis of a Plot spreads its values. */
+typedef enum RPlotScale{
+	R_PLOT_SCALE_LINEAR = 0x0530,
+	/** Powers of ten at even distances; only values above zero are shown. */
+	R_PLOT_SCALE_LOG,
+	/**
+	 * Symmetric logarithm: linear between -t and t (Rplot_set_axis_linear_threshold,
+	 * 1 by default), logarithmic beyond on both sides: shows zero and the
+	 * negative values a logarithm cannot.
+	 */
+	R_PLOT_SCALE_SYMLOG
+}RPlotScale;
+
+/** How the line of a series of a Plot is drawn. */
+typedef enum RPlotLine{
+	R_PLOT_LINE_SOLID = 0x0540,
+	R_PLOT_LINE_DASHED,
+	R_PLOT_LINE_DOTTED,
+	R_PLOT_LINE_DASH_DOT,
+	/** No line: only the markers (a scatter plot). */
+	R_PLOT_LINE_NONE
+}RPlotLine;
+
+/** The mark drawn on each point of a series of a Plot. */
+typedef enum RPlotMarker{
+	R_PLOT_MARKER_NONE = 0x0550,
+	R_PLOT_MARKER_CIRCLE,
+	R_PLOT_MARKER_SQUARE,
+	R_PLOT_MARKER_DIAMOND,
+	R_PLOT_MARKER_TRIANGLE_UP,
+	R_PLOT_MARKER_TRIANGLE_DOWN,
+	R_PLOT_MARKER_CROSS,
+	R_PLOT_MARKER_PLUS,
+	R_PLOT_MARKER_ASTERISK
+}RPlotMarker;
+
+/** Where the legend of a Plot is. */
+typedef enum RPlotLegend{
+	R_PLOT_LEGEND_HIDDEN = 0x0560,
+	R_PLOT_LEGEND_TOP_LEFT,
+	R_PLOT_LEGEND_TOP,
+	R_PLOT_LEGEND_TOP_RIGHT,
+	R_PLOT_LEGEND_RIGHT,
+	R_PLOT_LEGEND_BOTTOM_RIGHT,
+	R_PLOT_LEGEND_BOTTOM,
+	R_PLOT_LEGEND_BOTTOM_LEFT,
+	R_PLOT_LEGEND_LEFT,
+	/** To the right of the data, outside it. */
+	R_PLOT_LEGEND_OUTSIDE
+}RPlotLegend;
+
+/** What a Chart draws. */
+typedef enum RChartKind{
+	/** Slices of a whole, as parts of a disc (the default). */
+	R_CHART_PIE = 0x0590,
+	/** Slices of a whole, as parts of a ring; its middle shows the total, or the slice under the pointer. */
+	R_CHART_DONUT,
+	/** One value within a range, on an arc; bands color parts of the range. */
+	R_CHART_GAUGE,
+	/** A grid of values, each cell colored from the low color to the high one. */
+	R_CHART_HEATMAP,
+	/** A small line of values without axes, to sit in a tile or a cell of a table. */
+	R_CHART_SPARKLINE
+}RChartKind;
 
 
 #ifdef __cplusplus
@@ -216,6 +389,12 @@ extern "C" {
 	/** @brief Maximum number of characters. 0 = no limit (default). */
 	RAVEN_API void Rtext_input_set_max_length(Rid text_input, int max_length);
 	RAVEN_API void Rtext_input_select_all(Rid text_input);
+	/** @brief What it holds: picks the on-screen keyboard on mobile. Default: R_TEXT_INPUT_TYPE_TEXT. */
+	RAVEN_API void Rtext_input_set_input_type(Rid text_input, RTextInputType type);
+	RAVEN_API RTextInputType Rtext_input_get_input_type(Rid text_input);
+	/** @brief The return key of the on-screen keyboard (Done, Next, Search...). Default: R_RETURN_KEY_DEFAULT. */
+	RAVEN_API void Rtext_input_set_return_key(Rid text_input, RReturnKey key);
+	RAVEN_API RReturnKey Rtext_input_get_return_key(Rid text_input);
 	typedef void (*RTextChangedCallback)(Rid text_input, const char* text, void* user_data);
 	/** @brief Called on every edit. */
 	RAVEN_API void Rtext_input_set_changed_callback(Rid text_input, RTextChangedCallback callback, void* user_data);
@@ -224,7 +403,7 @@ extern "C" {
 
 
 	/* ============================================================================
-	 *  SPIN BOX (numeric input: drag to scrub, click to type, arrows / wheel to step)
+	 *  SPIN BOX (numeric input: drag to scrub, click to type, arrows / wheel / step buttons to step)
 	 * ============================================================================ */
 
 	RAVEN_API void Rspin_box_set_range(Rid spin_box, double minimum, double maximum);
@@ -235,6 +414,15 @@ extern "C" {
 	RAVEN_API void Rspin_box_set_step(Rid spin_box, double step);
 	/** @brief Digits shown after the decimal point. Default: 2. */
 	RAVEN_API void Rspin_box_set_decimals(Rid spin_box, int decimals);
+	/**
+	 * @brief Step buttons in the looks of Raven too: a down button at the left
+	 * end and an up button at the right end, the value between them (XML
+	 * `Buttons="True"`). A click steps once; holding a button repeats its step.
+	 * The platform looks (Windows, GNOME, macOS) always draw their own buttons.
+	 * Default: R_FALSE (drag to scrub, arrows / wheel to step).
+	 */
+	RAVEN_API void Rspin_box_set_buttons(Rid spin_box, int buttons);
+	RAVEN_API int Rspin_box_get_buttons(Rid spin_box);
 	typedef void (*RSpinBoxChangedCallback)(Rid spin_box, double value, void* user_data);
 	RAVEN_API void Rspin_box_set_changed_callback(Rid spin_box, RSpinBoxChangedCallback callback, void* user_data);
 
@@ -282,6 +470,15 @@ extern "C" {
 	 */
 	typedef const char* (*RListItemTextCallback)(Rid list_view, int index, void* user_data);
 	RAVEN_API void Rlist_view_set_virtual_items(Rid list_view, int count, RListItemTextCallback callback, void* user_data);
+
+	/**
+	 * Colors the text of rows (a level, a verdict): the list asks for the color
+	 * of each row it draws, stored or virtual. Set r, g, b, a (0..1) and return
+	 * R_TRUE; R_FALSE (or alpha 0) keeps the color of the theme. The color is
+	 * kept on a selected or hovered row. NULL removes the callback.
+	 */
+	typedef int (*RListItemColorCallback)(Rid list_view, int index, float* r, float* g, float* b, float* a, void* user_data);
+	RAVEN_API void Rlist_view_set_item_color_callback(Rid list_view, RListItemColorCallback callback, void* user_data);
 
 	/** @brief Selects a row. -1 selects nothing. */
 	RAVEN_API void Rlist_view_set_selected(Rid list_view, int index);
@@ -396,6 +593,12 @@ extern "C" {
 
 	RAVEN_API Rid Rmenu_add_item(Rid menu, const char* text);
 	RAVEN_API Rid Rmenu_add_separator(Rid menu);
+	/** @brief A noninteractive caption row, skipped by keyboard navigation. */
+	RAVEN_API Rid Rmenu_add_header(Rid menu, const char* text);
+	/** @brief A vertical divider between titles of an in-window MenuBar. Ignored by native macOS bars. */
+	RAVEN_API Rid Rmenu_bar_add_divider(Rid menu_bar);
+	/** @brief Title color in an in-window bar; alpha 0 restores the theme. Ignored by native macOS bars. */
+	RAVEN_API void Rmenu_set_title_color(Rid menu, float r, float g, float b, float a);
 
 	RAVEN_API void Rmenu_item_set_text(Rid item, const char* text);
 	RAVEN_API const char* Rmenu_item_get_text(Rid item);
@@ -404,6 +607,12 @@ extern "C" {
 	 * keys are pressed in the window of its menu bar.
 	 */
 	RAVEN_API void Rmenu_item_set_shortcut(Rid item, RKey key, Ruint modifiers);
+	/**
+	 * @brief Display-only shortcut hint; copied, never binds a key. Overrides
+	 * the formatted shortcut without changing its binding. NULL restores the
+	 * formatted shortcut; an empty string hides it. XML: ShortcutText.
+	 */
+	RAVEN_API void Rmenu_item_set_shortcut_text(Rid item, const char* text);
 	RAVEN_API void Rmenu_item_set_checkable(Rid item, int checkable);
 	RAVEN_API void Rmenu_item_set_checked(Rid item, int checked);
 	/**
@@ -441,7 +650,27 @@ extern "C" {
 		float icon_radius;
 		/** Color of the name; alpha 0 = the theme. */
 		float text_color[4];
+		/** Layout="Rows": a third line under the detail, dimmer, or NULL. */
+		const char* note;
+		/** Color of the detail line; alpha 0 = the theme (dimmer than the name). */
+		float detail_color[4];
 	} RTileItem;
+
+	/** A section of a tile view: its first tile, and what its header shows. */
+	typedef struct RTileSection {
+		/** Index of the first tile of the section (read when the sections are given). */
+		int first;
+		/** Title of the header (valid until the callback returns). */
+		const char* text;
+		/** Dimmer text after the title (a count...), or NULL. */
+		const char* detail;
+	} RTileSection;
+
+	/**
+	 * Describes section `section`: when the sections are given (Rtile_view_set_sections,
+	 * `first` is read) and when its header is drawn (`text`, `detail`). UI thread.
+	 */
+	typedef void (*RTileSectionCallback)(Rid tile_view, int section, RTileSection* out, void* user_data);
 
 	/** Fills `item` for tile `index`. Called on the UI thread, only for the tiles in view. */
 	typedef void (*RTileItemCallback)(Rid tile_view, int index, RTileItem* item, void* user_data);
@@ -458,6 +687,31 @@ extern "C" {
 	/** @brief Size of a tile (its name included) and of its icon. Default 112 x 112, icon 64. */
 	RAVEN_API void Rtile_view_set_tile_size(Rid tile_view, float width, float height, float icon_size);
 	RAVEN_API void Rtile_view_set_empty_text(Rid tile_view, const char* text);
+	/**
+	 * @brief Layout="Rows": width of the box the icon is drawn in (its height is the
+	 * icon size), for icons that are not square; 0 = square (default). XML: IconWidth.
+	 */
+	RAVEN_API void Rtile_view_set_icon_width(Rid tile_view, float width);
+
+	/*
+	 * Sections: the tiles, in their order, are cut into runs under a header row (a
+	 * chevron, a title, a dimmer detail). A click on a header folds its section (its
+	 * tiles are neither drawn nor hit; the keys, Shift ranges and the rubber band pass
+	 * over them) or unfolds it. Tiles before the first section have no header.
+	 * The height of the headers: XML HeaderHeight (default 24).
+	 */
+	/** @brief `count` sections, described by `callback`, all unfolded. Rtile_view_set_items removes them: give them after the tiles. */
+	RAVEN_API void Rtile_view_set_sections(Rid tile_view, int count, RTileSectionCallback callback, void* user_data);
+	RAVEN_API int Rtile_view_get_section_count(Rid tile_view);
+	/** @brief The section of a tile, or -1 (before the first section). */
+	RAVEN_API int Rtile_view_get_section_of(Rid tile_view, int index);
+	/** @brief Folds or unfolds a section (the toggled callback is not called). */
+	RAVEN_API void Rtile_view_set_section_folded(Rid tile_view, int section, int folded);
+	RAVEN_API int Rtile_view_is_section_folded(Rid tile_view, int section);
+	/** @brief The section whose header is at a point relative to the widget, or -1. */
+	RAVEN_API int Rtile_view_get_section_at(Rid tile_view, float local_x, float local_y);
+	/** @brief Called when the user folds or unfolds a section (`index`: the section). */
+	RAVEN_API void Rtile_view_set_section_toggled_callback(Rid tile_view, RTileEventCallback callback, void* user_data);
 
 	/* Several tiles can be selected: Ctrl + click, Shift + click, a rubber band from the empty space, Ctrl + A. */
 	RAVEN_API void Rtile_view_set_selected(Rid tile_view, int index, int selected);
@@ -552,8 +806,30 @@ extern "C" {
 	 */
 	typedef const char* (*RTableCellTextCallback)(Rid table, int row, int column, void* user_data);
 	RAVEN_API void Rtable_set_virtual_rows(Rid table, int count, RTableCellTextCallback callback, void* user_data);
+	/**
+	 * Colors the text of cells (a verdict, a state): the table asks for the
+	 * color of each cell it draws, stored or virtual (`row` is the index of the
+	 * order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
+	 * keeps the color set with Rtable_set_cell_text_color, else the theme's.
+	 * The color is kept on a selected or hovered row. NULL removes the callback.
+	 */
+	typedef int (*RTableCellColorCallback)(Rid table, int row, int column, float* r, float* g, float* b, float* a, void* user_data);
+	RAVEN_API void Rtable_set_cell_color_callback(Rid table, RTableCellColorCallback callback, void* user_data);
+	/**
+	 * @brief Stored rows: a fixed text color; column -1 colors the row; cells override it.
+	 * Alpha 0 restores the inherited/theme color. A color from the cell color callback wins over it.
+	 */
+	RAVEN_API void Rtable_set_cell_text_color(Rid table, int row, int column, float r, float g, float b, float a);
+	/** @brief Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default. */
+	RAVEN_API void Rtable_set_multi_select(Rid table, int enabled);
+	RAVEN_API void Rtable_set_row_selected(Rid table, int row, int selected);
+	RAVEN_API int Rtable_is_row_selected(Rid table, int row);
+	RAVEN_API void Rtable_clear_selection(Rid table);
+	RAVEN_API int Rtable_get_selection_count(Rid table);
+	/** @brief Selected row at index, top to bottom; -1 outside the selection. */
+	RAVEN_API int Rtable_get_selection(Rid table, int index);
 
-	/** @brief Selects a row. -1 selects nothing. */
+	/** @brief Replaces the selection with one row. -1 selects nothing, including in multi-select mode. */
 	RAVEN_API void Rtable_set_selected(Rid table, int row);
 	RAVEN_API int Rtable_get_selected(Rid table);
 	RAVEN_API void Rtable_scroll_to_row(Rid table, int row);
@@ -634,18 +910,36 @@ extern "C" {
 	 *          <Toast Name="toast" Slot.HAlign="Center" Slot.VAlign="Bottom" Slot.Padding="16"/>
 	 *      </Overlay>
 	 *
-	 * Hidden, it takes no click. Rtoast_show replaces the message shown.
+	 * Hidden, it takes no click. By default Rtoast_show replaces the message
+	 * shown; Rtoast_set_queue makes the messages wait their turn
+	 * (R_TOAST_SEQUENCE) or stack up (R_TOAST_STACK: the oldest at the top,
+	 * the newest at the bottom; put the toast against the bottom of the
+	 * Overlay so that the stack grows upwards). Each message keeps the kind
+	 * and the button it was shown with, and its own time.
 	 * ============================================================================ */
 
-	/** @brief Shows a message for `seconds` (0 or less: until Rtoast_hide). */
+	/** @brief Shows a message for `seconds` (0 or less: until Rtoast_hide), with the kind and button set now. */
 	RAVEN_API void Rtoast_show(Rid toast, const char* text, double seconds);
+	/** @brief Same, with a kind of its own (the kind set by Rtoast_set_kind is left as it is). */
+	RAVEN_API void Rtoast_show_kind(Rid toast, const char* text, RToastKind kind, double seconds);
+	/** @brief Hides the newest message shown; the next one waiting comes. */
 	RAVEN_API void Rtoast_hide(Rid toast);
+	/** @brief Hides every message, and forgets those waiting. */
+	RAVEN_API void Rtoast_clear(Rid toast);
 	RAVEN_API int Rtoast_is_shown(Rid toast);
+	/** @return The messages shown and waiting. */
+	RAVEN_API int Rtoast_get_count(Rid toast);
+	/** @return The newest message shown (the last one, once hidden; the clicked one in the action callback). */
 	RAVEN_API const char* Rtoast_get_text(Rid toast);
+	RAVEN_API void Rtoast_set_queue(Rid toast, RToastQueue queue);
+	RAVEN_API RToastQueue Rtoast_get_queue(Rid toast);
+	/** @brief How many messages a R_TOAST_STACK shows at once (default 3). */
+	RAVEN_API void Rtoast_set_max_visible(Rid toast, int count);
+	/** @brief The kind of the next messages (and of the message shown, with R_TOAST_REPLACE). */
 	RAVEN_API void Rtoast_set_kind(Rid toast, RToastKind kind);
-	/** @brief A button at the end of the message ("Undo"); NULL or "" removes it. */
+	/** @brief A button at the end of the next messages ("Undo"); NULL or "" removes it. */
 	RAVEN_API void Rtoast_set_action_text(Rid toast, const char* text);
-	/** @brief Called by the button of the message, which then hides. This also fires the action of the widget. */
+	/** @brief Called by the button of a message, which then hides. This also fires the action of the widget. */
 	typedef void (*RToastCallback)(Rid toast, void* user_data);
 	RAVEN_API void Rtoast_set_action_callback(Rid toast, RToastCallback callback, void* user_data);
 
@@ -706,6 +1000,634 @@ extern "C" {
 	/** @brief Called when the user goes to another page. This also fires the action of the widget. */
 	typedef void (*RPageChangedCallback)(Rid pagination, int page, void* user_data);
 	RAVEN_API void Rpagination_set_changed_callback(Rid pagination, RPageChangedCallback callback, void* user_data);
+
+
+	/* ============================================================================
+	 *  PLOT (curves of X / Y data)
+	 *
+	 * Series of points drawn as lines and markers over two horizontal axes
+	 * (R_PLOT_X under the data, R_PLOT_X2 over it) and two vertical ones
+	 * (R_PLOT_Y on the left, R_PLOT_Y2 on the right). Each axis is linear,
+	 * logarithmic or symmetric logarithmic, and follows the data until the
+	 * user or the application moves it.
+	 *
+	 * The user moves the view with the left (or middle) button, zooms into a
+	 * rectangle drawn with the right button, zooms around the pointer with
+	 * the wheel, and fits the data again with a double click. Over an axis,
+	 * the button and the wheel move only that axis. A click in the legend
+	 * hides or shows a series; drag lines are dragged. Fingers move and pinch
+	 * the view; the arrows, + / - and Home do the same from the keyboard.
+	 *
+	 * Series and drag lines are counted from 0, in the order they were added.
+	 * ============================================================================ */
+
+	RAVEN_API void Rplot_set_title(Rid plot, const char* title);
+	RAVEN_API const char* Rplot_get_title(Rid plot);
+
+	/** @brief Adds a series (its name in the legend; NULL or "": not in the legend). Returns its index. */
+	RAVEN_API int Rplot_add_series(Rid plot, const char* name);
+	RAVEN_API void Rplot_remove_series(Rid plot, int series);
+	/** @brief Removes every series and every drag line. */
+	RAVEN_API void Rplot_clear(Rid plot);
+	RAVEN_API int Rplot_get_series_count(Rid plot);
+	RAVEN_API void Rplot_set_series_name(Rid plot, int series, const char* name);
+	RAVEN_API const char* Rplot_get_series_name(Rid plot, int series);
+	/**
+	 * @brief Replaces the points of a series with `count` points, copied.
+	 * @param x The X of the points, or NULL: 0, 1, 2...
+	 * @param y The Y of the points. NaN leaves a gap in the line.
+	 */
+	RAVEN_API void Rplot_set_series_data(Rid plot, int series, const double* x, const double* y, int count);
+	/** @brief Adds points after those of a series (x NULL: numbered after the last one). */
+	RAVEN_API void Rplot_append_series_data(Rid plot, int series, const double* x, const double* y, int count);
+	/** @brief Adds one point after those of a series. */
+	RAVEN_API void Rplot_add_point(Rid plot, int series, double x, double y);
+	RAVEN_API void Rplot_clear_series_data(Rid plot, int series);
+	RAVEN_API int Rplot_get_point_count(Rid plot, int series);
+	/** @brief One point of a series. Returns R_FALSE when there is no such point. */
+	RAVEN_API int Rplot_get_point(Rid plot, int series, int index, double* x, double* y);
+	/** @brief Keeps only the last `max` points of a series, for data that streams in (0: all of them, the default). */
+	RAVEN_API void Rplot_set_series_max_points(Rid plot, int series, int max);
+	/** @brief The color of a series (by default the next one of a palette of ten). */
+	RAVEN_API void Rplot_set_series_color(Rid plot, int series, float r, float g, float b, float a);
+	/** @brief How the line is drawn and how wide (default solid, 1.75; width 0 keeps the width). */
+	RAVEN_API void Rplot_set_series_line(Rid plot, int series, RPlotLine line, float width);
+	/** @brief The mark on each point and its radius (default none, 4; size 0 keeps the size). */
+	RAVEN_API void Rplot_set_series_marker(Rid plot, int series, RPlotMarker marker, float size);
+	/** @brief Filled markers (the default) or only their outline. */
+	RAVEN_API void Rplot_set_series_marker_filled(Rid plot, int series, int filled);
+	/** @brief Draws the line in steps: along at the height of a point, then up or down to the next. */
+	RAVEN_API void Rplot_set_series_step(Rid plot, int series, int step);
+	/** @brief Shades the area between the line and zero, at this opacity (0: none, the default). */
+	RAVEN_API void Rplot_set_series_fill(Rid plot, int series, float opacity);
+	/** @brief The axes a series is drawn against: R_PLOT_X or R_PLOT_X2, R_PLOT_Y or R_PLOT_Y2. */
+	RAVEN_API void Rplot_set_series_axes(Rid plot, int series, RPlotAxis x_axis, RPlotAxis y_axis);
+	/** @brief Shows or hides a series (the user does it with a click on its name in the legend). */
+	RAVEN_API void Rplot_set_series_visible(Rid plot, int series, int visible);
+	RAVEN_API int Rplot_is_series_visible(Rid plot, int series);
+
+	/** @brief The name written along an axis. */
+	RAVEN_API void Rplot_set_axis_label(Rid plot, RPlotAxis axis, const char* label);
+	RAVEN_API const char* Rplot_get_axis_label(Rid plot, RPlotAxis axis);
+	RAVEN_API void Rplot_set_axis_scale(Rid plot, RPlotAxis axis, RPlotScale scale);
+	RAVEN_API RPlotScale Rplot_get_axis_scale(Rid plot, RPlotAxis axis);
+	/** @brief R_PLOT_SCALE_SYMLOG: the axis is linear from -threshold to threshold (default 1). */
+	RAVEN_API void Rplot_set_axis_linear_threshold(Rid plot, RPlotAxis axis, double threshold);
+	/** @brief Shows this range of an axis; the axis then stops following the data. */
+	RAVEN_API void Rplot_set_axis_range(Rid plot, RPlotAxis axis, double min, double max);
+	/** @brief The range an axis shows now (after the user moved or zoomed it). */
+	RAVEN_API void Rplot_get_axis_range(Rid plot, RPlotAxis axis, double* min, double* max);
+	/** @brief The axis is fitted to the data whenever it changes (the default, until the view is moved; a double click turns it on again). */
+	RAVEN_API void Rplot_set_axis_auto_fit(Rid plot, RPlotAxis axis, int auto_fit);
+	RAVEN_API int Rplot_is_axis_auto_fit(Rid plot, RPlotAxis axis);
+	/** @brief How the labels of an axis are written: a printf format for one double ("%.1f s", "%g"), NULL: chosen from the ticks. */
+	RAVEN_API void Rplot_set_axis_format(Rid plot, RPlotAxis axis, const char* format);
+	/** @brief 1: shown, 0: hidden, -1: R_PLOT_X and R_PLOT_Y always, the second axes when something uses them (the default). */
+	RAVEN_API void Rplot_set_axis_visible(Rid plot, RPlotAxis axis, int visible);
+	/** @brief Lines across the data at the ticks of an axis (on for R_PLOT_X and R_PLOT_Y). */
+	RAVEN_API void Rplot_set_axis_grid(Rid plot, RPlotAxis axis, int grid);
+	/** @brief The values grow the other way (to the left, or down). */
+	RAVEN_API void Rplot_set_axis_inverted(Rid plot, RPlotAxis axis, int inverted);
+	/** @brief The user cannot move or zoom this axis (the application still can). */
+	RAVEN_API void Rplot_set_axis_locked(Rid plot, RPlotAxis axis, int locked);
+	/** @brief Fits every axis that is not locked to the data, and has them follow it again (what a double click does). */
+	RAVEN_API void Rplot_fit(Rid plot);
+
+	/** @brief Where the legend is (default R_PLOT_LEGEND_TOP_RIGHT). */
+	RAVEN_API void Rplot_set_legend(Rid plot, RPlotLegend legend);
+	/** @brief Lines across the data through the pointer. */
+	RAVEN_API void Rplot_set_crosshair(Rid plot, int crosshair);
+	/** @brief The coordinates of the pointer in a corner of the data (on by default). */
+	RAVEN_API void Rplot_set_mouse_text(Rid plot, int shown);
+	/** @brief The values of the point under the pointer, written next to it (on by default). */
+	RAVEN_API void Rplot_set_tooltips(Rid plot, int shown);
+	/** @brief Where the pointer is, in the units of R_PLOT_X and R_PLOT_Y. Returns R_TRUE when it is over the data. */
+	RAVEN_API int Rplot_get_mouse_position(Rid plot, double* x, double* y);
+	/** @brief Where a point of the data (R_PLOT_X, R_PLOT_Y) is in the widget, in logical units from its corner. */
+	RAVEN_API void Rplot_data_to_point(Rid plot, double x, double y, float* point_x, float* point_y);
+	/** @brief The data (R_PLOT_X, R_PLOT_Y) at a point of the widget, in logical units from its corner. */
+	RAVEN_API void Rplot_point_to_data(Rid plot, float point_x, float point_y, double* x, double* y);
+
+	/**
+	 * @brief Adds a line across the data that the user drags: vertical at an X
+	 * (axis R_PLOT_X or R_PLOT_X2), horizontal at a Y (R_PLOT_Y or R_PLOT_Y2).
+	 * Its value is written on it, after `label` (may be NULL). Returns its index.
+	 */
+	RAVEN_API int Rplot_add_drag_line(Rid plot, RPlotAxis axis, double value, const char* label);
+	RAVEN_API void Rplot_remove_drag_line(Rid plot, int line);
+	RAVEN_API int Rplot_get_drag_line_count(Rid plot);
+	RAVEN_API void Rplot_set_drag_line_value(Rid plot, int line, double value);
+	RAVEN_API double Rplot_get_drag_line_value(Rid plot, int line);
+	/** @brief The color of a drag line (by default the accent of the theme). */
+	RAVEN_API void Rplot_set_drag_line_color(Rid plot, int line, float r, float g, float b, float a);
+
+	/** @brief Called when the user moves, zooms or fits the view (Rplot_get_axis_range tells where it is). */
+	typedef void (*RPlotViewCallback)(Rid plot, void* user_data);
+	RAVEN_API void Rplot_set_view_changed_callback(Rid plot, RPlotViewCallback callback, void* user_data);
+	/** @brief Called while the user drags a drag line. This also fires the action of the widget. */
+	typedef void (*RPlotDragLineCallback)(Rid plot, int line, double value, void* user_data);
+	RAVEN_API void Rplot_set_drag_line_callback(Rid plot, RPlotDragLineCallback callback, void* user_data);
+	/** @brief Called when the user hides or shows a series from the legend. */
+	typedef void (*RPlotSeriesCallback)(Rid plot, int series, int visible, void* user_data);
+	RAVEN_API void Rplot_set_series_toggled_callback(Rid plot, RPlotSeriesCallback callback, void* user_data);
+
+
+	/* ============================================================================
+	 *  CHART (the charts of dashboards: pie, donut, gauge, heatmap, sparkline)
+	 *
+	 * One widget, five kinds (RChartKind), each fed by its own calls:
+	 *
+	 *   R_CHART_PIE, R_CHART_DONUT   slices: Rchart_add_slice and the others
+	 *   R_CHART_GAUGE                Rchart_set_range, Rchart_set_value, bands
+	 *   R_CHART_HEATMAP              Rchart_set_grid, labels of the rows and columns
+	 *   R_CHART_SPARKLINE            Rchart_set_values or Rchart_push_value
+	 *
+	 * The colors follow the theme: the slices take the accent then a palette
+	 * of ten colors made for the dark and the light themes, the gauge and the
+	 * sparkline the accent (Rchart_set_color), the heatmap goes from a tint of
+	 * the accent to the accent. The values glide to their new place when they
+	 * change. The pointer over a slice lifts it and tells its label, value and
+	 * share; over a cell of a heatmap or a point of a sparkline, its value. A
+	 * click on a slice selects it (and again, unselects it), a click on a cell
+	 * calls the cell callback; both also fire the action of the widget.
+	 * The background is left to what holds the chart (a tile, a panel).
+	 *
+	 * Slices, bands, rows, columns and values are counted from 0.
+	 *
+	 * XML:
+	 *   <Chart Kind="Donut" Title="Browsers" Format="%.0f">
+	 *       <Slice Label="Chrome" Value="64"/> <Slice Label="Safari" Value="19" Color="#ff9f0a"/>
+	 *   </Chart>
+	 *   <Chart Kind="Gauge" Min="0" Max="100" Value="72" Format="%.0f%%">
+	 *       <Band From="0" To="60"/> <Band From="60" To="85"/> <Band From="85" To="100"/>
+	 *   </Chart>
+	 *   <Chart Kind="Heatmap" ColumnLabels="0|6|12|18"> <Row Label="Mon" Values="1 4 2 0"/> ... </Chart>
+	 *   <Chart Kind="Sparkline" Values="3 5 4 6 8 7 9"/>
+	 * ============================================================================ */
+
+	/** @brief A chart of a kind (Rwidget_create(R_WIDGET_CHART) makes a pie). */
+	RAVEN_API Rid Rchart_create(RChartKind kind);
+	RAVEN_API void Rchart_set_kind(Rid chart, RChartKind kind);
+	RAVEN_API RChartKind Rchart_get_kind(Rid chart);
+	/** @brief The title over a pie, a donut or a heatmap, under the value of a gauge (a sparkline only tells it to screen readers). */
+	RAVEN_API void Rchart_set_title(Rid chart, const char* title);
+	RAVEN_API const char* Rchart_get_title(Rid chart);
+	/**
+	 * @brief How the values are written (the gauge, the middle of a donut, what
+	 * the pointer shows): a printf format for one double with its unit, "%.0f%%",
+	 * "$%.2f". NULL: whole numbers as they are, others with up to two decimals.
+	 */
+	RAVEN_API void Rchart_set_format(Rid chart, const char* format);
+	/** @brief The color of the arc of a gauge outside any band, and of the line of a sparkline (default: the accent). */
+	RAVEN_API void Rchart_set_color(Rid chart, float r, float g, float b, float a);
+	/** @brief The legend: the slices beside a pie or a donut, the scale of colors under a heatmap (shown by default). */
+	RAVEN_API void Rchart_set_legend(Rid chart, int shown);
+	/** @brief Removes the slices, the bands, the grid and the values. */
+	RAVEN_API void Rchart_clear(Rid chart);
+	/**
+	 * @brief What is under the pointer: a slice, a point of a sparkline, or a
+	 * cell of a heatmap as row * columns + column; -1 for nothing.
+	 */
+	RAVEN_API int Rchart_get_hovered(Rid chart);
+
+	/** @brief Adds a slice (a value of 0 or more). Returns its index, -1 when the value is not valid. */
+	RAVEN_API int Rchart_add_slice(Rid chart, const char* label, double value);
+	RAVEN_API void Rchart_remove_slice(Rid chart, int slice);
+	RAVEN_API int Rchart_get_slice_count(Rid chart);
+	RAVEN_API void Rchart_set_slice_value(Rid chart, int slice, double value);
+	RAVEN_API double Rchart_get_slice_value(Rid chart, int slice);
+	RAVEN_API void Rchart_set_slice_label(Rid chart, int slice, const char* label);
+	RAVEN_API const char* Rchart_get_slice_label(Rid chart, int slice);
+	/** @brief The color of a slice; an alpha of 0 gives it back its color of the palette. */
+	RAVEN_API void Rchart_set_slice_color(Rid chart, int slice, float r, float g, float b, float a);
+	/** @brief The sum of the values of the slices. */
+	RAVEN_API double Rchart_get_total(Rid chart);
+	/** @brief The slice lifted as selected, or -1 for none (the user selects one with a click). */
+	RAVEN_API void Rchart_set_selected(Rid chart, int slice);
+	RAVEN_API int Rchart_get_selected(Rid chart);
+	/** @brief The hole of a donut, as a part of its radius, from 0.2 to 0.9 (default 0.62). */
+	RAVEN_API void Rchart_set_hole(Rid chart, float ratio);
+	/**
+	 * @brief What the middle of a donut shows when the pointer is not over a
+	 * slice: `text` in large (NULL or "": the total) over `caption` in small
+	 * (NULL or "": none).
+	 */
+	RAVEN_API void Rchart_set_center_text(Rid chart, const char* text, const char* caption);
+	/** @brief Called when the user clicks a slice; `selected` tells whether it is now the selected one. */
+	typedef void (*RChartSliceCallback)(Rid chart, int slice, int selected, void* user_data);
+	RAVEN_API void Rchart_set_slice_clicked_callback(Rid chart, RChartSliceCallback callback, void* user_data);
+
+	/**
+	 * @brief The range of a gauge (default 0 to 100), and a fixed range for the
+	 * colors of a heatmap and the height of a sparkline, which otherwise follow
+	 * their values. min == max goes back to these defaults.
+	 */
+	RAVEN_API void Rchart_set_range(Rid chart, double min, double max);
+	/** @brief The range in use now (a gauge's, or the one of the values of a heatmap or a sparkline). */
+	RAVEN_API void Rchart_get_range(Rid chart, double* min, double* max);
+	/** @brief The value of a gauge, kept within its range when drawn. */
+	RAVEN_API void Rchart_set_value(Rid chart, double value);
+	RAVEN_API double Rchart_get_value(Rid chart);
+	/**
+	 * @brief Colors a part of the range of a gauge (an alpha of 0: the success,
+	 * warning and danger colors of the theme, one after the other). The arc
+	 * takes the color of the band its value is in. Returns the index of the band.
+	 */
+	RAVEN_API int Rchart_add_band(Rid chart, double from, double to, float r, float g, float b, float a);
+	RAVEN_API void Rchart_clear_bands(Rid chart);
+	RAVEN_API int Rchart_get_band_count(Rid chart);
+
+	/**
+	 * @brief The cells of a heatmap: `rows` x `columns` values, row after row,
+	 * copied (NULL: all 0). NaN leaves a cell empty.
+	 */
+	RAVEN_API void Rchart_set_grid(Rid chart, int rows, int columns, const float* values);
+	RAVEN_API int Rchart_get_row_count(Rid chart);
+	RAVEN_API int Rchart_get_column_count(Rid chart);
+	RAVEN_API void Rchart_set_cell(Rid chart, int row, int column, float value);
+	RAVEN_API float Rchart_get_cell(Rid chart, int row, int column);
+	/** @brief The names of the rows, separated by '|': "Mon|Tue|Wed" (shown at their left). */
+	RAVEN_API void Rchart_set_row_labels(Rid chart, const char* labels);
+	/** @brief The names of the columns, separated by '|' (shown over them, as many as fit). */
+	RAVEN_API void Rchart_set_column_labels(Rid chart, const char* labels);
+	/** @brief The name of a row or of a column, "" when it has none. */
+	RAVEN_API const char* Rchart_get_row_label(Rid chart, int row);
+	RAVEN_API const char* Rchart_get_column_label(Rid chart, int column);
+	/** @brief The colors of the lowest and of the highest values of a heatmap (default: a tint of the accent, the accent). */
+	RAVEN_API void Rchart_set_color_scale(Rid chart, float low_r, float low_g, float low_b, float low_a,
+		float high_r, float high_g, float high_b, float high_a);
+	/** @brief Called when the user clicks a cell of a heatmap. */
+	typedef void (*RChartCellCallback)(Rid chart, int row, int column, float value, void* user_data);
+	RAVEN_API void Rchart_set_cell_clicked_callback(Rid chart, RChartCellCallback callback, void* user_data);
+
+	/** @brief The values of a sparkline, copied. NaN leaves a gap. */
+	RAVEN_API void Rchart_set_values(Rid chart, const float* values, int count);
+	/** @brief Adds a value after the others, for live data; only the last `max_count` are kept (0: all of them). */
+	RAVEN_API void Rchart_push_value(Rid chart, float value, int max_count);
+	RAVEN_API int Rchart_get_value_count(Rid chart);
+	RAVEN_API float Rchart_get_value_at(Rid chart, int index);
+	/** @brief Shades the area under the line of a sparkline (on by default). */
+	RAVEN_API void Rchart_set_fill(Rid chart, int fill);
+	/** @brief A dot on the last value of a sparkline (on by default). */
+	RAVEN_API void Rchart_set_marker(Rid chart, int shown);
+
+
+	/* ============================================================================
+	 *  PDF VIEW (the pages of a PDF document, scrolled and zoomed)
+	 *
+	 * The pages are drawn by PDFium, the PDF library of Chromium (BSD-3 /
+	 * Apache-2.0), opened at run time when the first document is loaded: it
+	 * is not needed to build Raven. It is looked for at the path in the
+	 * environment variable RAVEN_PDFIUM, else next to the executable, else
+	 * where the system finds libraries: pdfium.dll (Windows),
+	 * libpdfium.dylib (macOS), libpdfium.so (Linux). Builds of it for every
+	 * system: https://github.com/bblanchon/pdfium-binaries. Without it the
+	 * view says that it cannot show the pages. Not in the browser backend.
+	 *
+	 * The pages show one under the other; the wheel and the keys scroll,
+	 * Ctrl + wheel, Ctrl + = and Ctrl + - zoom (Ctrl + 0: fit the width),
+	 * the pages can be dragged with the mouse and pinched with fingers.
+	 * Pages are counted from 0. Sizes are in points (1/72 inch); at a zoom of
+	 * 1, a page shows at its printed size (96 logical units per inch).
+	 *
+	 * XML: <PdfView Source="report.pdf" Fit="Width|Page|None" Zoom="1.5"
+	 * Page="1" Password="..."/> (Page counted from 1 there, as it is shown).
+	 * ============================================================================ */
+
+	/** @brief R_TRUE when PDFium can be loaded (it is, the first time this is asked). */
+	RAVEN_API int Rpdf_is_available(void);
+	/**
+	 * @brief Shows a PDF file. `password` may be NULL. Returns R_FALSE when it
+	 * cannot: Rpdf_view_get_status tells why (a password is needed, not a
+	 * PDF, no PDFium). The view then shows that instead of pages.
+	 */
+	RAVEN_API int Rpdf_view_load_file(Rid view, const char* path, const char* password);
+	/** @brief Same as Rpdf_view_load_file, from bytes in memory (copied). */
+	RAVEN_API int Rpdf_view_load_memory(Rid view, const char* data, size_t data_size, const char* password);
+	/** @brief Closes the document: the view is empty. */
+	RAVEN_API void Rpdf_view_close(Rid view);
+	RAVEN_API RPdfStatus Rpdf_view_get_status(Rid view);
+	RAVEN_API int Rpdf_view_get_page_count(Rid view);
+	/** @brief Size of a page in points (1/72 inch), as it is shown (its rotation applied). */
+	RAVEN_API void Rpdf_view_get_page_size(Rid view, int page, float* width, float* height);
+	/** @brief Scrolls to the top of a page; it becomes the current page. */
+	RAVEN_API void Rpdf_view_set_page(Rid view, int page);
+	/** @brief The current page: the one a third down the view. */
+	RAVEN_API int Rpdf_view_get_page(Rid view);
+	/** @brief A zoom of its own (1: the printed size): the fit becomes R_PDF_FIT_NONE. */
+	RAVEN_API void Rpdf_view_set_zoom(Rid view, float zoom);
+	/** @brief The zoom the pages show at, the one a fit gives included. */
+	RAVEN_API float Rpdf_view_get_zoom(Rid view);
+	RAVEN_API void Rpdf_view_set_fit(Rid view, RPdfFit fit);
+	RAVEN_API RPdfFit Rpdf_view_get_fit(Rid view);
+	/** @brief The title of the document (its information), "" when it has none. */
+	RAVEN_API const char* Rpdf_view_get_title(Rid view);
+	/**
+	 * @brief The text of a page (UTF-8), to search it or copy it. Valid until
+	 * the next call for this view.
+	 */
+	RAVEN_API const char* Rpdf_view_get_page_text(Rid view, int page);
+	/** @brief Called when the current page changes as the user scrolls. This also fires the action of the widget. */
+	typedef void (*RPdfPageChangedCallback)(Rid view, int page, void* user_data);
+	RAVEN_API void Rpdf_view_set_page_changed_callback(Rid view, RPdfPageChangedCallback callback, void* user_data);
+
+
+	/* ============================================================================
+	 *  CAROUSEL (pages shown one at a time and swiped: a page view)
+	 *
+	 * Every child is a page (Rwidget_add_child), the size of the carousel.
+	 * One page shows at a time; the pages are swiped side by side (or one
+	 * above the other, Rcarousel_set_orientation). They follow a drag of the
+	 * mouse, a finger and two fingers on a trackpad as if they were held,
+	 * stretch before the first page and after the last one, and settle on
+	 * the nearest page when let go, or on the next one when flicked. The
+	 * arrow keys (Left / Right, Up / Down when vertical), Page Up / Page
+	 * Down, Home and End, a click on a dot, the round arrows shown under the
+	 * pointer and the mouse wheel go to a page with a glide. Only the page
+	 * shown (and the one coming in while the pages move) is painted and can
+	 * be reached by the mouse and the keyboard.
+	 *
+	 * Pages are counted from 0. In a right-to-left layout the pages of a
+	 * horizontal carousel run from right to left.
+	 *
+	 * XML: <Carousel Page="0" Loop="true" Autoplay="5" Indicators="true"
+	 * Arrows="true" Orientation="Horizontal|Vertical" OnChanged="...">
+	 * followed by the pages, one element each.
+	 * ============================================================================ */
+
+	RAVEN_API Rid Rcarousel_create(void);
+	/**
+	 * @brief Shows a page, gliding to it when `animated` (and the animations
+	 * are on), at once otherwise. The page changed callback is not called.
+	 */
+	RAVEN_API void Rcarousel_set_page(Rid carousel, int page, int animated);
+	/** @brief The page shown, -1 when the carousel has none. */
+	RAVEN_API int Rcarousel_get_page(Rid carousel);
+	/** @brief Its children. */
+	RAVEN_API int Rcarousel_get_page_count(Rid carousel);
+	/** @brief Glides to the next / previous page; nothing at the last / first one unless it loops. */
+	RAVEN_API void Rcarousel_next(Rid carousel);
+	RAVEN_API void Rcarousel_prev(Rid carousel);
+	/** @brief R_TRUE: after the last page comes the first one, and before the first the last (default R_FALSE). */
+	RAVEN_API void Rcarousel_set_loop(Rid carousel, int loop);
+	RAVEN_API int Rcarousel_get_loop(Rid carousel);
+	/**
+	 * @brief Goes to the next page by itself every `seconds` (0: never, the
+	 * default); after the last page it comes back to the first. It waits
+	 * while the pointer is on the carousel, while the pages are dragged and
+	 * while the keyboard is in it; a page chosen by the user starts the
+	 * interval again.
+	 */
+	RAVEN_API void Rcarousel_set_autoplay(Rid carousel, double seconds);
+	RAVEN_API double Rcarousel_get_autoplay(Rid carousel);
+	/** @brief The dots along the bottom edge (the right edge when vertical), one per page (default R_TRUE). */
+	RAVEN_API void Rcarousel_set_indicators_visible(Rid carousel, int visible);
+	RAVEN_API int Rcarousel_get_indicators_visible(Rid carousel);
+	/** @brief The previous / next buttons shown while the pointer is on the carousel (default R_TRUE). */
+	RAVEN_API void Rcarousel_set_arrows_visible(Rid carousel, int visible);
+	RAVEN_API int Rcarousel_get_arrows_visible(Rid carousel);
+	/** @brief R_HORIZONTAL: the pages side by side (default); R_VERTICAL: one above the other. */
+	RAVEN_API void Rcarousel_set_orientation(Rid carousel, ROrientation orientation);
+	RAVEN_API ROrientation Rcarousel_get_orientation(Rid carousel);
+	/**
+	 * @brief Called when the user goes to another page (a swipe, the keys, a
+	 * dot, an arrow) and when the autoplay does. This also fires the action
+	 * of the widget.
+	 */
+	typedef void (*RCarouselPageChangedCallback)(Rid carousel, int page, void* user_data);
+	RAVEN_API void Rcarousel_set_page_changed_callback(Rid carousel, RCarouselPageChangedCallback callback, void* user_data);
+	/** @brief Prints the document shown (see Rpdf_print); the job is named after its title. */
+	RAVEN_API int Rpdf_view_print(Rid view, const RPdfPrintDesc* desc);
+
+
+	/* ============================================================================
+	 *  MAP VIEW (a map of slippy-map tiles, panned and zoomed)
+	 *
+	 * The square tiles of the Web Mercator projection that OpenStreetMap and
+	 * most tile servers use: at zoom z the world is 2^z x 2^z tiles of 256
+	 * logical units (Rmap_view_set_tile_size), x going east from longitude
+	 * -180, y going south from latitude 85.0511 (the limit of the projection).
+	 * Raven fetches nothing from the network: the application gives the
+	 * tiles, from a server, a disk cache or drawn by itself.
+	 *
+	 * When a tile is needed, the tile callback asks for it once; the answer
+	 * comes then or later, from any thread: the pixels
+	 * (Rmap_view_set_tile), the bytes of a PNG / JPEG file
+	 * (Rmap_view_set_tile_data, decoded on the calling thread), or that there
+	 * is none (Rmap_view_set_tile_failed). Only the tiles seen, and one more
+	 * around them, are asked for; a tile that is no longer wanted is
+	 * forgotten (the cancel callback tells it) and an answer for it that
+	 * comes later is dropped. Rmap_view_set_tile_path reads the tiles from
+	 * files instead ("tiles/{z}/{x}/{y}.png"), on a worker thread.
+	 *
+	 * The tiles are kept in a cache of bounded size (Rmap_view_set_cache_size),
+	 * the least recently seen dropped first. While a tile is missing, a
+	 * coarser one that is there is shown stretched (and finer ones shrunk),
+	 * else a faint grid. Between two whole zooms the tiles are scaled.
+	 *
+	 * The user drags the map (it glides on when flung), zooms around the
+	 * pointer with the wheel, a pinch or Ctrl + the wheel of a trackpad (two
+	 * fingers move it), zooms in with a double click (out with Shift), and
+	 * uses + / - and the arrows when it has the focus. Longitudes wrap
+	 * around; latitudes stop at the limits of the projection.
+	 *
+	 * Points of the widget are in logical units from its top left corner.
+	 * Latitudes and longitudes are in degrees.
+	 *
+	 * XML: <MapView Latitude="48.85" Longitude="2.35" Zoom="5" MinZoom="2"
+	 * MaxZoom="18" TilePath="tiles/{z}/{x}/{y}.png" TileSize="256"
+	 * Attribution="(c) OpenStreetMap contributors" OnChanged="map.moved">
+	 * with <Marker Latitude Longitude Label Color/> elements.
+	 * ============================================================================ */
+
+	RAVEN_API Rid Rmap_view_create(void);
+	/** @brief Centers the map on a place. The latitude is held within +/-85.0511; the longitude wraps. */
+	RAVEN_API void Rmap_view_set_center(Rid map, double latitude, double longitude);
+	/** @brief The place at the middle of the map (longitude from -180 to 180). */
+	RAVEN_API void Rmap_view_get_center(Rid map, double* latitude, double* longitude);
+	/** @brief The zoom: 0 shows the whole world in one tile, each step doubles the scale. Fractions are allowed. */
+	RAVEN_API void Rmap_view_set_zoom(Rid map, double zoom);
+	RAVEN_API double Rmap_view_get_zoom(Rid map);
+	/** @brief The zooms the user can reach (default 0 to 19, at most 0 to 24). Tiles are asked for at whole zooms of this range. */
+	RAVEN_API void Rmap_view_set_zoom_range(Rid map, double min_zoom, double max_zoom);
+	RAVEN_API void Rmap_view_get_zoom_range(Rid map, double* min_zoom, double* max_zoom);
+	/** @brief Glides to a place and a zoom (at once when animations are off). */
+	RAVEN_API void Rmap_view_animate_to(Rid map, double latitude, double longitude, double zoom);
+	/** @brief The place at a point of the widget. */
+	RAVEN_API void Rmap_view_screen_to_latlon(Rid map, float x, float y, double* latitude, double* longitude);
+	/** @brief Where a place is in the widget (of the copies of the world side by side, the one nearest the middle). */
+	RAVEN_API void Rmap_view_latlon_to_screen(Rid map, double latitude, double longitude, float* x, float* y);
+
+	/** @brief Asks the application for a tile (z, x, y), or tells it that a tile asked for is no longer wanted. */
+	typedef void (*RMapTileCallback)(Rid map, int z, int x, int y, void* user_data);
+	/**
+	 * @brief Called once for each tile the map needs. Answer with
+	 * Rmap_view_set_tile, Rmap_view_set_tile_data or Rmap_view_set_tile_failed,
+	 * at once or later. Setting it forgets the tiles of the previous source.
+	 */
+	RAVEN_API void Rmap_view_set_tile_callback(Rid map, RMapTileCallback callback, void* user_data);
+	/** @brief Called when a tile asked for and not answered yet is no longer wanted (the user went elsewhere). Optional. */
+	RAVEN_API void Rmap_view_set_tile_cancel_callback(Rid map, RMapTileCallback callback, void* user_data);
+	/**
+	 * @brief The pixels of a tile: `width` x `height` RGBA8, tightly packed
+	 * (they are copied; any size, shown at the tile size). Thread-safe: from
+	 * another thread it is applied on the UI thread during the next frame.
+	 */
+	RAVEN_API void Rmap_view_set_tile(Rid map, int z, int x, int y, const uint8_t* rgba, int width, int height);
+	/** @brief A tile as the bytes of an image file (PNG, JPEG...), decoded on the calling thread. Thread-safe. */
+	RAVEN_API void Rmap_view_set_tile_data(Rid map, int z, int x, int y, const void* data, size_t data_size);
+	/** @brief There is no such tile: the coarser one stays shown in its place. Thread-safe. */
+	RAVEN_API void Rmap_view_set_tile_failed(Rid map, int z, int x, int y);
+	/**
+	 * @brief Reads the tiles from files instead of asking for them: a path
+	 * where {z}, {x} and {y} are replaced ({-y}: the row counted from the
+	 * south, as in TMS and MBTiles). The files are read and decoded on a
+	 * worker thread; a missing file is a tile that failed. NULL or "": the
+	 * tile callback again. Local files only.
+	 */
+	RAVEN_API void Rmap_view_set_tile_path(Rid map, const char* path_template);
+	RAVEN_API const char* Rmap_view_get_tile_path(Rid map);
+	/** @brief Logical size of a tile at a whole zoom (default 256, from 16 to 1024): larger tiles show the map larger. */
+	RAVEN_API void Rmap_view_set_tile_size(Rid map, int size);
+	RAVEN_API int Rmap_view_get_tile_size(Rid map);
+	/** @brief Memory the decoded tiles may take, in bytes (default 64 MiB). The tiles on screen are always kept. */
+	RAVEN_API void Rmap_view_set_cache_size(Rid map, size_t bytes);
+	/** @brief Memory the decoded tiles take now, in bytes. */
+	RAVEN_API size_t Rmap_view_get_cache_usage(Rid map);
+	/** @brief Forgets every tile (they are asked for again): the tiles of the source changed. */
+	RAVEN_API void Rmap_view_clear_tiles(Rid map);
+	RAVEN_API RMapTileState Rmap_view_get_tile_state(Rid map, int z, int x, int y);
+
+	/** @brief Adds a pin at a place, with a label written next to it (may be NULL). Returns its id (from 1), or -1. */
+	RAVEN_API int Rmap_view_add_marker(Rid map, double latitude, double longitude, const char* label);
+	RAVEN_API void Rmap_view_remove_marker(Rid map, int marker);
+	RAVEN_API void Rmap_view_clear_markers(Rid map);
+	RAVEN_API int Rmap_view_get_marker_count(Rid map);
+	RAVEN_API void Rmap_view_set_marker_position(Rid map, int marker, double latitude, double longitude);
+	RAVEN_API void Rmap_view_set_marker_label(Rid map, int marker, const char* label);
+	/** @brief The color of a pin (by default the accent of the theme). */
+	RAVEN_API void Rmap_view_set_marker_color(Rid map, int marker, float r, float g, float b, float a);
+	/** @brief Called when the user clicks a marker. */
+	typedef void (*RMapMarkerCallback)(Rid map, int marker, void* user_data);
+	RAVEN_API void Rmap_view_set_marker_clicked_callback(Rid map, RMapMarkerCallback callback, void* user_data);
+
+	/**
+	 * @brief Called when the user moves or zooms the map (during a drag, at the
+	 * end of an animated zoom), with its new center and zoom. This also fires
+	 * the action of the widget.
+	 */
+	typedef void (*RMapViewCallback)(Rid map, double latitude, double longitude, double zoom, void* user_data);
+	RAVEN_API void Rmap_view_set_view_changed_callback(Rid map, RMapViewCallback callback, void* user_data);
+	/**
+	 * @brief A line written in the bottom right corner: the credit most tile
+	 * licences ask for, such as "(c) OpenStreetMap contributors". NULL or "": none.
+	 */
+	RAVEN_API void Rmap_view_set_attribution(Rid map, const char* text);
+	RAVEN_API const char* Rmap_view_get_attribution(Rid map);
+
+
+	/* ============================================================================
+	 *  PDF DOCUMENTS (written by the application: reports, invoices, tickets...)
+	 *
+	 * A document is a list of pages, each drawn with text, shapes and
+	 * pictures, then saved to a file or to memory: Rpdf_view_load_memory
+	 * shows it, Rpdf_document_print prints it. Nothing outside Raven is needed
+	 * (PDFium only shows and prints documents).
+	 *
+	 * Sizes and positions are in points (1/72 inch) from the top left corner
+	 * of the page, y going down. A4 is 595.28 x 841.89 points, US Letter 612 x
+	 * 792. Drawing goes to the last page added (an A4 page is added when
+	 * there is none). Colors are r, g, b, a from 0 to 1.
+	 *
+	 * The text is set in a font embedded in the file: Roboto (R_PDF_FONT_SANS)
+	 * and Roboto Mono (R_PDF_FONT_MONO) as Raven has them (the Latin letters
+	 * with their accents, punctuation, the euro sign), or a TrueType font
+	 * added with Rpdf_document_add_font for other scripts; a character the
+	 * font lacks shows as an empty box. The text of the file can be searched
+	 * and copied.
+	 *
+	 *   Rid doc = Rpdf_document_create();
+	 *   Rpdf_document_add_page(doc, 595.28f, 841.89f);
+	 *   Rpdf_document_set_font(doc, R_PDF_FONT_SANS, 24, R_PDF_TEXT_BOLD);
+	 *   Rpdf_document_draw_text(doc, 56, 56, "Invoice 2026-114");
+	 *   Rpdf_document_save(doc, "invoice.pdf");
+	 *   Rpdf_document_delete(doc);
+	 * ============================================================================ */
+
+	RAVEN_API Rid Rpdf_document_create(void);
+	RAVEN_API void Rpdf_document_delete(Rid document);
+	/** @brief The information of the document, shown by readers (the title in their window). */
+	RAVEN_API void Rpdf_document_set_title(Rid document, const char* title);
+	RAVEN_API void Rpdf_document_set_author(Rid document, const char* author);
+	RAVEN_API void Rpdf_document_set_subject(Rid document, const char* subject);
+	/** @brief Adds a page of a size in points; drawing goes to it. Returns its index, -1 for an invalid size. */
+	RAVEN_API int Rpdf_document_add_page(Rid document, float width, float height);
+	RAVEN_API int Rpdf_document_get_page_count(Rid document);
+
+	RAVEN_API void Rpdf_document_set_fill_color(Rid document, float r, float g, float b, float a);
+	RAVEN_API void Rpdf_document_set_stroke_color(Rid document, float r, float g, float b, float a);
+	/** @brief Width of the lines and outlines, in points (default 1). */
+	RAVEN_API void Rpdf_document_set_line_width(Rid document, float width);
+	/** @brief A rectangle, its corners rounded by `radius`; `paint` is a bitmask of RPdfPaint. */
+	RAVEN_API void Rpdf_document_draw_rect(Rid document, float x, float y, float width, float height, float radius, Ruint paint);
+	/** @brief The ellipse inside a rectangle. */
+	RAVEN_API void Rpdf_document_draw_ellipse(Rid document, float x, float y, float width, float height, Ruint paint);
+	/** @brief A line in the stroke color. */
+	RAVEN_API void Rpdf_document_draw_line(Rid document, float x1, float y1, float x2, float y2);
+
+	/**
+	 * @brief Adds a TrueType font (.ttf) to the document (the data is
+	 * copied, and embedded in the file). Returns its number for
+	 * Rpdf_document_set_font, -1 when it is not a TrueType font.
+	 */
+	RAVEN_API int Rpdf_document_add_font(Rid document, const char* data, size_t data_size);
+	RAVEN_API int Rpdf_document_add_font_from_file(Rid document, const char* path);
+	/** @brief The font of the text drawn next: an RPdfFont or a number of Rpdf_document_add_font, a size in points, a bitmask of RPdfTextStyle. */
+	RAVEN_API void Rpdf_document_set_font(Rid document, int font, float size, Ruint style);
+	/** @brief Distance between two lines of text in the current font. */
+	RAVEN_API float Rpdf_document_get_line_height(Rid document);
+	/** @brief Width of a text in the current font, in points (of its widest line). */
+	RAVEN_API float Rpdf_document_measure_text(Rid document, const char* text);
+	/**
+	 * @brief Text in the fill color, the top of its first line at y ('\n'
+	 * starts a line below). Returns its width.
+	 */
+	RAVEN_API float Rpdf_document_draw_text(Rid document, float x, float y, const char* text);
+	/**
+	 * @brief Text wrapped at the spaces to fit `width`, each line placed by
+	 * `align` (R_HALIGN_LEFT, R_HALIGN_CENTER or R_HALIGN_RIGHT). Returns the
+	 * height it took.
+	 */
+	RAVEN_API float Rpdf_document_draw_paragraph(Rid document, float x, float y, float width, const char* text, RHAlign align);
+	/**
+	 * @brief A picture of RGBA8 pixels stretched over a rectangle. A width or
+	 * height of 0 keeps the proportions of the picture; both 0: 96 pixels per inch.
+	 */
+	RAVEN_API void Rpdf_document_draw_image(Rid document, float x, float y, float width, float height, const uint8_t* rgba, int pixels_width, int pixels_height);
+	/**
+	 * @brief What a window shows (Rwindow_capture), as a picture: a report of
+	 * the screen, a chart. A width and height of 0: the size it has on the
+	 * screen. Returns R_FALSE when the window cannot be captured.
+	 */
+	RAVEN_API int Rpdf_document_draw_window(Rid document, Rid window, float x, float y, float width, float height);
+
+	/** @brief Writes the file. Returns R_FALSE when it cannot be written. */
+	RAVEN_API int Rpdf_document_save(Rid document, const char* path);
+	/** @brief The file in memory (followed by a '\0' not counted), to release with Rmemory_free; `size` receives its length. */
+	RAVEN_API char* Rpdf_document_save_memory(Rid document, size_t* size);
+
+	/**
+	 * @brief Prints a PDF document with the print system: on macOS the print
+	 * panel, on Windows the print dialog (the pages are drawn by PDFium, see
+	 * PDF VIEW), on Linux and the other systems CUPS (lp or lpr) after a
+	 * dialog of Raven that chooses the printer. It waits until the job is
+	 * sent. `desc` may be NULL. Returns R_FALSE when cancelled or when it
+	 * cannot print. Not in the browser.
+	 */
+	RAVEN_API int Rpdf_print(const RPdfPrintDesc* desc, const char* data, size_t data_size);
+	RAVEN_API int Rpdf_print_file(const RPdfPrintDesc* desc, const char* path);
+	/** @brief Prints a document written by the application. */
+	RAVEN_API int Rpdf_document_print(Rid document, const RPdfPrintDesc* desc);
 
 #ifdef __cplusplus
 } /* extern "C" */

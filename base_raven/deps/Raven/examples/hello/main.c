@@ -9,7 +9,7 @@
 
 #include "../common/example.h"
 
-static Rid g_label, g_typed;
+static Rid g_label;
 static int g_clicks;
 
 static void on_clicked(Rid button, void* user_data) {
@@ -21,29 +21,14 @@ static void on_clicked(Rid button, void* user_data) {
 	Rlabel_set_text(g_label, text);
 }
 
-static void on_typed(Rid input, const char* text, void* user_data) {
-	char line[160];
-	(void)input;
-	(void)user_data;
-	snprintf(line, sizeof(line), "You typed: %s", text);
-	Rlabel_set_text(g_typed, line);
-}
-
 static void on_quit(Rid button, void* user_data) {
 	(void)button;
 	(void)user_data;
 	Rquit(0);
 }
 
-/* the application has quit: releases every window, widget and resource that is still alive */
-static void on_finished(int exit_code, void* user_data) {
-	(void)exit_code;
-	(void)user_data;
-	Rshutdown();
-}
-
 int main(void) {
-	Rid window, box, title, input, row, button, quit;
+	Rid window, box, title, row, button, quit;
 
 	if (!example_init("hello")) return 1;
 
@@ -63,13 +48,6 @@ int main(void) {
 	g_label = Rwidget_add_child(box, Rlabel_create("Press the button"));
 	Rslot_set_halign(g_label, R_HALIGN_CENTER);
 
-	g_typed = Rwidget_add_child(box, Rlabel_create("You typed:"));
-	Rslot_set_halign(g_typed, R_HALIGN_CENTER);
-	input = Rwidget_add_child(box, Rwidget_create(R_WIDGET_TEXT_INPUT));
-	Rtext_input_set_placeholder(input, "Type here");
-	Rtext_input_set_changed_callback(input, on_typed, NULL);
-	Rwidget_set_min_size(input, 260.0f, 0.0f);
-
 	row = Rwidget_add_child(box, Rwidget_create(R_WIDGET_HBOX));
 	Rpanel_set_spacing(row, 8.0f);
 	Rslot_set_halign(row, R_HALIGN_CENTER);
@@ -82,11 +60,8 @@ int main(void) {
 	quit = Rwidget_add_child(row, Rbutton_create("Quit"));
 	Rbutton_set_clicked_callback(quit, on_quit, NULL);
 
-	/* Rrun is the loop: here on a desktop, where it returns when the application quits, and in a browser, where
-	 * it returns at once and the page calls the frames. `on_finished` runs in both cases when the application ends */
-	if (example_automated(window)) {
-		Rshutdown();
-		return 0;
-	}
-	return Rrun(on_finished, NULL);
+	/* the loop belongs to the application: Raven draws one frame per call,
+	 * and Rwait_frame sleeps until there is something to draw */
+	example_run(window, NULL, NULL);
+	return 0;
 }

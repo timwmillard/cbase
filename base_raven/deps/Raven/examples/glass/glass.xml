@@ -65,7 +65,7 @@
 				<Separator/>
 				<HBox>
 					<Label Slot.Fill="1" Slot.VAlign="Center">Dark glass</Label>
-					<Checkbox Name="dark" Style="Switch" Checked="true" OnChanged="theme.toggle"/>
+					<Checkbox Name="dark" Style="Switch" Checked="true" OnChanged="glass.toggle"/>
 				</HBox>
 				<HBox>
 					<Label Slot.Fill="1" Slot.VAlign="Center">Crossfade</Label>
@@ -95,7 +95,7 @@
 				<Button Text="Previous" Style="Flat"/>
 				<Button Name="play" Text="Pause" Style="Primary" MinWidth="76" OnClicked="player.toggle"/>
 				<Button Text="Next" Style="Flat"/>
-				<Slider Name="position" Width="240" Slot.VAlign="Center" Value="0.35"/>
+				<Slider Name="position" Width="240" Slot.VAlign="Center" Value="0.35" OnChanged="player.seek"/>
 				<Label Name="time" Slot.VAlign="Center" Opacity="0.7" MinWidth="40">1:24</Label>
 			</HBox>
 		</Border>

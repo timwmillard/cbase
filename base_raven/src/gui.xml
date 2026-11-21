@@ -2,5 +2,6 @@
   <VBox Spacing="8">
     <Label Name="count" Text="Count: 0" Slot.Padding="8" Slot.HAlign="Center"/>
     <Button Text="Increment" OnClicked="counter.increment" Slot.HAlign="Center"/>
+    <Button Text="Decrement" OnClicked="counter.decrement" Slot.HAlign="Center"/>
   </VBox>
 </Window>

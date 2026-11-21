@@ -61,10 +61,22 @@ void rvn_theme_clear(rvn_theme_t* theme) {
 	memset(theme, 0, sizeof(*theme));
 }
 
+/* Gives `destination`, which has none, a copy of the rules of `source`. */
+static void rvn_theme_copy_rules(rvn_theme_t* destination, const rvn_theme_t* source) {
+	uint32_t i;
+	if (!source->rule_count) return;
+	destination->rules = (rvn_style_rule_t*)rvn_alloc(sizeof(rvn_style_rule_t) * source->rule_count);
+	destination->rule_count = source->rule_count;
+	destination->rule_cap = source->rule_count;
+	for (i = 0; i < source->rule_count; i++) {
+		destination->rules[i] = source->rules[i];
+		destination->rules[i].cls = rvn_strdup(source->rules[i].cls);
+	}
+}
+
 void rvn_theme_copy(rvn_theme_t* destination, const rvn_theme_t* source) {
 	char* name = destination->name;
 	char* path = destination->path;
-	uint32_t i;
 	if (destination == source) return;
 	rvn_theme_free_matches(destination);
 	rvn_theme_free_rules(destination);
@@ -83,14 +95,7 @@ void rvn_theme_copy(rvn_theme_t* destination, const rvn_theme_t* source) {
 	destination->match_cap = 0;
 	destination->rules = NULL;
 	destination->rule_cap = 0;
-	if (source->rule_count) {
-		destination->rules = (rvn_style_rule_t*)rvn_alloc(sizeof(rvn_style_rule_t) * source->rule_count);
-		destination->rule_cap = source->rule_count;
-		for (i = 0; i < source->rule_count; i++) {
-			destination->rules[i] = source->rules[i];
-			destination->rules[i].cls = rvn_strdup(source->rules[i].cls);
-		}
-	}
+	rvn_theme_copy_rules(destination, source);
 }
 
 void rvn_themes_init(void) {
@@ -196,6 +201,8 @@ static void rvn_theme_refresh_twin(void) {
 	g_dark_twin.glass = theme->glass;
 	g_dark_twin.font = theme->font;
 	g_dark_twin.wallpaper = R_INVALID_ID;
+	/* (rvn_theme_build_look left it without any) */
+	rvn_theme_copy_rules(&g_dark_twin, theme);
 }
 
 const rvn_theme_t* rvn_theme_dark_twin(void) {
@@ -428,7 +435,13 @@ static rvn_style_rule_t* rvn_theme_part_rule(rvn_theme_t* theme, const char* wid
 	for (i = 0; i < theme->rule_count; i++) {
 		rule = &theme->rules[i];
 		if (rule->type != type || rule->part != part || rule->states != states) continue;
-		if ((!cls && !rule->cls) || (cls && rule->cls && strcmp(cls, rule->cls) == 0)) return rule;
+		if ((!cls && !rule->cls) || (cls && rule->cls && strcmp(cls, rule->cls) == 0)) {
+			/* (set again, it is the last one set: it goes to the end, where it wins over its equals) */
+			rvn_style_rule_t moved = *rule;
+			memmove(rule, rule + 1, sizeof(*rule) * (theme->rule_count - i - 1));
+			theme->rules[theme->rule_count - 1] = moved;
+			return &theme->rules[theme->rule_count - 1];
+		}
 	}
 	RVN_ARRAY_RESERVE(theme->rules, theme->rule_cap, theme->rule_count + 1);
 	rule = &theme->rules[theme->rule_count++];
@@ -902,6 +915,7 @@ static rvn_theme_t* rvn_theme_install(rvn_theme_t* loaded, const char* path) {
 		Rid font = g_rvn.theme.font;
 		int look_font = g_rvn.theme.look_font;
 		rvn_theme_copy(&g_rvn.theme, theme);
+		g_rvn.theme_metric_mask = 0;
 		rvn_theme_settle_font(font, look_font);
 	}
 	rvn_theme_changed();
@@ -942,6 +956,7 @@ void rvn_look_apply(RLook look, int keep_theme) {
 	uint32_t i;
 
 	g_rvn.look = look;
+	g_rvn.theme_metric_mask = 0;
 	rvn_themes_follow_look();
 	for (i = 0; keep_theme && i < g_rvn.theme_count && g_rvn.theme_name; i++) {
 		if (rvn_stricmp(g_rvn.themes[i]->name, g_rvn.theme_name) == 0) file = g_rvn.themes[i];
@@ -1067,6 +1082,9 @@ static void rvn_theme_write_look(rvn_text_t* out, const rvn_style_rule_t* rule) 
 	for (i = 0; i < 6; i++) {
 		if (rule->look_mask & (1u << (i + 6))) rvn_text_printf(out, " %s=\"%g\"", rvn_part_property_name(1u << (i + 6)), (double)numbers[i]);
 	}
+	if (rule->look_mask & RVN_LOOK_SHAPE) rvn_text_printf(out, " Shape=\"%s\"", rvn_shape_name(look->shape));
+	if (rule->look_mask & RVN_LOOK_GLOW) rvn_text_printf(out, " Glow=\"%g\"", (double)look->glow);
+	if (rule->look_mask & RVN_LOOK_GRADIENT) rvn_theme_write_color(out, "Gradient", look->gradient);
 }
 
 static const char* rvn_material_name(RMaterial material) {
@@ -1150,6 +1168,38 @@ void Rtheme_set_dark(int dark) {
 
 int Rtheme_is_dark(void) {
 	return g_rvn.initialized ? g_rvn.theme.dark : R_FALSE;
+}
+
+static int g_rvn_follow_system;
+
+int Rtheme_get_system_dark(void) {
+	if (!g_rvn.initialized || !g_rvn.platform || !g_rvn.platform->system_dark) return -1;
+	return g_rvn.platform->system_dark();
+}
+
+void Rtheme_follow_system(int enabled) {
+	RVN_API_GUARD_VOID();
+	g_rvn_follow_system = enabled != 0;
+	rvn_theme_follow_system_apply();
+}
+
+void rvn_theme_follow_system_apply(void) {
+	float metrics[R_METRIC_COUNT];
+	uint32_t kept;
+	int dark, i;
+	if (!g_rvn_follow_system) return;
+	dark = Rtheme_get_system_dark();
+	if (dark < 0 || dark == Rtheme_is_dark()) return;
+	/* the application did not choose another look: the sizes it gave (Rtheme_set_metric) are neither light nor dark, they stay */
+	kept = g_rvn.theme_metric_mask;
+	memcpy(metrics, g_rvn.theme.metrics, sizeof(metrics));
+	Rlook_set(dark ? R_LOOK_RAVEN_DARK : R_LOOK_RAVEN_LIGHT);
+	if (!kept) return;
+	for (i = 0; i < R_METRIC_COUNT; i++) {
+		if (kept & (1u << i)) g_rvn.theme.metrics[i] = metrics[i];
+	}
+	g_rvn.theme_metric_mask = kept;
+	rvn_theme_changed();
 }
 
 void Rtheme_set_wallpaper(Rid texture) {
@@ -1264,6 +1314,7 @@ int Rtheme_use(const char* name) {
 	font = g_rvn.theme.font;
 	look_font = g_rvn.theme.look_font;
 	rvn_theme_copy(&g_rvn.theme, theme);
+	g_rvn.theme_metric_mask = 0;
 	/* a theme that names no font keeps the one in use */
 	rvn_theme_settle_font(font, look_font);
 	rvn_str_set(&g_rvn.theme_name, theme->name);

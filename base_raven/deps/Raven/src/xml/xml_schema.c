@@ -105,6 +105,7 @@ static const rvn_schema_attribute_t g_window_touch[] = {
 	N("Touch.Deceleration", "How fast flicked content slows down, units per second per second (default 2400)."),
 	B("Touch.Gestures", "Two fingers pinch to zoom and pan (default true)."),
 	B("Touch.PalmRejection", "Fingers are ignored while a pen is near the screen (default true)."),
+	N("Touch.MinSize", "Smallest height of what a finger presses: controls and rows are at least this high, check boxes and slider handles half of it; 0 leaves the sizes of the theme (default 44 on iOS, 48 on Android, 0 elsewhere)."),
 	B("Pen.MouseEmulation", "The pen drives the widgets as the mouse does; its barrel button is the right button (default true)."),
 	N("Pen.PressureCurve", "The pressure is the one of the pen to this power: 1 as it is, below 1 softer, above 1 harder."),
 	N("Pen.PressureThreshold", "Pressure, 0 to 1, the tip needs before it presses (default 0)."),
@@ -147,6 +148,7 @@ static const rvn_schema_attribute_t g_window[] = {
 	B("Borderless", "No frame at all."),
 	B("Maximized", "Starts maximized."),
 	B("Hidden", "Starts hidden, until Rwindow_show."),
+	B("IsSplashScreen", "A splash screen: no frame, a fixed size, centered on the screen, above the other windows, out of the taskbar."),
 	K("ClearColor", "Color behind the content."),
 	F("Background", "Image behind the content (what glass refracts)."),
 	B("Transparent", "The window can be seen through where nothing is drawn (needs a compositing window system)."),
@@ -172,13 +174,13 @@ static const rvn_schema_attribute_t g_border[] = {
 	N("BorderWidth", "Width of the outline."),
 	V("CornerRadius", "One number, or \"top-left,top-right,bottom-right,bottom-left\"."),
 	V("Shadow", "\"blur\" or \"blur,x,y\"."),
-	T("Effect", "An effect as its background: aurora, shimmer, neon, ripple, plasma, grain, spotlight, mesh, or a .spv or .rfx file (raven_shader.h)."),
+	T("Effect", "An effect as its background: aurora, shimmer, neon, ripple, plasma, grain, spotlight, mesh, or a .spv file (raven_shader.h)."),
 	K("EffectColor", "First color of the effect."),
 	K("EffectColor2", "Second color of the effect."),
 	V("EffectParams", "The four parameters of the effect: \"a,b,c,d\" (fewer keep the defaults of the others)."),
 	B("EffectAnimate", "Draws frames while it is shown (the animated effects do by default)."),
 	B("EffectPointer", "The effect follows the pointer: where it is, over the border and pressing it (true by default)."),
-	B("EffectBackdrop", "The .spv effect reads what is behind it (a .rfx bundle can say so itself) (R_SHADER_BACKDROP)."),
+	B("EffectBackdrop", "The .spv effect reads what is behind it (R_SHADER_BACKDROP)."),
 };
 static const rvn_schema_attribute_t g_size_box[] = { V("AspectRatio", "Width over height: \"1.5\" or \"16,9\".") };
 static const rvn_schema_attribute_t g_scroll_box[] = {
@@ -191,6 +193,15 @@ static const rvn_schema_attribute_t g_splitter[] = {
 	N("MinPaneSize", "The smallest a pane can be dragged to."),
 };
 static const rvn_schema_attribute_t g_switcher[] = { N("Index", "Which child is shown, from 0.") };
+static const rvn_schema_attribute_t g_carousel[] = {
+	N("Page", "Which page is shown, from 0."),
+	B("Loop", "After the last page comes the first one, and before the first the last."),
+	N("Autoplay", "Seconds between the pages turned by themselves; 0 (default) never. It waits while the pointer is on it."),
+	B("Indicators", "The dots of the pages along the bottom edge (default true)."),
+	B("Arrows", "The previous / next buttons shown under the pointer (default true)."),
+	C("Orientation", ORIENTATION, "Pages side by side (default) or one above the other."),
+	A("OnChanged", "Action fired when the user or the autoplay goes to another page."),
+};
 static const rvn_schema_attribute_t g_tab_view[] = { N("ActiveTab", "Which tab is shown, from 0."), A("OnChanged", "Action fired when the tab changes.") };
 static const rvn_schema_attribute_t g_expander[] = {
 	T("Title", "Text of the header."),
@@ -244,6 +255,8 @@ static const rvn_schema_attribute_t g_text_input[] = {
 	B("Password", "Shows dots."),
 	B("ReadOnly", "Can be selected and copied, not changed."),
 	N("MaxLength", "Most characters accepted; 0 for no limit."),
+	C("InputType", "Text|Email|Number|Decimal|Phone|Url|Search", "What it holds: picks the on-screen keyboard on mobile."),
+	C("ReturnKey", "Default|Done|Go|Next|Search|Send", "The return key of the on-screen keyboard."),
 	A("OnChanged", "Action fired at each change."),
 	A("OnCommitted", "Action fired by Enter."),
 };
@@ -268,6 +281,7 @@ static const rvn_schema_attribute_t g_list_view[] = {
 };
 static const rvn_schema_attribute_t g_table[] = {
 	L("Columns", "The headers of the columns, separated by '|' (or Column elements: Header, Width, Fill, Sortable, Align)."),
+	B("MultiSelect", "Ctrl/Cmd-click toggles rows; Shift selects an anchored range."),
 	N("Selected", "Which row is selected, from 0; -1 for none."),
 	N("SortColumn", "The column the rows are sorted by, from 0; -1 for none."),
 	B("SortDescending", "Sorted from the largest to the smallest."),
@@ -296,6 +310,8 @@ static const rvn_schema_attribute_t g_toast[] = {
 	C("Kind", "Info|Success|Warning|Error", "The color of the dot before the message."),
 	T("ActionText", "A button at the end of the message (\"Undo\")."),
 	A("OnClicked", "Action fired by the button of the message."),
+	C("Queue", "Replace|Sequence|Stack", "A message that comes while another is shown: takes its place, waits its turn, or stacks up."),
+	N("MaxVisible", "How many messages a Stack shows at once (default 3)."),
 };
 static const rvn_schema_attribute_t g_breadcrumb[] = {
 	L("Items", "The items, separated by '|' (or Item elements); the last one is the current place."),
@@ -315,6 +331,70 @@ static const rvn_schema_attribute_t g_pagination[] = {
 	N("Siblings", "Page numbers shown on each side of the current one."),
 	A("OnChanged", "Action fired when the user goes to another page."),
 };
+static const rvn_schema_attribute_t g_plot[] = {
+	T("Title", "The title over the data."),
+	C("Legend", "Hidden|TopLeft|Top|TopRight|Right|BottomRight|Bottom|BottomLeft|Left|Outside", "Where the legend is."),
+	B("Crosshair", "Lines across the data through the pointer."),
+	B("MouseText", "The coordinates of the pointer in a corner of the data."),
+	B("Tooltips", "The values of the point under the pointer, next to it."),
+	B("Grid", "Lines at the ticks of X and Y."),
+	T("XLabel", "The name of the horizontal axis (YLabel, X2Label, Y2Label for the others)."),
+	C("XScale", "Linear|Log|SymLog", "How X spreads its values (YScale, X2Scale, Y2Scale)."),
+	N("XMin", "The lowest X shown (YMin, X2Min, Y2Min); the axis then stops following the data."),
+	N("XMax", "The highest X shown (YMax, X2Max, Y2Max)."),
+	T("XFormat", "A printf format for the labels of X, \"%.1f s\" (YFormat...)."),
+	N("XLinearThreshold", "SymLog: X is linear from minus this to this (default 1)."),
+	B("XGrid", "Lines at the ticks of X (YGrid, X2Grid, Y2Grid)."),
+	B("XInverted", "X grows to the left (YInverted: Y grows down)."),
+	B("XLocked", "The user cannot move or zoom X (YLocked...)."),
+	B("XVisible", "Shows or hides X (Y2Visible shows the right axis without a series on it)."),
+	T("YLabel", "The name of the vertical axis on the left."),
+	C("YScale", "Linear|Log|SymLog", "How Y spreads its values."),
+	T("Y2Label", "The name of the vertical axis on the right."),
+	C("Y2Scale", "Linear|Log|SymLog", "How the right axis spreads its values."),
+	A("OnChanged", "Action fired while the user drags a drag line."),
+};
+static const rvn_schema_attribute_t g_pdf_view[] = {
+	F("Source", "The PDF file shown."),
+	T("Password", "The password of the document, when it has one."),
+	C("Fit", "Width|Page|None", "How the pages are sized: the widest fills the width, the largest fits whole, or the Zoom."),
+	N("Zoom", "A zoom of its own (1: the printed size); the fit becomes None."),
+	N("Page", "The page shown at the top, counted from 1."),
+	A("OnChanged", "Action fired when the current page changes as the user scrolls."),
+};
+static const rvn_schema_attribute_t g_chart[] = {
+	C("Kind", "Pie|Donut|Gauge|Heatmap|Sparkline", "What the chart draws."),
+	T("Title", "The title over a pie, a donut or a heatmap, under the value of a gauge."),
+	T("Format", "A printf format for the values, with their unit: \"%.0f%%\", \"$%.2f\"."),
+	K("Color", "The arc of a gauge outside the bands, the line of a sparkline (default: the accent)."),
+	B("Legend", "The slices beside a pie or a donut, the scale under a heatmap."),
+	N("Hole", "The hole of a donut, as a part of its radius (0.2 to 0.9)."),
+	T("CenterText", "What the middle of a donut shows (default: the total)."),
+	T("CenterCaption", "A small text under it."),
+	N("Selected", "The slice lifted as selected, from 0 (-1: none)."),
+	N("Min", "The lowest value of a gauge (default 0); a fixed lowest value for a heatmap or a sparkline."),
+	N("Max", "The highest value of a gauge (default 100); a fixed highest value for a heatmap or a sparkline."),
+	N("Value", "The value of a gauge."),
+	V("Values", "The values of a sparkline."),
+	B("Fill", "Shades the area under the line of a sparkline."),
+	B("Marker", "A dot on the last value of a sparkline."),
+	L("RowLabels", "The names of the rows of a heatmap, separated by '|' (or the Label of its Row elements)."),
+	L("ColumnLabels", "The names of the columns of a heatmap, separated by '|'."),
+	K("LowColor", "The color of the lowest values of a heatmap."),
+	K("HighColor", "The color of the highest values of a heatmap."),
+	A("OnClicked", "Action fired when the user clicks a slice or a cell."),
+};
+static const rvn_schema_attribute_t g_map_view[] = {
+	N("Latitude", "Latitude of the center, in degrees (held within +/-85.0511)."),
+	N("Longitude", "Longitude of the center, in degrees."),
+	N("Zoom", "The zoom: 0 shows the whole world in one tile, each step doubles the scale."),
+	N("MinZoom", "The smallest zoom the user can reach (default 0)."),
+	N("MaxZoom", "The largest zoom the user can reach, and of the tiles asked for (default 19, at most 24)."),
+	T("TilePath", "Reads the tiles from files: a path with {z}, {x} and {y} ({-y}: the row counted from the south, TMS)."),
+	N("TileSize", "Logical size of a tile at a whole zoom (default 256, held within 16 .. 1024)."),
+	T("Attribution", "The credit of the tiles, written in the bottom right corner."),
+	A("OnChanged", "Action fired when the user moves or zooms the map."),
+};
 static const rvn_schema_attribute_t g_tree_view[] = {
 	A("OnChanged", "Action fired when the selection changes."),
 	A("OnActivated", "Action fired by a double click or Enter."),
@@ -324,6 +404,8 @@ static const rvn_schema_attribute_t g_tile_view[] = {
 	C("Layout", "Tiles|Rows", "Tiles: a grid. Rows: one item per line, as wide as the view, the icon on the left."),
 	N("TileHeight", "Height of a tile, name included."),
 	N("IconSize", "Size of the icon of a tile."),
+	N("IconWidth", "Rows layout: width of the box of the icon (0: square)."),
+	N("HeaderHeight", "Height of the header of a section (Rtile_view_set_sections)."),
 	N("Spacing", "Space between the tiles."),
 	T("EmptyText", "Text shown when there is no tile."),
 	T("DragType", "Type given to Rdrag_begin when tiles are dragged; empty: no drag."),
@@ -336,6 +418,7 @@ static const rvn_schema_attribute_t g_menu[] = { T("Title", "Text of the menu in
 static const rvn_schema_attribute_t g_menu_item[] = {
 	T("Text", "Text of the item."),
 	T("Shortcut", "Keys shown beside it and that fire it: \"Ctrl+S\"."),
+	T("ShortcutText", "Display-only hint; overrides shortcut text without changing its binding."),
 	B("Checkable", "Clicking it checks and unchecks it."),
 	B("Checked", "Its state."),
 	B("Separator", "A line instead of an item."),
@@ -384,6 +467,7 @@ static const rvn_schema_attribute_t g_file_browser[] = {
 	B("Places", "false hides the list of places."),
 };
 static const rvn_schema_attribute_t g_dock_area[] = {
+	C("FloatMode", "Window|InWindow", "Future floats use an OS window or a card inside the containing window."),
 	B("Movable", "false keeps the panels where they are."),
 	T("Layout", "An arrangement saved with Rdock_area_save_layout."),
 	B("CloseHides", "The close button of a tab hides its panel (Rdock_area_open_panel brings it back) instead of deleting it."),
@@ -429,6 +513,14 @@ static const rvn_schema_attribute_t g_timeline[] = {
 	N("TrackHeight", "Height of the tracks that have none of their own; 0 follows the theme."),
 	N("RulerHeight", "Height of the ruler of time; 0 follows the theme."),
 	A("OnChanged", "Action fired when the user moves, stretches or removes something."),
+	C("Preset", "Auto|Modern|Blueprint|Blender|Neon", "The look it starts from; Auto follows the theme of the window. Any part can then be changed: Clip.Glow=\"0.5\", Key.Shape=\"Circle\"..."),
+	C("ClipStyle", "Solid|Gradient|Tint|Outline", "How the clips are filled (also ClipStyle on a Track, Style on a Clip)."),
+	N("ClipRadius", "Corners of the clips."),
+	C("KeyShape", "Diamond|Circle|Ring|Square|Triangle", "The form of the keys (also on a Track)."),
+	N("KeySize", "Half the size of the keys."),
+	C("GridStyle", "Lines|Dots|None", "The lines of time across the tracks."),
+	K("PlayheadColor", "Color of the playhead."),
+	N("PlayheadWidth", "Width of its line."),
 };
 static const rvn_schema_attribute_t g_block_editor[] = {
 	N("Zoom", "Size of the canvas: 1 = life size."),
@@ -444,6 +536,17 @@ static const rvn_schema_attribute_t g_node_graph[] = {
 	B("ReadOnly", "The user can look, select and move the view, but not change the graph."),
 	B("FrameAll", "Starts with every node in view."),
 	A("OnChanged", "Action fired when the user links, unlinks, moves or removes something."),
+	C("Preset", "Auto|Modern|Blueprint|Blender|Neon", "The look it starts from; Auto follows the theme of the window. Any part can then be changed: Link.Glow=\"1\", Node.CornerRadius=\"4\", Header.Gradient=\"#000\"..."),
+	C("LinkShape", "Bezier|Straight|Step|Angled", "The form of the links (also LinkShape on a Type)."),
+	N("LinkWidth", "Thickness of the links."),
+	N("LinkGlow", "Light around the links, 0..1."),
+	C("PinShape", "Circle|Ring|Square|Diamond|Triangle|Arrow", "The form of the pins (also Shape on a Type, an Input, an Output)."),
+	N("PinSize", "Half the size of the pins."),
+	C("GridStyle", "Dots|Lines|Cross|None", "The grid of the canvas."),
+	N("GridSize", "Space between the points of the grid."),
+	N("NodeRadius", "Corners of the nodes."),
+	C("HeaderStyle", "Solid|Gradient|Stripe|Tint|Outline|None", "How the headers wear the color of their node (also on a Node)."),
+	N("HeaderHeight", "Height of the headers of the nodes."),
 };
 
 typedef struct rvn_schema_tag_t {
@@ -472,6 +575,7 @@ static const rvn_schema_tag_t g_tags[] = {
 	TAG_PLAIN("Canvas", "Places its children freely (Slot.Position, Slot.Size, Slot.Anchors)."),
 	TAG("Switcher", g_switcher, "Shows one of its children."),
 	TAG("TabView", g_tab_view, "Its children as tabs (Slot.Title)."),
+	TAG("Carousel", g_carousel, "Its children as pages shown one at a time, swiped, with dots and arrows."),
 	TAG("Expander", g_expander, "A header that shows and hides one child."),
 	TAG("Label", g_label, "Text."),
 	TAG("Button", g_button, "A button, with a text or with one child."),
@@ -507,6 +611,10 @@ static const rvn_schema_tag_t g_tags[] = {
 	TAG("Breadcrumb", g_breadcrumb, "The path to the current place: links separated by chevrons."),
 	TAG("Rating", g_rating, "A score shown and chosen with stars."),
 	TAG("Pagination", g_pagination, "Page numbers with previous and next."),
+	TAG("MapView", g_map_view, "A map of slippy-map tiles (Web Mercator z/x/y) given by the application or read from files: dragged, zoomed, with Marker elements (Latitude, Longitude, Label, Color)."),
+	TAG("PdfView", g_pdf_view, "The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time)."),
+	TAG("Chart", g_chart, "The charts of dashboards: a pie or a donut of Slice elements (Label, Value, Color), a gauge with Band elements (From, To, Color), a heatmap of Row elements (Label, Values), a sparkline of Values."),
+	TAG("Plot", g_plot, "Curves of X / Y data: Series elements (Name, Color, Line, LineWidth, Marker, MarkerSize, MarkerFilled, Step, Fill, XAxis, Axis, MaxPoints, X and Y lists or Points \"x,y x,y\"), Scatter elements, and DragLine elements (Axis, Value, Label, Color)."),
 	TAG("NodeGraph", g_node_graph, "Nodes linked by wires: Node elements (Input, Output, any widget), Link and Type elements."),
 };
 

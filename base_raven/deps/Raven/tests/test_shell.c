@@ -41,7 +41,7 @@ static void test_header_bar(void) {
 	Rid window = window_from(
 		"<Window Title=\"Header\" Width=\"600\" Height=\"300\" CustomHeader=\"true\">"
 		"<VBox>"
-		"<HeaderBar Name=\"bar\" ButtonSide=\"Right\">"
+		"<HeaderBar Name=\"bar\">"
 		"<Button Name=\"open\" Text=\"Open\"/>"
 		"<Button Name=\"share\" Text=\"Share\" Slot.HAlign=\"Right\"/>"
 		"</HeaderBar>"
@@ -718,6 +718,181 @@ static void test_island(void) {
 }
 
 /* Picture in picture: the null platform has a work area of 1920 x 1080 pixels. */
+static void test_inspector(void) {
+	static const char xml[] =
+		"<Window Title=\"Editor\" Width=\"500\" Height=\"300\">"
+		"  <VBox Name=\"root\">"
+		"    <Label Text=\"Hello\"/>"
+		"    <Button Name=\"save\" Class=\"primary big\" Text=\"Save\"/>"
+		"  </VBox>"
+		"</Window>";
+	Rid window = Rwindow_create_from_xml(xml, strlen(xml));
+	Rid save = Rwidget_find(window, "save"), inspector, tree, props, pick, item;
+	int i;
+	Rbutton_set_clicked_callback(save, on_clicked, NULL);
+	Rdraw_frame();
+	CHECK(!Rwindow_is_inspector_shown(window));
+	CHECK(Rwindow_get_inspector(window) == R_INVALID_ID);
+
+	/* shown: a window of its own, with the tree of the widgets */
+	Rwindow_set_inspector(window, R_TRUE);
+	CHECK(Rwindow_is_inspector_shown(window));
+	inspector = Rwindow_get_inspector(window);
+	CHECK(Rwindow_is_valid(inspector));
+	/* (asking again changes nothing) */
+	Rwindow_set_inspector(window, R_TRUE);
+	CHECK(Rwindow_get_inspector(window) == inspector);
+	tree = Rwidget_find(Rwindow_get_content(inspector), "tree");
+	props = Rwidget_find(Rwindow_get_content(inspector), "props");
+	pick = Rwidget_find(Rwindow_get_content(inspector), "pick");
+	CHECK(Rtree_view_get_item_count(tree) == 1);
+	item = Rtree_view_get_item(tree, 0);
+	CHECK_STR(Rtree_item_get_text(item), "VBox  \"root\"");
+	CHECK(Rtree_item_get_child_count(item) == 2);
+	CHECK_STR(Rtree_item_get_text(Rtree_item_get_child(item, 1)), "Button  \"save\"  .primary  .big");
+
+	/* selecting the button in the tree tells what it is */
+	Rtree_view_set_selected_item(tree, Rtree_item_get_child(item, 1));
+	Rdraw_frame();
+	CHECK(strstr(Rlabel_get_text(props), "Type        Button") != NULL);
+	CHECK(strstr(Rlabel_get_text(props), "Classes     primary big") != NULL);
+	Rdraw_frame();
+
+	/* the tree follows the window */
+	Rwidget_add_child(Rwidget_find(window, "root"), Rwidget_create(R_WIDGET_SLIDER));
+	for (i = 0; i < 100 && Rtree_item_get_child_count(Rtree_view_get_item(tree, 0)) != 3; i++) {
+		Rdraw_frame();
+		Rwait_events(0.01);
+	}
+	CHECK(Rtree_item_get_child_count(Rtree_view_get_item(tree, 0)) == 3);
+	/* (the selection stays) */
+	CHECK(strstr(Rlabel_get_text(props), "Type        Button") != NULL);
+
+	/* Pick: the next click in the window selects, and does not reach the widget */
+	Rtree_view_set_selected_item(tree, R_INVALID_ID);
+	Rcheckbox_set_checked(pick, R_TRUE);
+	Rdraw_frame();
+	g_clicked = 0;
+	test_click(window, save);
+	CHECK(g_clicked == 0);
+	CHECK(!Rcheckbox_is_checked(pick));
+	CHECK(strstr(Rlabel_get_text(props), "Type        Button") != NULL);
+	CHECK_STR(Rtree_item_get_text(Rtree_view_get_selected_item(tree)), "Button  \"save\"  .primary  .big");
+	/* then the clicks go to the window again */
+	test_click(window, save);
+	CHECK(g_clicked == 1);
+
+	/* an inspector has no inspector */
+	EXPECT_ERRORS_BEGIN();
+	Rwindow_set_inspector(inspector, R_TRUE);
+	EXPECT_ERRORS_END(1);
+
+	/* hidden by the same function; then shown again, it goes with its window */
+	Rwindow_set_inspector(window, R_FALSE);
+	Rdraw_frame();
+	CHECK(!Rwindow_is_inspector_shown(window));
+	CHECK(!Rwindow_is_valid(inspector));
+	Rwindow_set_inspector(window, R_TRUE);
+	inspector = Rwindow_get_inspector(window);
+	Rdraw_frame();
+	Rwindow_destroy(window);
+	Rdraw_frame();
+	CHECK(!Rwindow_is_valid(inspector));
+	CHECK(!Rwindow_is_inspector_shown(window));
+}
+
+static void test_splash_screen(void) {
+	static const char xml[] =
+		"<Window Title=\"Loading\" Width=\"400\" Height=\"240\" IsSplashScreen=\"true\" Maximized=\"true\">"
+		"  <Label Text=\"Starting...\"/>"
+		"</Window>";
+	Rid splash = Rwindow_create_from_xml(xml, strlen(xml));
+	Rid plain = Rwindow_create("main", 640, 360, R_WINDOW_HIDDEN);
+	int x = 0, y = 0, width = 0, height = 0;
+	CHECK(splash != R_INVALID_ID);
+	CHECK(Rwindow_is_splash_screen(splash));
+	CHECK(!Rwindow_is_splash_screen(plain));
+	CHECK(!Rwindow_is_splash_screen(R_INVALID_ID));
+	/* centered before it shows, at its size (Maximized is cancelled) */
+	Rdraw_frame();
+	Rwindow_get_size(splash, &width, &height);
+	CHECK(width == 400 && height == 240);
+	Rwindow_get_position(splash, &x, &y);
+	CHECK(x == (1920 - 400) / 2 && y == (1080 - 240) / 2);
+	/* and again when its size changes */
+	Rwindow_set_size(splash, 600, 300);
+	Rwindow_get_position(splash, &x, &y);
+	CHECK(x == (1920 - 600) / 2 && y == (1080 - 300) / 2);
+	/* the usual swap: the main window first, then the splash goes */
+	Rwindow_show(plain);
+	Rwindow_destroy(splash);
+	Rdraw_frame();
+	CHECK(Ris_running());
+	Rwindow_destroy(plain);
+}
+
+/* Rwindow_focus: shows a window and gives it the keyboard where the system has such a request. */
+static void test_window_focus(void) {
+	Rid window = Rwindow_create("focus", 320, 200, R_WINDOW_HIDDEN);
+	CHECK(Rwindow_is_valid(window));
+	Rwindow_focus(window);
+	Rdraw_frame();
+	CHECK(Rwindow_is_valid(window) && Ris_running());
+	/* already shown: shown again in front, nothing else */
+	Rwindow_focus(window);
+	Rdraw_frame();
+	CHECK(Rwindow_is_valid(window));
+	EXPECT_ERRORS_BEGIN();
+	Rwindow_focus(R_INVALID_ID);
+	EXPECT_ERRORS_END(1);
+	Rwindow_destroy(window);
+	CHECK(!Rwindow_is_valid(window));
+}
+
+/* Owned windows: kept with their owner, destroyed with it (before it), no cycles. */
+static void test_window_owner(void) {
+	Rid main_window = Rwindow_create("main", 640, 360, R_WINDOW_DEFAULT);
+	Rid tool = Rwindow_create("tool", 320, 240, R_WINDOW_HIDDEN);
+	Rid nested = Rwindow_create("nested", 200, 120, R_WINDOW_HIDDEN);
+	Rid other = Rwindow_create("other", 200, 120, R_WINDOW_DEFAULT);
+	Rid content = Rwidget_create(R_WIDGET_LABEL);
+	CHECK(Rwindow_get_owner(tool) == R_INVALID_ID);
+	/* (the null window system keeps no owner: R_FALSE, but the owner is kept by Raven) */
+	Rwindow_set_owner(tool, main_window);
+	CHECK(Rwindow_get_owner(tool) == main_window);
+	Rwindow_set_owner(nested, tool);
+	CHECK(Rwindow_get_owner(nested) == tool);
+	Rwindow_set_content(tool, content);
+	/* no window owns itself, directly or not; nothing changes then */
+	EXPECT_ERRORS_BEGIN();
+	CHECK(!Rwindow_set_owner(main_window, nested));
+	CHECK(!Rwindow_set_owner(tool, tool));
+	CHECK(!Rwindow_set_owner(tool, R_INVALID_ID + 12345));
+	EXPECT_ERRORS_END(3);
+	CHECK(Rwindow_get_owner(main_window) == R_INVALID_ID);
+	CHECK(Rwindow_get_owner(tool) == main_window);
+	/* shown and hidden on its own */
+	Rwindow_show(tool);
+	Rdraw_frame();
+	Rwindow_hide(tool);
+	Rdraw_frame();
+	CHECK(Rwindow_is_valid(tool));
+	/* given back its independence, then owned again */
+	Rwindow_set_owner(other, main_window);
+	Rwindow_set_owner(other, R_INVALID_ID);
+	CHECK(Rwindow_get_owner(other) == R_INVALID_ID);
+	/* the owner goes: the windows it owns (and theirs) go first, with their content */
+	Rwindow_destroy(main_window);
+	CHECK(!Rwindow_is_valid(main_window));
+	CHECK(!Rwindow_is_valid(tool));
+	CHECK(!Rwindow_is_valid(nested));
+	CHECK(!Rwidget_is_valid(content));
+	CHECK(Rwindow_is_valid(other));
+	Rdraw_frame();
+	CHECK(Ris_running());
+	Rwindow_destroy(other);
+}
+
 static void test_picture_in_picture(void) {
 	static const char xml[] =
 		"<VBox Name=\"root\">"
@@ -812,7 +987,7 @@ static void test_taskbar(void) {
 	Rwindow_destroy(window);
 }
 
-/* Tray icons: handles, checks, and their menu that follows its Menu. */
+/* Tray icons: handles, checks, a title beside the icon, where it is, and their menu that follows its Menu. */
 static void test_tray(void) {
 	static uint8_t pixels[16 * 16 * 4];
 	Rid tray, menu, bar, inside;
@@ -821,6 +996,19 @@ static void test_tray(void) {
 	CHECK(tray != R_INVALID_ID && Rtray_is_valid(tray));
 	Rtray_set_icon(tray, pixels, 16, 16);
 	Rtray_set_tooltip(tray, "Raven");
+	/* a text beside the icon, then the icon alone again */
+	Rtray_set_title(tray, "1:05");
+	Rdraw_frame();
+	Rtray_set_title(tray, NULL);
+	Rtray_set_title(tray, "");
+	/* where it is: a real rectangle, or R_FALSE and zeros where the system does not tell */
+	{
+		int x = -1, y = -1, width = -1, height = -1;
+		int known = Rtray_get_rect(tray, &x, &y, &width, &height);
+		if (known) CHECK(width > 0 && height > 0);
+		else CHECK(x == 0 && y == 0 && width == 0 && height == 0);
+		CHECK(Rtray_get_rect(tray, NULL, NULL, NULL, NULL) == known);
+	}
 	menu = Rwidget_create(R_WIDGET_MENU);
 	Rmenu_add_item(menu, "Show");
 	Rtray_set_menu(tray, menu);
@@ -844,7 +1032,13 @@ static void test_tray(void) {
 	CHECK(!Rtray_is_valid(tray));
 	EXPECT_ERRORS_BEGIN();
 	Rtray_set_tooltip(tray, "gone");
-	EXPECT_ERRORS_END(1);
+	Rtray_set_title(tray, "gone");
+	{
+		int x = -1, y = -1, width = -1, height = -1;
+		CHECK(!Rtray_get_rect(tray, &x, &y, &width, &height));
+		CHECK(x == 0 && y == 0 && width == 0 && height == 0);
+	}
+	EXPECT_ERRORS_END(3);
 	/* left at the end: Rshutdown takes it away */
 	tray = Rtray_create();
 	CHECK(Rtray_is_valid(tray));
@@ -863,6 +1057,10 @@ int main(void) {
 	RUN(test_dock_animated);
 	RUN(test_island);
 	RUN(test_picture_in_picture);
+	RUN(test_splash_screen);
+	RUN(test_window_focus);
+	RUN(test_window_owner);
+	RUN(test_inspector);
 	RUN(test_taskbar);
 	RUN(test_tray);
 	Rshutdown();

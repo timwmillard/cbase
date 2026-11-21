@@ -75,7 +75,16 @@ static void rvn_scroll_box_arrange(rvn_widget_t* widget) {
 
 	box->main_bar.content = content.x;
 	box->main_bar.viewport = view_main;
-	rvn_scrollbar_clamp(&box->main_bar);
+	{
+		float before = box->main_bar.offset;
+		rvn_scrollbar_clamp(&box->main_bar);
+		/* the content got shorter under a view at its end, and the offset came
+		 * back with it: what is drawn comes back at once too. The smooth scroll
+		 * would draw past the end of the content (a blank band) for a few frames. */
+		if (box->main_bar.offset < before && box->main_bar.shown.started && box->main_bar.shown.value > box->main_bar.offset) {
+			rvn_spring_set(&box->main_bar.shown, box->main_bar.offset);
+		}
+	}
 	/* without cross scrolling the children are simply as wide as the view */
 	cross_size = box->scroll_both ? rvn_maxf(content.y, view_cross) : view_cross;
 	box->cross_bar.content = cross_size;
@@ -284,28 +293,44 @@ void Rscroll_box_scroll_to_end(Rid id) {
 	rvn_scroll_box_apply(widget);
 }
 
-void Rwidget_scroll_into_view(Rid id) {
+/* Moves a scroll bar so that a span of `size`, `position` away from the start of the view, is shown. */
+static void rvn_scroll_box_reveal(rvn_scrollbar_t* bar, float position, float size) {
+	float start = position + bar->offset;
+	float end = start + size;
+	if (start < bar->offset) rvn_scrollbar_set(bar, start);
+	else if (end > bar->offset + bar->viewport) rvn_scrollbar_set(bar, end - bar->viewport);
+}
+
+void rvn_widget_reveal(rvn_widget_t* widget, float margin) {
 	rvn_widget_t* ancestor;
 	rvn_widget_t* target;
-	RVN_WIDGET_VOID(widget, id, 0);
 	rvn_scroll_box_sync(widget);
 	target = widget;
 	/* every scroll box above the widget brings it into its own view */
 	for (ancestor = widget->parent; ancestor; ancestor = ancestor->parent) {
 		rvn_scroll_box_t* box;
 		rvn_vec2_t inner, outer;
-		float start, end;
 		int vertical;
 		if (ancestor->cls->type != R_WIDGET_SCROLL_BOX) continue;
 		box = (rvn_scroll_box_t*)ancestor;
 		vertical = rvn_scroll_box_vertical(ancestor);
 		inner = rvn_widget_origin(target);
 		outer = rvn_widget_origin(ancestor);
-		start = (vertical ? inner.y - outer.y : inner.x - outer.x) + box->main_bar.offset;
-		end = start + (vertical ? target->rect.h : target->rect.w);
-		if (start < box->main_bar.offset) rvn_scrollbar_set(&box->main_bar, start);
-		else if (end > box->main_bar.offset + box->main_bar.viewport) rvn_scrollbar_set(&box->main_bar, end - box->main_bar.viewport);
+		/* (the margin only around the widget itself: a scroll box inside another one is shown as it is) */
+		if (vertical) {
+			rvn_scroll_box_reveal(&box->main_bar, inner.y - outer.y - margin, target->rect.h + margin * 2.0f);
+			if (box->scroll_both) rvn_scroll_box_reveal(&box->cross_bar, inner.x - outer.x - margin, target->rect.w + margin * 2.0f);
+		} else {
+			rvn_scroll_box_reveal(&box->main_bar, inner.x - outer.x - margin, target->rect.w + margin * 2.0f);
+			if (box->scroll_both) rvn_scroll_box_reveal(&box->cross_bar, inner.y - outer.y - margin, target->rect.h + margin * 2.0f);
+		}
 		rvn_scroll_box_apply(ancestor);
 		target = ancestor;
+		margin = 0.0f;
 	}
+}
+
+void Rwidget_scroll_into_view(Rid id) {
+	RVN_WIDGET_VOID(widget, id, 0);
+	rvn_widget_reveal(widget, 0.0f);
 }

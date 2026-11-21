@@ -31,6 +31,8 @@
 #include "../widgets/common.h"
 
 #define RVN_XC_MAX_DEPTH 48
+/** Nesting inside one expression: parentheses, ?:, arguments, and operators in front of a value. */
+#define RVN_XE_MAX_DEPTH 64
 
 typedef struct rvn_component_t {
 	char* name;
@@ -103,6 +105,8 @@ static rvn_xml_node_t* rvn_xc_node(rvn_arena_t* arena, const rvn_xml_node_t* lik
 	if (like) {
 		node->line = like->line;
 		node->column = like->column;
+		node->text_line = like->text_line;
+		node->text_column = like->text_column;
 		node->source = like->source;
 	}
 	return node;
@@ -207,7 +211,7 @@ void rvn_xml_components_shutdown(void) {
 
 static int rvn_xc_reserved(const char* name) {
 	static const char* const reserved[] = {
-		"Window", "Widget", "Widgets", "Children", "Repeat", "ForEach", "If", "Include", "Strings", "Shortcut", "Item", "Separator"
+		"Window", "Widget", "Widgets", "Children", "Repeat", "ForEach", "If", "Include", "Strings", "Shortcut", "Item", "Separator", "Script"
 	};
 	size_t i;
 	for (i = 0; i < RVN_COUNT_OF(reserved); i++) {
@@ -503,16 +507,22 @@ static rvn_xv_t rvn_xe_primary(rvn_xe_t* e) {
 }
 
 static rvn_xv_t rvn_xe_unary(rvn_xe_t* e) {
+	rvn_xv_t value;
+	int negate;
 	rvn_xe_space(e);
-	if (e->cursor < e->end && *e->cursor == '!' && !(e->cursor + 1 < e->end && e->cursor[1] == '=')) {
-		e->cursor++;
-		return rvn_xv_bool(!rvn_xv_truth(rvn_xe_unary(e)));
+	if (e->cursor < e->end && *e->cursor == '!' && !(e->cursor + 1 < e->end && e->cursor[1] == '=')) negate = R_FALSE;
+	else if (e->cursor < e->end && *e->cursor == '-') negate = R_TRUE;
+	else return rvn_xe_primary(e);
+	e->cursor++;
+	/* ("!!!!...x": one call per operator, counted like the other nestings) */
+	if (++e->depth > RVN_XE_MAX_DEPTH) {
+		rvn_xe_fail(e, "nested too deeply");
+		e->depth--;
+		return rvn_xv_text("");
 	}
-	if (e->cursor < e->end && *e->cursor == '-') {
-		e->cursor++;
-		return rvn_xv_number(e, -rvn_xe_unary(e).number);
-	}
-	return rvn_xe_primary(e);
+	value = rvn_xe_unary(e);
+	e->depth--;
+	return negate ? rvn_xv_number(e, -value.number) : rvn_xv_bool(!rvn_xv_truth(value));
 }
 
 static rvn_xv_t rvn_xe_product(rvn_xe_t* e) {
@@ -600,7 +610,7 @@ static rvn_xv_t rvn_xe_or(rvn_xe_t* e) {
 
 static rvn_xv_t rvn_xe_expression(rvn_xe_t* e) {
 	rvn_xv_t condition;
-	if (++e->depth > 64) {
+	if (++e->depth > RVN_XE_MAX_DEPTH) {
 		rvn_xe_fail(e, "nested too deeply");
 		e->depth--;
 		return rvn_xv_text("");
@@ -708,12 +718,10 @@ static const char* rvn_xc_attribute(rvn_xc_t* ctx, const rvn_xml_node_t* node, c
 static void rvn_xc_repeat(rvn_xc_t* ctx, const rvn_xml_node_t* node, const rvn_xc_scope_t* scope, rvn_xml_node_t* holder) {
 	const char* count_text = rvn_xc_attribute(ctx, node, scope, "Count");
 	const char* var = rvn_xml_attribute(node, "Var");
-	int count = count_text ? (int)strtod(count_text, NULL) : 0, i;
+	double requested = count_text ? strtod(count_text, NULL) : 0.0;
+	int count = requested >= 1.0 ? (int)(requested < 10000.0 ? requested : 10000.0) : 0, i;
 	if (!count_text) rvn_xc_report(node, R_SEVERITY_WARNING, "<Repeat> needs Count=\"...\"");
-	if (count > 10000) {
-		rvn_xc_report(node, R_SEVERITY_WARNING, "<Repeat Count=\"%d\">: limited to 10000", count);
-		count = 10000;
-	}
+	if (requested >= 10001.0) rvn_xc_report(node, R_SEVERITY_WARNING, "<Repeat Count=\"%s\">: limited to 10000", count_text);
 	for (i = 0; i < count && !ctx->failed; i++) {
 		rvn_xc_scope_t frame;
 		rvn_xc_scope_inside(&frame, scope);
@@ -933,7 +941,9 @@ static void rvn_xc_expand(rvn_xc_t* ctx, const rvn_xml_node_t* node, const rvn_x
 	} else {
 		/* an ordinary element: itself, with what is inside rewritten */
 		copy = rvn_xc_node(arena, node, node->name);
-		copy->text = rvn_xc_text(ctx, scope, node, node->text);
+		/* (the code of a <Script> is not a text with {parameters}: its braces are its blocks) */
+		if (rvn_xml_is_script(node->name)) copy->text = rvn_arena_strndup(arena, node->text, strlen(node->text));
+		else copy->text = rvn_xc_text(ctx, scope, node, node->text);
 		for (attribute = node->attributes; attribute; attribute = attribute->next) {
 			if (rvn_stricmp(attribute->name, "If") == 0) continue;
 			rvn_xc_set_attribute(arena, copy, attribute->name, rvn_xc_text(ctx, scope, node, attribute->value));

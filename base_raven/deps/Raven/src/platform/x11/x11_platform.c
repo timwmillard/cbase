@@ -451,7 +451,18 @@ static rvn_pwindow_t* rvn_x11_window_create(const rvn_pwindow_desc_t* desc) {
 		XChangeProperty(g_x11.display, window->handle, g_x11.motif_wm_hints, g_x11.motif_wm_hints, 32, PropModeReplace,
 			(const unsigned char*)hints, 5);
 	}
-	if (desc->flags & R_WINDOW_MAXIMIZED) {
+	if (desc->flags & R_WINDOW_SPLASH_SCREEN) {
+		/* the window manager centers it, keeps it above, leaves it out of the taskbar and of the pager */
+		Atom type = XInternAtom(g_x11.display, "_NET_WM_WINDOW_TYPE_SPLASH", False);
+		Atom states[3];
+		XChangeProperty(g_x11.display, window->handle, XInternAtom(g_x11.display, "_NET_WM_WINDOW_TYPE", False), XA_ATOM, 32,
+			PropModeReplace, (const unsigned char*)&type, 1);
+		states[0] = XInternAtom(g_x11.display, "_NET_WM_STATE_ABOVE", False);
+		states[1] = XInternAtom(g_x11.display, "_NET_WM_STATE_SKIP_TASKBAR", False);
+		states[2] = XInternAtom(g_x11.display, "_NET_WM_STATE_SKIP_PAGER", False);
+		XChangeProperty(g_x11.display, window->handle, g_x11.net_wm_state, XA_ATOM, 32, PropModeReplace,
+			(const unsigned char*)states, 3);
+	} else if (desc->flags & R_WINDOW_MAXIMIZED) {
 		/* before the window is mapped the state is set directly on the window */
 		Atom states[2];
 		states[0] = g_x11.net_wm_state_maximized_vert;
@@ -507,6 +518,14 @@ static int rvn_x11_window_set_opacity(rvn_pwindow_t* window, float opacity) {
 		unsigned long value = (unsigned long)((double)opacity * 4294967295.0);
 		XChangeProperty(g_x11.display, window->handle, property, XA_CARDINAL, 32, PropModeReplace, (const unsigned char*)&value, 1);
 	}
+	XFlush(g_x11.display);
+	return R_TRUE;
+}
+
+/* An owned window is a transient of its owner: the window manager keeps it above it and out of the task list. */
+static int rvn_x11_window_set_owner(rvn_pwindow_t* window, rvn_pwindow_t* owner) {
+	if (owner) XSetTransientForHint(g_x11.display, window->handle, owner->handle);
+	else XDeleteProperty(g_x11.display, window->handle, XA_WM_TRANSIENT_FOR);
 	XFlush(g_x11.display);
 	return R_TRUE;
 }
@@ -1829,6 +1848,7 @@ const rvn_platform_t* rvn_platform_x11(void) {
 		.window_set_backdrop = rvn_x11_window_set_backdrop,
 		.window_set_opacity = rvn_x11_window_set_opacity,
 		.window_set_topmost = rvn_x11_window_set_topmost,
+		.window_set_owner = rvn_x11_window_set_owner,
 		.window_set_picture_in_picture = rvn_x11_window_set_picture_in_picture,
 		.window_center = rvn_x11_window_center,
 		.window_set_cursor = rvn_x11_window_set_cursor,

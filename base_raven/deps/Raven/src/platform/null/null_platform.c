@@ -225,31 +225,6 @@ static char* rvn_null_clipboard_get(void) {
 	return rvn_strdup(g_null.clipboard);
 }
 
-#if defined(__EMSCRIPTEN__)
-#include <emscripten.h>
-
-/*
- * A browser calls the program once per frame (requestAnimationFrame) and the program must return to it: the
- * loop of the application cannot block. Rrun hands its tick here; the future web platform does the same.
- */
-static int (*g_tick)(void* user);
-static void* g_tick_user;
-
-static void rvn_null_browser_frame(void) {
-	if (!g_tick(g_tick_user)) emscripten_cancel_main_loop();
-}
-
-static int rvn_null_run(int (*tick)(void* user), void* user) {
-	g_tick = tick;
-	g_tick_user = user;
-	emscripten_set_main_loop(rvn_null_browser_frame, 0, 0);
-	return R_TRUE;
-}
-#define RVN_NULL_RUN .run = rvn_null_run,
-#else
-#define RVN_NULL_RUN
-#endif
-
 /*
  * A camera housing for the tests: RAVEN_FAKE_NOTCH="200x32" gives every
  * screen one of that size in pixels (none without it). The overlay of an
@@ -283,6 +258,18 @@ static void rvn_null_focus_event(rvn_pwindow_t* window, int focused) {
 	event.user = window->user;
 	event.focused = focused;
 	g_null.handler(&event);
+}
+
+/* Centered on the same work area of 1920 x 1080 pixels. */
+static void rvn_null_window_center(rvn_pwindow_t* window) {
+	window->x = (1920 - window->width) / 2;
+	window->y = (1080 - window->height) / 2;
+}
+
+static int rvn_null_window_set_topmost(rvn_pwindow_t* window, int topmost) {
+	(void)window;
+	(void)topmost;
+	return R_TRUE;
 }
 
 /* Picture in picture, on a work area of 1920 x 1080 pixels as a monitor would give: the core can be tested with it. */
@@ -407,6 +394,8 @@ const rvn_platform_t* rvn_platform_null(void) {
 		.window_set_backdrop = rvn_null_window_set_backdrop,
 		.window_set_opacity = rvn_null_window_set_opacity,
 		.window_set_picture_in_picture = rvn_null_window_set_picture_in_picture,
+		.window_center = rvn_null_window_center,
+		.window_set_topmost = rvn_null_window_set_topmost,
 		.window_set_menu_bar = rvn_null_window_set_menu_bar,
 		.window_set_progress = rvn_null_window_set_progress,
 		.window_request_attention = rvn_null_window_request_attention,
@@ -421,7 +410,6 @@ const rvn_platform_t* rvn_platform_null(void) {
 		.window_get_native = rvn_null_window_get_native,
 		.child_create = rvn_null_child_create,
 		.child_set_rect = rvn_null_child_set_rect,
-		RVN_NULL_RUN
 		.pump = rvn_null_pump,
 		.wake = rvn_null_wake,
 		.clipboard_set = rvn_null_clipboard_set,

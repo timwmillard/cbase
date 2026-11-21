@@ -291,7 +291,7 @@ static uint32_t atspi_role(RAccessibleRole role, uint32_t states) {
 		case R_ROLE_DOCUMENT: return 94;       /* DOCUMENT_TEXT */
 		case R_ROLE_COMBO_BOX: return 11;
 		case R_ROLE_LIST: return 98;           /* LIST_BOX */
-		case R_ROLE_LIST_ITEM: return 32;
+		case R_ROLE_LIST_ITEM: return (states & RVN_A11Y_TABLE_ROW) ? 90 : 32;
 		case R_ROLE_TREE: return 65;
 		case R_ROLE_TREE_ITEM: return 91;
 		case R_ROLE_TABLE: return 55;
@@ -331,6 +331,7 @@ static void put_states(DBusMessageIter* it, rvn_a11y_id_t id, const rvn_a11y_nod
 		if (st & RVN_A11Y_EXPANDABLE) { S(9); if (st & RVN_A11Y_EXPANDED) S(10); else S(5); }
 		if (st & RVN_A11Y_SELECTABLE) S(22);
 		if (st & RVN_A11Y_SELECTED) S(23);
+		if (st & RVN_A11Y_MULTI_SELECT) S(18);
 		if (st & RVN_A11Y_EDITABLE) S(7);
 		if (st & RVN_A11Y_READONLY) S(43);
 		if (st & RVN_A11Y_MODAL) S(16);
@@ -350,7 +351,7 @@ static int has_action(const rvn_a11y_node_t* node) {
 }
 
 static const char* action_name(const rvn_a11y_node_t* node) {
-	if (node->role == R_ROLE_CHECKBOX) return "toggle";
+	if (node->states & RVN_A11Y_CHECKABLE) return "toggle";
 	if (node->role == R_ROLE_TAB || node->role == R_ROLE_LIST_ITEM || node->role == R_ROLE_TREE_ITEM) return "activate";
 	if (node->states & RVN_A11Y_EXPANDABLE && !(node->states & RVN_A11Y_INVOKABLE)) return "expand or contract";
 	return "click";
@@ -695,7 +696,7 @@ static int handle(DBusConnection* connection, DBusMessage* message, void* user) 
 		if (strcmp(member, "GetName") == 0 || strcmp(member, "GetLocalizedName") == 0) { put_string(&out, index == 0 ? action_name(&node) : ""); goto send; }
 		if (strcmp(member, "GetDescription") == 0 || strcmp(member, "GetKeyBinding") == 0) { put_string(&out, ""); goto send; }
 		if (strcmp(member, "DoAction") == 0) {
-			rvn_a11y_action_t action = node.role == R_ROLE_CHECKBOX ? RVN_A11Y_TOGGLE :
+			rvn_a11y_action_t action = (node.states & RVN_A11Y_CHECKABLE) ? RVN_A11Y_TOGGLE :
 				((node.states & RVN_A11Y_EXPANDABLE) && !(node.states & RVN_A11Y_INVOKABLE)) ?
 					((node.states & RVN_A11Y_EXPANDED) ? RVN_A11Y_COLLAPSE : RVN_A11Y_EXPAND) : RVN_A11Y_PRESS;
 			put_bool(&out, index == 0 && rvn_a11y_act(id, action));
@@ -988,9 +989,11 @@ void rvn_atspi_event(rvn_pwindow_t* window, int event, uint64_t id) {
 			signal(id, "Object", "StateChanged", "focused", 1, 0, T_INT32, &zero);
 			signal(id, "Focus", "Focus", "", 0, 0, T_INT32, &zero);
 			break;
+		case RVN_A11Y_EVENT_STATE:
 		case RVN_A11Y_EVENT_VALUE: {
 			rvn_a11y_node_t node;
 			if (!rvn_a11y_describe(id, &node)) break;
+			if (node.role == R_ROLE_TABLE) signal(id, "Object", "SelectionChanged", "", 0, 0, T_INT32, &zero);
 			if (node.states & RVN_A11Y_HAS_RANGE) {
 				signal(id, "Object", "PropertyChange", "accessible-value", 0, 0, T_DOUBLE, &node.number);
 			} else {

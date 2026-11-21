@@ -55,6 +55,17 @@ typedef long double f128;
 #define UNREACHABLE() (assert(!"unreachable"), abort())
 #endif
 
+// Marks a function as taking a printf-style format string, so the compiler
+// checks the format against the arguments at each call site. fmt_idx is the
+// 1-based index of the format parameter; arg_idx is the first variadic
+// argument, or 0 for va_list functions (only the format itself is checked).
+#if defined(__GNUC__) || defined(__clang__)
+#define PRINTF_LIKE(fmt_idx, arg_idx)                                          \
+   __attribute__((format(printf, fmt_idx, arg_idx)))
+#else
+#define PRINTF_LIKE(fmt_idx, arg_idx)
+#endif
+
 // ---------------------------------------------------------------------------
 // arena (copied from base.h so this header stands alone)
 // ---------------------------------------------------------------------------
@@ -79,8 +90,8 @@ void arena_release(arena *a);
 // Allocate-and-format into the arena, returning a NUL-terminated C string.
 // (Unlike libc sprintf, the arena owns the buffer, so it is returned rather
 // than passed in. For pointer+length in one value, use string_from below.)
-char *arena_sprintf(arena *a, const char *fmt, ...);
-char *arena_vsprintf(arena *a, const char *fmt, va_list args);
+char *arena_sprintf(arena *a, const char *fmt, ...) PRINTF_LIKE(2, 3);
+char *arena_vsprintf(arena *a, const char *fmt, va_list args) PRINTF_LIKE(2, 0);
 
 // Temp (scratch) scopes — checkpoint the arena, do throwaway work, then roll
 // back to the mark, reclaiming everything allocated in between. Anything you
@@ -207,8 +218,8 @@ string string_view(const char *cstr);                   // strlen-terminated
 string string_view_bytes(const char *bytes, usize len); // explicit length
 
 // Owned copies — bytes are duplicated into the arena.
-string stringf(arena *a, const char *fmt, ...); // printf-style
-string vstringf(arena *a, const char *fmt, va_list args);
+string stringf(arena *a, const char *fmt, ...) PRINTF_LIKE(2, 3);
+string vstringf(arena *a, const char *fmt, va_list args) PRINTF_LIKE(2, 0);
 string string_from(arena *a, const char *cstr); // null-terminated C string
 string string_from_bytes(arena *a, const char *bytes, usize len);
 string string_dup(arena *a, string s); // copy of an existing slice
@@ -307,8 +318,9 @@ void sb_push(string_builder *sb, char c);
 void sb_append(string_builder *sb, string s);
 void sb_append_from(string_builder *sb, const char *cstr);
 void sb_append_from_bytes(string_builder *sb, const char *bytes, usize len);
-void sb_appendf(string_builder *sb, const char *fmt, ...);
-void sb_vappendf(string_builder *sb, const char *fmt, va_list args);
+void sb_appendf(string_builder *sb, const char *fmt, ...) PRINTF_LIKE(2, 3);
+void sb_vappendf(string_builder *sb, const char *fmt, va_list args)
+    PRINTF_LIKE(2, 0);
 void sb_reset(string_builder *sb); // len = 0, keep capacity
 
 // Snapshot the builder's current contents.

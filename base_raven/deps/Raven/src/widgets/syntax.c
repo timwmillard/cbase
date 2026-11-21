@@ -676,22 +676,33 @@ static uint8_t rvn_lex_markup(rvn_lexer_t* lexer, const rvn_language_t* language
 #define RVN_MD_IN_CODE 1u
 #define RVN_MD_TILDE   2u
 
-/* Where the mark that closes what opened before `from` is, or -1. */
-static int rvn_lex_md_closer(const char* text, int from, int length, const char* mark, int mark_length) {
+/*
+ * Where the mark that closes what opened before `from` is, or -1.
+ * `none_from` is where an earlier search for the same mark started and found
+ * none (-1: there was none). Every search goes through each place that does
+ * not follow a backslash, and goes on from there in the same way: once past
+ * `none_from`, at such a place, this one finds none either. Without it, marks
+ * that close nothing ("*a *a *a ...") would each search to the end of the line.
+ */
+static int rvn_lex_md_closer(const char* text, int from, int length, const char* mark, int mark_length, int* none_from) {
 	int i;
 	for (i = from; i + mark_length <= length; i++) {
+		if (*none_from >= 0 && i > from && i > *none_from && text[i - 1] != '\\') break;
 		if (text[i] == '\\' && i + 1 < length) {
 			i++;
 			continue;
 		}
 		if (memcmp(text + i, mark, (size_t)mark_length) == 0 && i > from && text[i - 1] != ' ') return i;
 	}
+	if (*none_from < 0 || from < *none_from) *none_from = from;
 	return -1;
 }
 
 static uint8_t rvn_lex_markdown(rvn_lexer_t* lexer, uint8_t state) {
 	const char* text = lexer->text;
 	int length = lexer->length, i = 0, run;
+	/* for *, **, _, __ and ~~: see rvn_lex_md_closer */
+	int none_from[5] = { -1, -1, -1, -1, -1 };
 
 	while (i < length && (text[i] == ' ' || text[i] == '\t')) i++;
 
@@ -796,7 +807,7 @@ static uint8_t rvn_lex_markdown(rvn_lexer_t* lexer, uint8_t state) {
 			int inside_word = c == '_' && i > 0 && ((text[i - 1] >= 'a' && text[i - 1] <= 'z') || (text[i - 1] >= 'A' && text[i - 1] <= 'Z') || (text[i - 1] >= '0' && text[i - 1] <= '9'));
 			mark[0] = mark[1] = c;
 			if (!inside_word && i + mark_length < length && text[i + mark_length] != ' ') {
-				end = rvn_lex_md_closer(text, i + mark_length, length, mark, mark_length);
+				end = rvn_lex_md_closer(text, i + mark_length, length, mark, mark_length, &none_from[(c == '*' ? 0 : 2) + strong]);
 				if (end >= 0) {
 					/* ("***both***": the third star belongs to what is inside) */
 					int stop = end + mark_length;
@@ -810,7 +821,7 @@ static uint8_t rvn_lex_markdown(rvn_lexer_t* lexer, uint8_t state) {
 			continue;
 		}
 		if (c == '~' && i + 1 < length && text[i + 1] == '~') {
-			end = rvn_lex_md_closer(text, i + 2, length, "~~", 2);
+			end = rvn_lex_md_closer(text, i + 2, length, "~~", 2, &none_from[4]);
 			if (end >= 0) {
 				rvn_lex_emit(lexer, i, end + 2, RVN_TOKEN_COMMENT);
 				i = end + 2;
@@ -1212,6 +1223,22 @@ static void rvn_languages_built_in(void) {
 	d.multiline_strings = "r#\"...\"# r\"...\" \"";
 	d.annotation = "#[";
 	d.flags = R_LANGUAGE_CHAR_LITERALS | R_LANGUAGE_NESTED_COMMENTS;
+	rvn_language_add(&d);
+	memset(&d, 0, sizeof(d));
+	d.name = "Zig";
+	d.extensions = "zig;zon";
+	d.keywords = "addrspace align allowzero and anyframe anytype asm break callconv catch comptime const continue defer else enum "
+		"errdefer error export extern fn for if inline linksection noalias noinline nosuspend opaque or orelse packed pub "
+		"resume return struct suspend switch test threadlocal try union unreachable usingnamespace var volatile while";
+	d.types = "bool void noreturn type anyerror anyopaque comptime_int comptime_float isize usize c_char c_short c_ushort c_int "
+		"c_uint c_long c_ulong c_longlong c_ulonglong c_longdouble f16 f32 f64 f80 f128 i8 i16 i32 i64 i128 u1 u8 u16 u32 u64 u128 "
+		"std Self";
+	d.constants = "true false null undefined";
+	d.line_comment = "//";
+	d.string_quotes = "\"'";
+	/* builtins: @import, @intCast... */
+	d.annotation = "@";
+	d.flags = R_LANGUAGE_CHAR_LITERALS;
 	rvn_language_add(&d);
 
 	memset(&d, 0, sizeof(d));

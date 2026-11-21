@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(raven VERSION 0.2.1 DESCRIPTION "Raven - lightweight multithreaded GUI library in C" LANGUAGES C)
+project(raven VERSION 0.3.0 DESCRIPTION "Raven - lightweight multithreaded GUI library in C" LANGUAGES C)
 
 if(APPLE)
 	# Cocoa is the native macOS window API; almost all Raven code remains C.
@@ -14,6 +14,15 @@ endif()
 #  Options
 # ---------------------------------------------------------------------------
 
+if(EMSCRIPTEN)
+    set(RAVEN_PLATFORM "emscripten" CACHE STRING "Window system")
+    set(RAVEN_BACKEND_VULKAN OFF CACHE BOOL "Vulkan")
+    set(RAVEN_BUILD_WEB OFF CACHE BOOL "Native Chromium embedding")
+    set(RAVEN_BUILD_TOOLS OFF CACHE BOOL "Desktop tools")
+    set(RAVEN_BUILD_TESTS OFF CACHE BOOL "Native tests")
+endif()
+option(RAVEN_BACKEND_WEBGL "Compile the WebGL 2 backend" ${EMSCRIPTEN})
+
 # ON when Raven is the project being built, OFF when it is added with add_subdirectory
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
 	set(RAVEN_IS_TOP_LEVEL ON)
@@ -25,20 +34,19 @@ option(RAVEN_BUILD_SHARED "Build Raven as a shared library (raven.dll / libraven
 option(RAVEN_BUILD_EXAMPLES "Build the example programs" ${RAVEN_IS_TOP_LEVEL})
 option(RAVEN_BUILD_TESTS "Build the tests and the benchmark" ${RAVEN_IS_TOP_LEVEL})
 option(RAVEN_BUILD_TOOLS "Build the tools (the designer)" ${RAVEN_IS_TOP_LEVEL})
+option(RAVEN_BUILD_INSTALLER "Build the Raven SDK Installer (tools/installer, C++17)" OFF)
 option(RAVEN_BUILD_WEB "Compile the web pages (raven_web.h: they drive an installed Chromium-based browser) into the library" ON)
 option(RAVEN_BACKEND_VULKAN "Compile the Vulkan backend" ON)
-option(RAVEN_BACKEND_SOKOL "Compile the sokol_gfx backend, selectable with R_BACKEND_SOKOL (docs/SOKOL_BACKEND_PLAN.md)" OFF)
-set(RAVEN_SOKOL_API "auto" CACHE STRING "Graphics API of the Sokol backend (fixed when Raven is built): auto, gles3 (Linux) or metal (macOS, iOS)")
-set_property(CACHE RAVEN_SOKOL_API PROPERTY STRINGS auto gles3 metal)
+option(RAVEN_BACKEND_METAL "Compile the Metal backend (macOS, iOS)" ${APPLE})
 option(RAVEN_WITH_STB_IMAGE "Decode PNG / JPEG / BMP / TGA textures with stb_image" ON)
 option(RAVEN_WITH_SVG "Draw SVG images (icons) with nanosvg" ON)
 option(RAVEN_FETCH_VULKAN_HEADERS "Download the Vulkan headers when no Vulkan SDK is found" ON)
 option(RAVEN_REBUILD_SHADERS "Recompile the GLSL shaders (needs glslangValidator or glslc)" OFF)
 option(RAVEN_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(RAVEN_MSVC_STATIC_RUNTIME "Visual C++: link the C runtime statically (/MT) instead of using its DLL (/MD)" OFF)
-set(RAVEN_PLATFORM "auto" CACHE STRING "Window system: auto, win32, x11, cocoa, uikit (iOS), web (Emscripten) or null")
+set(RAVEN_PLATFORM "auto" CACHE STRING "Window system: auto, win32, x11, cocoa, uikit, emscripten, android or null")
 option(RAVEN_WAYLAND "Linux and BSD: compile native Wayland beside X11 (nothing of Wayland is needed to build: its libraries are opened at run time)" ON)
-set_property(CACHE RAVEN_PLATFORM PROPERTY STRINGS auto win32 x11 cocoa uikit web null)
+set_property(CACHE RAVEN_PLATFORM PROPERTY STRINGS auto win32 x11 cocoa uikit null emscripten android)
 
 if(RAVEN_IS_TOP_LEVEL)
 	# one folder for the programs and the DLL, so that a shared build runs in place
@@ -65,16 +73,24 @@ endif()
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(RavenCompilerOptions)
 
+if(EMSCRIPTEN)
+    if(RAVEN_BACKEND_VULKAN OR RAVEN_BUILD_WEB OR RAVEN_BUILD_SHARED)
+        message(FATAL_ERROR "Browser builds require RAVEN_BACKEND_VULKAN=OFF, RAVEN_BUILD_WEB=OFF and RAVEN_BUILD_SHARED=OFF")
+    endif()
+endif()
+
 # ---------------------------------------------------------------------------
 #  Window system
 # ---------------------------------------------------------------------------
 
 if(RAVEN_PLATFORM STREQUAL "auto")
 	if(EMSCRIPTEN)
-		set(RAVEN_PLATFORM_SELECTED "web")
+        set(RAVEN_PLATFORM_SELECTED "emscripten")
+	elseif(ANDROID OR CMAKE_SYSTEM_NAME STREQUAL "Android")
+		set(RAVEN_PLATFORM_SELECTED "android")
 	elseif(WIN32)
 		set(RAVEN_PLATFORM_SELECTED "win32")
-	elseif(IOS)
+	elseif(CMAKE_SYSTEM_NAME STREQUAL "iOS")
 		set(RAVEN_PLATFORM_SELECTED "uikit")
 	elseif(APPLE)
 		set(RAVEN_PLATFORM_SELECTED "cocoa")
@@ -108,10 +124,12 @@ set(RAVEN_PUBLIC_HEADERS
 	include/raven/raven_viewport.h
 	include/raven/raven_draw.h
 	include/raven/raven_xml.h
+	include/raven/raven_script.h
 	include/raven/raven_locale.h
 	include/raven/raven_accessibility.h
 	include/raven/raven_backend.h
 	include/raven/raven_host.h
+	include/raven/raven_android.h
 	include/raven/raven_vulkan.h
 )
 
@@ -164,8 +182,6 @@ set(RAVEN_RENDER_SOURCES
 	src/render/renderer.h
 	src/render/texture.c
 	src/render/shader.c
-	src/render/rfx.c
-	src/render/rfx.h
 	src/render/device.c
 	src/render/null/null_backend.c
 	src/resources/default_font.c
@@ -187,8 +203,8 @@ set(RAVEN_WIDGET_SOURCES
 	src/widgets/platform_looks.c
 	src/widget/widget.c
 	src/widget/widget.h
-	src/widget/touch.c
 	src/widget/window.c
+	src/widget/inspector.c
 )
 
 set(RAVEN_WIDGETS_SOURCES
@@ -215,6 +231,7 @@ set(RAVEN_WIDGETS_SOURCES
 	src/widgets/color_picker.c
 	src/widgets/timeline.c
 	src/widgets/node_graph.c
+	src/widgets/canvas_look.c
 	src/widgets/block_editor.c
 	src/widgets/tile_view.c
 	src/widgets/combo_box.c
@@ -243,6 +260,13 @@ set(RAVEN_WIDGETS_SOURCES
 	src/widgets/breadcrumb.c
 	src/widgets/rating.c
 	src/widgets/pagination.c
+	src/widgets/plot.c
+	src/widgets/pdf_view.c
+	src/widgets/chart.c
+	src/widgets/map_view.c
+	src/widgets/carousel.c
+	src/widgets/pdf_document.c
+	src/widgets/pdf_print.c
 )
 
 set(RAVEN_XML_SOURCES
@@ -254,6 +278,33 @@ set(RAVEN_XML_SOURCES
 	src/xml/xml_loader.c
 	src/xml/xml_watch.c
 	src/xml/xml_parser.c
+)
+
+# Raven Script: the core of the language (rs_*: no dependency on the rest, shared with the
+# command line tool and the language server) and its bridge to the library (script_raven.c)
+set(RAVEN_SCRIPT_CORE_SOURCES
+	src/script/rs.h
+	src/script/rs_internal.h
+	src/script/rs_common.c
+	src/script/rs_builtins.c
+	src/script/rs_lexer.c
+	src/script/rs_parser.c
+	src/script/rs_checker.c
+	src/script/rs_compiler.c
+	src/script/rs_vm.c
+	src/script/rs_batch.c
+	src/script/rs_format.c
+	src/script/rs_analysis.c
+)
+# (absolute: the tests and the tools compile them too)
+set(RAVEN_SCRIPT_CORE_SOURCES_ABSOLUTE "")
+foreach(source ${RAVEN_SCRIPT_CORE_SOURCES})
+	list(APPEND RAVEN_SCRIPT_CORE_SOURCES_ABSOLUTE "${CMAKE_CURRENT_SOURCE_DIR}/${source}")
+endforeach()
+set(RAVEN_SCRIPT_SOURCES
+	${RAVEN_SCRIPT_CORE_SOURCES}
+	src/script/script_raven.h
+	src/script/script_raven.c
 )
 
 set(RAVEN_DEFINITIONS "")
@@ -280,12 +331,6 @@ else()
 	list(APPEND RAVEN_LIBRARIES Threads::Threads)
 	# libm, and libdl for loading the Vulkan library at run time
 	list(APPEND RAVEN_LIBRARIES m ${CMAKE_DL_LIBS})
-endif()
-if(APPLE)
-	# the system language (core/locale.c) comes from CoreFoundation, with any platform: the Cocoa one pulls it in on macOS,
-	# the null platform (headless runs, iOS for now) does not
-	find_library(RAVEN_COREFOUNDATION_FRAMEWORK CoreFoundation REQUIRED)
-	list(APPEND RAVEN_LIBRARIES ${RAVEN_COREFOUNDATION_FRAMEWORK})
 endif()
 
 # window system
@@ -328,38 +373,64 @@ elseif(RAVEN_PLATFORM_SELECTED STREQUAL "cocoa")
 	if(NOT APPLE)
 		message(FATAL_ERROR "Raven: the cocoa platform is only available on macOS")
 	endif()
-	list(APPEND RAVEN_PLATFORM_SOURCES src/platform/cocoa/cocoa_platform.m)
+	list(APPEND RAVEN_PLATFORM_SOURCES src/platform/cocoa/cocoa_platform.m src/platform/cocoa/cocoa_print.m)
 	list(APPEND RAVEN_DEFINITIONS RAVEN_PLATFORM_COCOA)
 	find_library(RAVEN_APPKIT_FRAMEWORK AppKit)
 	find_library(RAVEN_QUARTZCORE_FRAMEWORK QuartzCore)
 	find_library(RAVEN_METAL_FRAMEWORK Metal)
-	if(NOT RAVEN_APPKIT_FRAMEWORK OR NOT RAVEN_QUARTZCORE_FRAMEWORK OR NOT RAVEN_METAL_FRAMEWORK)
-		message(FATAL_ERROR "Raven: Cocoa builds require the AppKit, QuartzCore and Metal frameworks")
+	# (the notifications of Rnotification_show)
+	find_library(RAVEN_USERNOTIFICATIONS_FRAMEWORK UserNotifications)
+	if(NOT RAVEN_APPKIT_FRAMEWORK OR NOT RAVEN_QUARTZCORE_FRAMEWORK OR NOT RAVEN_METAL_FRAMEWORK OR NOT RAVEN_USERNOTIFICATIONS_FRAMEWORK)
+		message(FATAL_ERROR "Raven: Cocoa builds require the AppKit, QuartzCore, Metal and UserNotifications frameworks")
 	endif()
-	list(APPEND RAVEN_LIBRARIES ${RAVEN_APPKIT_FRAMEWORK} ${RAVEN_QUARTZCORE_FRAMEWORK} ${RAVEN_METAL_FRAMEWORK})
+	list(APPEND RAVEN_LIBRARIES ${RAVEN_APPKIT_FRAMEWORK} ${RAVEN_QUARTZCORE_FRAMEWORK} ${RAVEN_METAL_FRAMEWORK}
+		${RAVEN_USERNOTIFICATIONS_FRAMEWORK})
 elseif(RAVEN_PLATFORM_SELECTED STREQUAL "uikit")
-	if(NOT IOS)
-		message(FATAL_ERROR "Raven: the uikit platform is for iOS (-DCMAKE_SYSTEM_NAME=iOS)")
+	if(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
+		message(FATAL_ERROR "Raven: the uikit platform is only available on iOS (CMAKE_SYSTEM_NAME=iOS)")
 	endif()
 	list(APPEND RAVEN_PLATFORM_SOURCES src/platform/uikit/uikit_platform.m)
+	set_source_files_properties(src/platform/uikit/uikit_platform.m PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
 	list(APPEND RAVEN_DEFINITIONS RAVEN_PLATFORM_UIKIT)
 	find_library(RAVEN_UIKIT_FRAMEWORK UIKit)
 	find_library(RAVEN_QUARTZCORE_FRAMEWORK QuartzCore)
+	find_library(RAVEN_METAL_FRAMEWORK Metal)
+	# the fonts of the system: CoreText finds them and draws the color emoji (render/font_system.c)
+	find_library(RAVEN_CORETEXT_FRAMEWORK CoreText)
 	find_library(RAVEN_COREGRAPHICS_FRAMEWORK CoreGraphics)
-	if(NOT RAVEN_UIKIT_FRAMEWORK OR NOT RAVEN_QUARTZCORE_FRAMEWORK OR NOT RAVEN_COREGRAPHICS_FRAMEWORK)
-		message(FATAL_ERROR "Raven: iOS builds require the UIKit, QuartzCore and CoreGraphics frameworks")
+	if(NOT RAVEN_UIKIT_FRAMEWORK OR NOT RAVEN_QUARTZCORE_FRAMEWORK OR NOT RAVEN_METAL_FRAMEWORK OR
+		NOT RAVEN_CORETEXT_FRAMEWORK OR NOT RAVEN_COREGRAPHICS_FRAMEWORK)
+		message(FATAL_ERROR "Raven: UIKit builds require the UIKit, QuartzCore, Metal, CoreText and CoreGraphics frameworks")
 	endif()
-	list(APPEND RAVEN_LIBRARIES ${RAVEN_UIKIT_FRAMEWORK} ${RAVEN_QUARTZCORE_FRAMEWORK} ${RAVEN_COREGRAPHICS_FRAMEWORK})
-elseif(RAVEN_PLATFORM_SELECTED STREQUAL "web")
-	if(NOT EMSCRIPTEN)
-		message(FATAL_ERROR "Raven: the web platform needs Emscripten (emcmake cmake ...)")
+	list(APPEND RAVEN_LIBRARIES ${RAVEN_UIKIT_FRAMEWORK} ${RAVEN_QUARTZCORE_FRAMEWORK} ${RAVEN_METAL_FRAMEWORK}
+		${RAVEN_CORETEXT_FRAMEWORK} ${RAVEN_COREGRAPHICS_FRAMEWORK})
+elseif(RAVEN_PLATFORM_SELECTED STREQUAL "emscripten")
+    if(NOT EMSCRIPTEN)
+        message(FATAL_ERROR "The emscripten platform requires the Emscripten toolchain")
+    endif()
+    list(APPEND RAVEN_PLATFORM_SOURCES src/platform/emscripten/emscripten_platform.c
+        src/platform/emscripten/emscripten_services.c
+        src/platform/emscripten/emscripten_accessibility.c)
+    list(APPEND RAVEN_DEFINITIONS RAVEN_PLATFORM_EMSCRIPTEN)
+elseif(RAVEN_PLATFORM_SELECTED STREQUAL "android")
+	if(NOT CMAKE_SYSTEM_NAME STREQUAL "Android")
+		message(FATAL_ERROR "Raven: the android platform requires the Android NDK toolchain")
 	endif()
-	list(APPEND RAVEN_PLATFORM_SOURCES src/platform/web/web_platform.c)
-	# EM_JS needs the GNU dialect of C
-	set_source_files_properties(src/platform/web/web_platform.c PROPERTIES COMPILE_OPTIONS "-std=gnu11")
-	list(APPEND RAVEN_DEFINITIONS RAVEN_PLATFORM_WEB)
+	# NativeActivity through android_native_app_glue (compiled by the application)
+	list(APPEND RAVEN_PLATFORM_SOURCES src/platform/android/android_platform.c)
+	list(APPEND RAVEN_DEFINITIONS RAVEN_PLATFORM_ANDROID)
+	list(APPEND RAVEN_LIBRARIES android log)
+	set(RAVEN_ANDROID_GLUE_DIR "${CMAKE_ANDROID_NDK}/sources/android/native_app_glue")
 elseif(NOT RAVEN_PLATFORM_SELECTED STREQUAL "null")
-	message(FATAL_ERROR "Raven: unknown RAVEN_PLATFORM '${RAVEN_PLATFORM_SELECTED}' (expected auto, win32, x11, cocoa, uikit, web or null)")
+	message(FATAL_ERROR "Raven: unknown RAVEN_PLATFORM '${RAVEN_PLATFORM_SELECTED}' (expected auto, win32, x11, cocoa, uikit, emscripten, android or null)")
+endif()
+
+if(RAVEN_BACKEND_WEBGL)
+    if(NOT EMSCRIPTEN)
+        message(FATAL_ERROR "The WebGL backend requires Emscripten")
+    endif()
+    list(APPEND RAVEN_RENDER_SOURCES src/render/webgl/webgl_backend.c)
+    list(APPEND RAVEN_DEFINITIONS RAVEN_BACKEND_WEBGL_ENABLED)
 endif()
 
 # Vulkan backend: only the headers are needed, the library is loaded at run time
@@ -396,63 +467,29 @@ if(RAVEN_BACKEND_VULKAN)
 	endif()
 endif()
 
-# Sokol backend: sokol_gfx.h is compiled into the library (third_party/sokol); the graphics API is chosen here
-if(RAVEN_BACKEND_SOKOL)
-	set(RAVEN_SOKOL_API_SELECTED "${RAVEN_SOKOL_API}")
-	if(RAVEN_SOKOL_API_SELECTED STREQUAL "auto")
-		if(APPLE)
-			set(RAVEN_SOKOL_API_SELECTED "metal")
-		elseif(EMSCRIPTEN)
-			set(RAVEN_SOKOL_API_SELECTED "gles3")
-		elseif(WIN32)
-			message(FATAL_ERROR "Raven: the Sokol backend has no graphics API for this platform yet (docs/SOKOL_BACKEND_PLAN.md)")
-		else()
-			set(RAVEN_SOKOL_API_SELECTED "gles3")
-		endif()
+# Metal backend: nothing to install, the shaders are compiled at run time from their sources
+if(RAVEN_BACKEND_METAL)
+	if(NOT APPLE)
+		message(FATAL_ERROR "The Metal backend is only available on macOS and iOS")
 	endif()
-	list(APPEND RAVEN_RENDER_SOURCES
-		src/render/sokol/sg_backend.c
-		src/render/sokol/sg_backend.h
-		src/render/sokol/sg_glass.c
-		src/render/sokol/sg_pipeline.c
-		src/render/sokol/sg_prefix.h
-		src/render/sokol/sg_texture.c
+	set(RAVEN_METAL_SOURCES
+		src/render/metal/metal_backend.m
+		src/render/metal/metal_pipeline.m
+		src/render/metal/metal_texture.m
+		src/render/metal/metal_frame.m
 	)
-	if(RAVEN_SOKOL_API_SELECTED STREQUAL "gles3" AND EMSCRIPTEN)
-		# WebGL 2 through the GLES3 headers of Emscripten, context of the canvas (sg_web.c)
-		list(APPEND RAVEN_RENDER_SOURCES src/render/sokol/sg_web.c src/render/sokol/sg_gl.c src/render/sokol/sg_impl.c)
-		list(APPEND RAVEN_DEFINITIONS RAVEN_SOKOL_GLES3)
-		set(RAVEN_WEBGL2_LINK_OPTIONS -sMIN_WEBGL_VERSION=2 -sMAX_WEBGL_VERSION=2)
-	elseif(RAVEN_SOKOL_API_SELECTED STREQUAL "gles3")
-		find_path(RAVEN_EGL_INCLUDE_DIR EGL/egl.h)
-		find_path(RAVEN_GLES_INCLUDE_DIR GLES3/gl3.h)
-		find_library(RAVEN_EGL_LIBRARY EGL)
-		find_library(RAVEN_GLES_LIBRARY NAMES GLESv2 GLESv3)
-		if(NOT RAVEN_EGL_INCLUDE_DIR OR NOT RAVEN_GLES_INCLUDE_DIR OR NOT RAVEN_EGL_LIBRARY OR NOT RAVEN_GLES_LIBRARY)
-			message(FATAL_ERROR "Raven: the Sokol backend (gles3) needs the EGL and GLESv2 development files (Debian: libegl-dev libgles-dev; Fedora: mesa-libEGL-devel mesa-libGLES-devel)")
-		endif()
-		list(APPEND RAVEN_RENDER_SOURCES src/render/sokol/sg_egl.c src/render/sokol/sg_gl.c src/render/sokol/sg_impl.c)
-		list(APPEND RAVEN_DEFINITIONS RAVEN_SOKOL_GLES3)
-		list(APPEND RAVEN_LIBRARIES ${RAVEN_EGL_LIBRARY} ${RAVEN_GLES_LIBRARY})
-	elseif(RAVEN_SOKOL_API_SELECTED STREQUAL "metal")
-		if(NOT APPLE)
-			message(FATAL_ERROR "Raven: RAVEN_SOKOL_API=metal is only available on macOS and iOS")
-		endif()
-		find_library(RAVEN_FOUNDATION_FRAMEWORK Foundation)
-		find_library(RAVEN_METAL_FRAMEWORK Metal)
-		find_library(RAVEN_QUARTZCORE_FRAMEWORK QuartzCore)
-		if(NOT RAVEN_FOUNDATION_FRAMEWORK OR NOT RAVEN_METAL_FRAMEWORK OR NOT RAVEN_QUARTZCORE_FRAMEWORK)
-			message(FATAL_ERROR "Raven: the Sokol backend (metal) needs the Foundation, Metal and QuartzCore frameworks")
-		endif()
-		# sokol_gfx with Metal is Objective-C; both files are written for ARC
-		list(APPEND RAVEN_RENDER_SOURCES src/render/sokol/sg_metal.m src/render/sokol/sg_impl.m)
-		set_source_files_properties(src/render/sokol/sg_metal.m src/render/sokol/sg_impl.m PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
-		list(APPEND RAVEN_DEFINITIONS RAVEN_SOKOL_METAL)
-		list(APPEND RAVEN_LIBRARIES ${RAVEN_FOUNDATION_FRAMEWORK} ${RAVEN_METAL_FRAMEWORK} ${RAVEN_QUARTZCORE_FRAMEWORK})
-	else()
-		message(FATAL_ERROR "Raven: unknown RAVEN_SOKOL_API '${RAVEN_SOKOL_API_SELECTED}' (expected auto, gles3 or metal)")
+	list(APPEND RAVEN_RENDER_SOURCES ${RAVEN_METAL_SOURCES}
+		src/render/metal/metal_backend.h
+		src/render/metal/generated/shaders.h)
+	set_source_files_properties(${RAVEN_METAL_SOURCES} PROPERTIES COMPILE_OPTIONS "-fobjc-arc;-Wno-overlength-strings")
+	find_library(RAVEN_METAL_FRAMEWORK Metal)
+	find_library(RAVEN_QUARTZCORE_FRAMEWORK QuartzCore)
+	find_library(RAVEN_FOUNDATION_FRAMEWORK Foundation)
+	if(NOT RAVEN_METAL_FRAMEWORK OR NOT RAVEN_QUARTZCORE_FRAMEWORK OR NOT RAVEN_FOUNDATION_FRAMEWORK)
+		message(FATAL_ERROR "Raven: the Metal backend requires the Metal, QuartzCore and Foundation frameworks")
 	endif()
-	list(APPEND RAVEN_DEFINITIONS RAVEN_BACKEND_SOKOL_ENABLED)
+	list(APPEND RAVEN_LIBRARIES ${RAVEN_METAL_FRAMEWORK} ${RAVEN_QUARTZCORE_FRAMEWORK} ${RAVEN_FOUNDATION_FRAMEWORK})
+	list(APPEND RAVEN_DEFINITIONS RAVEN_BACKEND_METAL_ENABLED)
 endif()
 
 if(RAVEN_WITH_SVG)
@@ -503,10 +540,11 @@ target_sources(raven PRIVATE
 	${RAVEN_WIDGET_SOURCES}
 	${RAVEN_WIDGETS_SOURCES}
 	${RAVEN_XML_SOURCES}
+	${RAVEN_SCRIPT_SOURCES}
 )
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" FILES
 	${RAVEN_PUBLIC_HEADERS} ${RAVEN_CORE_SOURCES} ${RAVEN_PLATFORM_SOURCES} ${RAVEN_RENDER_SOURCES}
-	${RAVEN_WIDGET_SOURCES} ${RAVEN_WIDGETS_SOURCES} ${RAVEN_XML_SOURCES})
+	${RAVEN_WIDGET_SOURCES} ${RAVEN_WIDGETS_SOURCES} ${RAVEN_XML_SOURCES} ${RAVEN_SCRIPT_SOURCES})
 
 target_include_directories(raven
 	PUBLIC
@@ -527,6 +565,17 @@ set_target_properties(raven PROPERTIES
 	SOVERSION ${PROJECT_VERSION_MAJOR}
 )
 raven_set_compiler_options(raven)
+if(EMSCRIPTEN)
+    set_target_properties(raven PROPERTIES C_EXTENSIONS ON)
+    target_compile_options(raven PRIVATE -Wno-overlength-strings -Wno-dollar-in-identifier-extension
+        -Wno-variadic-macro-arguments-omitted
+        -Wno-gnu-zero-variadic-macro-arguments)
+    target_compile_definitions(raven PRIVATE _POSIX_C_SOURCE=200809L)
+    target_link_options(raven PUBLIC
+        "-sMIN_WEBGL_VERSION=2" "-sMAX_WEBGL_VERSION=2"
+        "-sEXPORTED_FUNCTIONS=['_main','_malloc','_free']" "-lidbfs.js" "-sFETCH=1" "-sALLOW_MEMORY_GROWTH=1" "-sENVIRONMENT=web"
+        "-sEXPORTED_RUNTIME_METHODS=['ccall','UTF8ToString']")
+endif()
 
 if(MINGW AND RAVEN_BUILD_SHARED)
 	# the DLL is raven.dll, as with Visual C++ (libraven.dll.a is what programs link with),
@@ -538,14 +587,12 @@ endif()
 if(RAVEN_PLATFORM_SELECTED STREQUAL "x11")
 	target_include_directories(raven PRIVATE ${X11_INCLUDE_DIR})
 endif()
+if(RAVEN_PLATFORM_SELECTED STREQUAL "android")
+	# SYSTEM: the NDK's header is not held to Raven's warnings (app_dummy() has no prototype, -Wstrict-prototypes)
+	target_include_directories(raven SYSTEM PRIVATE ${RAVEN_ANDROID_GLUE_DIR})
+endif()
 if(RAVEN_BACKEND_VULKAN)
 	target_include_directories(raven PRIVATE ${RAVEN_VULKAN_INCLUDE_DIR})
-endif()
-if(RAVEN_WEBGL2_LINK_OPTIONS)
-	target_link_options(raven INTERFACE ${RAVEN_WEBGL2_LINK_OPTIONS})
-endif()
-if(RAVEN_BACKEND_SOKOL AND RAVEN_SOKOL_API_SELECTED STREQUAL "gles3" AND NOT EMSCRIPTEN)
-	target_include_directories(raven PRIVATE ${RAVEN_EGL_INCLUDE_DIR} ${RAVEN_GLES_INCLUDE_DIR})
 endif()
 
 if(RAVEN_PLATFORM_SELECTED STREQUAL "x11" AND RAVEN_WAYLAND)
@@ -553,7 +600,7 @@ if(RAVEN_PLATFORM_SELECTED STREQUAL "x11" AND RAVEN_WAYLAND)
 else()
 	set(RAVEN_PLATFORM_SUMMARY "${RAVEN_PLATFORM_SELECTED}")
 endif()
-message(STATUS "Raven ${PROJECT_VERSION}: platform=${RAVEN_PLATFORM_SUMMARY} vulkan=${RAVEN_BACKEND_VULKAN} sokol=${RAVEN_BACKEND_SOKOL} shared=${RAVEN_BUILD_SHARED}")
+message(STATUS "Raven ${PROJECT_VERSION}: platform=${RAVEN_PLATFORM_SUMMARY} vulkan=${RAVEN_BACKEND_VULKAN} metal=${RAVEN_BACKEND_METAL} webgl=${RAVEN_BACKEND_WEBGL} shared=${RAVEN_BUILD_SHARED}")
 
 # ---------------------------------------------------------------------------
 #  Examples, tools and tests
@@ -578,6 +625,11 @@ endif()
 # (after enable_testing: the designer has a test of its own)
 if(RAVEN_BUILD_TOOLS)
 	add_subdirectory(tools)
+endif()
+
+# the installer of the SDK (its own CMakeLists: it is C++)
+if(RAVEN_BUILD_INSTALLER)
+	add_subdirectory(tools/installer)
 endif()
 
 # ---------------------------------------------------------------------------
@@ -643,4 +695,36 @@ if(RAVEN_IS_TOP_LEVEL)
 		set(CPACK_GENERATOR "TGZ")
 	endif()
 	include(CPack)
+endif()
+
+if(EMSCRIPTEN)
+    option(RAVEN_BUILD_WEB_TESTS "Build browser integration fixtures" OFF)
+    if(RAVEN_BUILD_WEB_TESTS)
+        if(CMAKE_RUNTIME_OUTPUT_DIRECTORY)
+            set(RAVEN_WEB_TEST_OUTPUT "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
+        else()
+            set(RAVEN_WEB_TEST_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/bin")
+        endif()
+        add_executable(raven_web_test tests/web/app.c)
+        target_link_libraries(raven_web_test PRIVATE raven::raven)
+        set_target_properties(raven_web_test PROPERTIES SUFFIX ".html"
+            RUNTIME_OUTPUT_DIRECTORY "${RAVEN_WEB_TEST_OUTPUT}")
+        configure_file(tests/web/asset.svg "${RAVEN_WEB_TEST_OUTPUT}/asset.svg" COPYONLY)
+        raven_set_compiler_options(raven_web_test)
+        target_link_options(raven_web_test PRIVATE
+            "--shell-file=${CMAKE_CURRENT_SOURCE_DIR}/examples/web/shell.html")
+        set_property(TARGET raven_web_test APPEND PROPERTY LINK_DEPENDS
+            "${CMAKE_CURRENT_SOURCE_DIR}/examples/web/shell.html")
+    endif()
+    option(RAVEN_BUILD_WEB_EXAMPLE "Build the standalone browser example" ${RAVEN_IS_TOP_LEVEL})
+    if(RAVEN_BUILD_WEB_EXAMPLE)
+        add_executable(raven_web_demo examples/web/main.c)
+        target_link_libraries(raven_web_demo PRIVATE raven::raven)
+        raven_set_compiler_options(raven_web_demo)
+        set_target_properties(raven_web_demo PROPERTIES SUFFIX ".html")
+        target_link_options(raven_web_demo PRIVATE
+            "--shell-file=${CMAKE_CURRENT_SOURCE_DIR}/examples/web/shell.html")
+        set_property(TARGET raven_web_demo APPEND PROPERTY LINK_DEPENDS
+            "${CMAKE_CURRENT_SOURCE_DIR}/examples/web/shell.html")
+    endif()
 endif()

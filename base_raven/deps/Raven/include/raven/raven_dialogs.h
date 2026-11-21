@@ -129,6 +129,21 @@ extern "C" {
 	/** @brief Shows a dialog and waits until it closes. Returns its result. */
 	RAVEN_API int Rdialog_run(Rid window, Rid content);
 
+	/**
+	 * @brief Shows a widget as a popup over the window, its top-left corner at
+	 * x, y (window coordinates; moved to stay inside the window): a search box,
+	 * a palette, a picker. Unlike a dialog it does not block the window: a click
+	 * outside it, or Escape, closes it. The application keeps the content (it is
+	 * not deleted on close) and can open it again. `closed` (may be NULL) is
+	 * called when it closes, with the result given to Rpopup_close (0 when dismissed).
+	 * The content draws its own background (a Border with a Background...).
+	 */
+	RAVEN_API void Rpopup_open(Rid window, Rid content, float x, float y, RDialogClosedCallback closed, void* user_data);
+	/** @brief Closes the popup that contains a widget (the content or anything inside it). */
+	RAVEN_API void Rpopup_close(Rid widget, int result);
+	/** @return R_TRUE while the widget is shown as a popup. */
+	RAVEN_API int Rpopup_is_open(Rid content);
+
 	/** @return R_TRUE while a dialog is shown in the window. */
 	RAVEN_API int Rwindow_has_dialog(Rid window);
 
@@ -178,6 +193,9 @@ extern "C" {
 
 	/**
 	 * Whole files, with UTF-8 paths on every platform.
+	 * On Android and iOS, a relative path that names no file held in memory
+	 * and no file on disk is read from the app's package (the APK's assets/,
+	 * the bundle's resources), and so is every file Raven reads by its path.
 	 * @return Rfile_read: the content followed by a '\0', to release with
 	 * Rmemory_free; NULL when the file cannot be read. `size` may be NULL.
 	 */
@@ -246,9 +264,12 @@ extern "C" {
 	 * named after the application (RInitDesc::app_name).
 	 *
 	 * Where the system shows nothing (no notification server, the null
-	 * platform, an executable outside of a bundle on macOS), the fallback
-	 * given to Rnotification_set_fallback is called instead, for instance to
-	 * show the message in a Toast of the main window.
+	 * platform, an executable outside of a bundle on macOS, notifications
+	 * the user turned off), the fallback given to Rnotification_set_fallback
+	 * is called instead, for instance to show the message in a Toast of the
+	 * main window. On macOS the first notification asks the user for the
+	 * permission: if the answer is no, that notification goes to the fallback
+	 * once the answer is given, after Rnotification_show returned R_TRUE.
 	 * ============================================================================ */
 
 	/** @return R_TRUE when the system took the notification. */
@@ -258,6 +279,15 @@ extern "C" {
 	typedef void (*RNotificationFallback)(const char* title, const char* body, RNotificationUrgency urgency, void* user_data);
 	/** @brief Called with the notifications the system could not show; NULL: none. */
 	RAVEN_API void Rnotification_set_fallback(RNotificationFallback callback, void* user_data);
+	typedef void (*RNotificationClickedCallback)(void* user_data);
+	/**
+	 * @brief Called when the user clicks a notification of Rnotification_show
+	 * (on the UI thread; the application may then bring its window to the
+	 * front: the system lets it). It is the last one shown that was clicked:
+	 * the application remembers what it was about. NULL: none.
+	 * Windows and macOS (elsewhere it is never called).
+	 */
+	RAVEN_API void Rnotification_set_clicked_callback(RNotificationClickedCallback callback, void* user_data);
 
 #ifdef __cplusplus
 } /* extern "C" */

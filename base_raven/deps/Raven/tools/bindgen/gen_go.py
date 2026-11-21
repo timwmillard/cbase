@@ -48,7 +48,7 @@ HEADER = '''// Package raven is Raven for Go.
 // are bridged, which is what an interface described in XML needs:
 // ActionBind, ErrorSetCallback and TimerStart.
 //
-//	raven.Init(raven.R_BACKEND_VULKAN)
+//	raven.Init(raven.R_BACKEND_DEFAULT)
 //	raven.WindowCreateFromXml(`<Window Title="Hi"><Button Text="Quit" OnClicked="quit"/></Window>`)
 //	raven.ActionBind("quit", func(sender raven.ID, action string) { raven.Quit(0) })
 //	for raven.WaitFrame(-1.0) != 0 {
@@ -296,7 +296,7 @@ func main() {
 	if test {
 		started = raven.InitHeadless()
 	} else {
-		started = raven.Init(raven.R_BACKEND_VULKAN) != 0
+		started = raven.Init(raven.R_BACKEND_DEFAULT) != 0
 	}
 	if !started {
 		fmt.Println("cannot start Raven")
@@ -434,6 +434,14 @@ def generate(api):
                 params.append("%s string" % n)
                 setup.append("%s_ := C.CString(%s)" % (n, n))
                 setup.append("defer C.free(unsafe.Pointer(%s_))" % n)
+                args.append("%s_" % n)
+            elif kind == "carray":
+                # numbers the function reads: the address of the first one (nil or empty: NULL)
+                params.append("%s []%s" % (n, GO[detail]))
+                setup.append("var %s_ *%s" % (n, CGO[detail]))
+                setup.append("if len(%s) > 0 {" % n)
+                setup.append("\t%s_ = (*%s)(unsafe.Pointer(&%s[0]))" % (n, CGO[detail], n))
+                setup.append("}")
                 args.append("%s_" % n)
             elif kind == "scalar":
                 params.append("%s %s" % (n, GO[detail]))

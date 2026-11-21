@@ -1,22 +1,41 @@
 /**
- * Raven tests - rendering with the Vulkan backend.
+ * Raven tests - rendering with the Vulkan or the Metal backend.
  *
  * Frames are rendered for real and read back with Rwindow_capture, then a
  * few well-chosen pixels are compared with the expected colors. The test
- * first tries to run without a window system (VK_EXT_headless_surface), then
- * with a real window. Without a usable Vulkan driver it is skipped (exit
- * code 77), so that the test suite still passes on machines without a GPU.
+ * first tries to run without a window system (VK_EXT_headless_surface, or an
+ * offscreen texture with Metal), then with a real window. Without a usable
+ * driver it is skipped (exit code 77), so that the test suite still passes on
+ * machines without a GPU.
+ *
+ * RAVEN_BACKEND=vulkan (the default) or metal picks the backend; ctest runs
+ * test_render with Vulkan and test_render_metal with Metal. The tests of the
+ * Vulkan API only exist when the library has the Vulkan backend
+ * (RAVEN_TEST_VULKAN=1, given by CMake).
  */
 
 #include "test.h"
+#include "color_font.h"
 
 #include <stdlib.h>
 
 #if !defined(_WIN32)
 #include <unistd.h>
 #endif
+#if defined(__APPLE__)
+#include <objc/message.h>
+#include <objc/runtime.h>
+#endif
 
 #define SKIP_CODE 77
+
+#ifndef RAVEN_TEST_VULKAN
+#define RAVEN_TEST_VULKAN 1
+#endif
+
+/* the backend under test */
+static RBackend g_backend = R_BACKEND_VULKAN;
+static const char* g_backend_name = "Vulkan";
 
 static uint8_t* g_pixels;
 static int g_width, g_height;
@@ -253,6 +272,185 @@ static void test_mipmaps(void) {
 	Rwindow_destroy(window);
 }
 
+/*
+ * A window that keeps the GPU busy: three images at the top (named small,
+ * medium and large, 60 x 60 at x = 20, 100 and 180), and below them 24 panes
+ * of glass over a red and a blue half. Each frame blurs what is behind every
+ * pane, so the GPU is still drawing a frame when the next one is recorded.
+ */
+static Rid busy_window(void) {
+	return window_from(
+		"<Window Width=\"1180\" Height=\"700\" ClearColor=\"#000000\">"
+		"  <Overlay>"
+		"    <Canvas>"
+		"      <Image Name=\"small\" Slot.Position=\"20,20\" Slot.Size=\"60,60\"/>"
+		"      <Image Name=\"medium\" Slot.Position=\"100,20\" Slot.Size=\"60,60\"/>"
+		"      <Image Name=\"large\" Slot.Position=\"180,20\" Slot.Size=\"60,60\"/>"
+		"      <Border Slot.Position=\"0,100\" Slot.Size=\"590,600\" Background=\"#FF0000\" CornerRadius=\"0\" BorderWidth=\"0\"/>"
+		"      <Border Slot.Position=\"590,100\" Slot.Size=\"590,600\" Background=\"#0000FF\" CornerRadius=\"0\" BorderWidth=\"0\"/>"
+		"      <Border Slot.Position=\"10,100\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"205,100\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"400,100\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"595,100\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"790,100\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"985,100\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"10,250\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"205,250\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"400,250\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"595,250\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"790,250\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"985,250\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"10,400\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"205,400\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"400,400\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"595,400\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"790,400\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"985,400\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"10,550\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"205,550\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"400,550\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"595,550\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"790,550\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"985,550\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"    </Canvas>"
+		"  </Overlay>"
+		"</Window>");
+}
+
+/* A square of `size` x `size` RGBA8 pixels of one color. */
+static uint8_t* solid_pixels(int size, int r, int g, int b) {
+	uint8_t* pixels = (uint8_t*)malloc((size_t)size * (size_t)size * 4);
+	int i;
+	for (i = 0; i < size * size; i++) {
+		pixels[i * 4 + 0] = (uint8_t)r;
+		pixels[i * 4 + 1] = (uint8_t)g;
+		pixels[i * 4 + 2] = (uint8_t)b;
+		pixels[i * 4 + 3] = 255;
+	}
+	return pixels;
+}
+
+/* The color of texture `texture` in the set of pixels `set`: no two of them alike. */
+static void streaming_color(int set, int texture, int rgb[3]) {
+	rgb[0] = 40 + set * 50;
+	rgb[1] = 30 + texture * 90;
+	rgb[2] = 250 - set * 40 - texture * 20;
+}
+
+static void test_texture_streaming(void) {
+	/*
+	 * Three textures are given new pixels at every frame, as a video or a
+	 * view drawn by the application is. One frame brings 9.3 MB of them:
+	 * more than the staging buffer of the backend holds (8 MiB once it grew
+	 * for the largest), so they go to the GPU in two batches. The glass of
+	 * the window keeps the GPU at the frame before while the pixels of the
+	 * next one arrive, and the frames that are not read back follow each
+	 * other as fast as they are drawn.
+	 *
+	 * Each frame read back must show the pixels it was given: not those of
+	 * the frame before (a batch sent after the frame), and not those of
+	 * another texture (pixels written over while the GPU still reads them).
+	 */
+	enum { TEXTURES = 3, SETS = 4, FRAMES = 96, READ_EVERY = 6 };
+	static const int sizes[TEXTURES] = { 256, 900, 1200 };
+	static const char* const names[TEXTURES] = { "small", "medium", "large" };
+	Rid window = busy_window();
+	uint8_t* pixels[SETS][TEXTURES];
+	Rid textures[TEXTURES];
+	int vsync = Rget_vsync();
+	int rgb[3], set, i, frame;
+
+	/* (a real window would wait for the screen at every frame, and the GPU with it) */
+	Rset_vsync(R_FALSE);
+
+	/* (made beforehand: nothing but the uploads stands between two frames) */
+	for (set = 0; set < SETS; set++) {
+		for (i = 0; i < TEXTURES; i++) {
+			streaming_color(set, i, rgb);
+			pixels[set][i] = solid_pixels(sizes[i], rgb[0], rgb[1], rgb[2]);
+		}
+	}
+	for (i = 0; i < TEXTURES; i++) {
+		Rid image = Rwidget_find(window, names[i]);
+		textures[i] = Rtexture_create_from_pixels(pixels[0][i], sizes[i], sizes[i]);
+		CHECK(Rtexture_is_valid(textures[i]));
+		Rimage_set_texture(image, textures[i]);
+		Rimage_set_stretch(image, R_STRETCH_FILL);
+	}
+
+	for (frame = 1; frame <= FRAMES; frame++) {
+		set = frame % SETS;
+		for (i = 0; i < TEXTURES; i++) Rtexture_update(textures[i], pixels[set][i], sizes[i], sizes[i]);
+		if (frame % READ_EVERY != 0) {
+			Rdraw_frame();
+			continue;
+		}
+		capture(window);
+		for (i = 0; i < TEXTURES; i++) {
+			streaming_color(set, i, rgb);
+			CHECK_PIXEL(50 + i * 80, 50, rgb[0], rgb[1], rgb[2]);
+		}
+	}
+
+	/*
+	 * The large texture is deleted right after its pixels were given: the
+	 * batch that copies them is not sent yet (it goes before the next frame),
+	 * so it is sent, and finished, before the image goes. The two others
+	 * still show theirs.
+	 */
+	set = (FRAMES + 1) % SETS;
+	for (i = 0; i < TEXTURES; i++) Rtexture_update(textures[i], pixels[set][i], sizes[i], sizes[i]);
+	Rtexture_destroy(textures[2]);
+	capture(window);
+	streaming_color(set, 0, rgb);
+	CHECK_PIXEL(50, 50, rgb[0], rgb[1], rgb[2]);
+	streaming_color(set, 1, rgb);
+	CHECK_PIXEL(130, 50, rgb[0], rgb[1], rgb[2]);
+	CHECK_PIXEL(210, 50, 0, 0, 0);
+
+	/* another size: the texture is made again, and the pixels given right after are the ones shown */
+	Rtexture_update(textures[0], pixels[1][1], sizes[1], sizes[1]);
+	Rtexture_update(textures[0], pixels[2][1], sizes[1], sizes[1]);
+	capture(window);
+	streaming_color(2, 1, rgb);
+	CHECK_PIXEL(50, 50, rgb[0], rgb[1], rgb[2]);
+
+	/*
+	 * Pixels larger than the staging buffer right after a frame: the buffer
+	 * is made again, larger, while the GPU may still be copying from it for
+	 * that frame (the GPU is kept busy first). It must not go before the
+	 * copy is done: the medium texture shows the pixels it was given.
+	 */
+	{
+		enum { GROWN = 1500 }; /* 9 MB: more than the 8 MiB the buffer grew to above */
+		uint8_t* huge = solid_pixels(GROWN, 200, 180, 20);
+		Rid grown;
+		for (i = 0; i < 2; i++) {
+			Rtexture_update(textures[1], pixels[i][1], sizes[1], sizes[1]);
+			Rdraw_frame();
+		}
+		Rtexture_update(textures[1], pixels[3][1], sizes[1], sizes[1]);
+		Rdraw_frame();
+		grown = Rtexture_create_from_pixels(huge, GROWN, GROWN);
+		CHECK(Rtexture_is_valid(grown));
+		Rimage_set_texture(Rwidget_find(window, names[2]), grown);
+		capture(window);
+		streaming_color(3, 1, rgb);
+		CHECK_PIXEL(130, 50, rgb[0], rgb[1], rgb[2]);
+		CHECK_PIXEL(210, 50, 200, 180, 20);
+		Rtexture_destroy(grown);
+		free(huge);
+	}
+
+	Rtexture_destroy(textures[0]);
+	Rtexture_destroy(textures[1]);
+	for (set = 0; set < SETS; set++) {
+		for (i = 0; i < TEXTURES; i++) free(pixels[set][i]);
+	}
+	Rwindow_destroy(window);
+	Rset_vsync(vsync);
+}
+
 static void test_text(void) {
 	Rid window = window_from(
 		"<Window Width=\"300\" Height=\"120\" ClearColor=\"#000000\">"
@@ -278,6 +476,68 @@ static void test_text(void) {
 	/* three capital letters of 40 units cover a few hundred pixels, all inside the label */
 	CHECK(lit_inside > 300);
 	CHECK(lit_outside == 0);
+	Rwindow_destroy(window);
+}
+
+/* Pixels of the frame near a color (each channel within 40), and pixels of strong colors (not gray). */
+static void count_colors(int r, int g, int b, int* near, int* colorful) {
+	size_t i;
+	*near = *colorful = 0;
+	for (i = 0; g_pixels && i < (size_t)g_width * (size_t)g_height; i++) {
+		const uint8_t* p = g_pixels + i * 4;
+		int high = p[0] > p[1] ? (p[0] > p[2] ? p[0] : p[2]) : (p[1] > p[2] ? p[1] : p[2]);
+		int low = p[0] < p[1] ? (p[0] < p[2] ? p[0] : p[2]) : (p[1] < p[2] ? p[1] : p[2]);
+		if (abs(p[0] - r) < 40 && abs(p[1] - g) < 40 && abs(p[2] - b) < 40) (*near)++;
+		if (high - low > 100) (*colorful)++;
+	}
+}
+
+/* Color bitmaps (sbix, CBLC / CBDT): drawn in their own colors, whatever the color of the text; and the emoji of the system. */
+static void test_color_glyphs(void) {
+	static const char* const emoji_fonts[] = {
+		"/System/Library/Fonts/Apple Color Emoji.ttc",
+		"/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
+		"/usr/share/fonts/noto/NotoColorEmoji.ttf",
+		"/usr/share/fonts/google-noto-color-emoji-fonts/NotoColorEmoji.ttf",
+	};
+	Rid window = window_from(
+		"<Window Width=\"300\" Height=\"120\" ClearColor=\"#FFFFFF\">"
+		"  <Canvas><Label Name=\"label\" Slot.Position=\"20,20\" TextSize=\"32\" Color=\"#000000\">A</Label></Canvas>"
+		"</Window>");
+	Rid label = Rwidget_find(window, "label");
+	int cbdt, near, colorful;
+	size_t i;
+	for (cbdt = 0; cbdt < 2; cbdt++) {
+		size_t size = 0;
+		uint8_t* data = color_font_make(cbdt, cbdt ? 0 : 230, cbdt ? 200 : 30, cbdt ? 40 : 30, &size);
+		Rid font = Rfont_create((const char*)data, size);
+		CHECK(font != R_INVALID_ID);
+		Rlabel_set_font(label, font);
+		capture(window);
+		count_colors(cbdt ? 0 : 230, cbdt ? 200 : 30, cbdt ? 40 : 30, &near, &colorful);
+		/* a square of one em (32 units), scaled from its strike of 16 pixels */
+		CHECK(near > (int)(32 * 32 * 0.8f * g_scale * g_scale));
+		CHECK(near < (int)(34 * 34 * g_scale * g_scale));
+		Rlabel_set_font(label, R_INVALID_ID);
+		Rfont_destroy(font);
+		free(data);
+	}
+	for (i = 0; i < sizeof(emoji_fonts) / sizeof(emoji_fonts[0]); i++) {
+		FILE* file = fopen(emoji_fonts[i], "rb");
+		if (file) {
+			fclose(file);
+			break;
+		}
+	}
+	if (i == sizeof(emoji_fonts) / sizeof(emoji_fonts[0])) {
+		printf("  (no color emoji font of the system: skipped)\n");
+	} else {
+		/* U+1F600, from the fonts of the system: yellow, not the black of the text */
+		Rlabel_set_text(label, "\xF0\x9F\x98\x80");
+		capture(window);
+		count_colors(0, 0, 0, &near, &colorful);
+		CHECK(colorful > (int)(200 * g_scale * g_scale));
+	}
 	Rwindow_destroy(window);
 }
 
@@ -322,19 +582,33 @@ static void test_custom_drawing(void) {
 	Rwindow_destroy(window);
 }
 
-/* An effect of the application as a bundle (tools/rfx/rfx.py): one file for every backend (Vulkan: its SPIR-V; Sokol: its source). */
-static void test_effect_bundle(void) {
+static void paint_shadow(Rid widget, RPainter* painter, float width, float height, void* user_data) {
+	(void)widget; (void)width; (void)height; (void)user_data;
+	Rdraw_shadow(painter, 40, 40, 80, 60, 12, 12, 1, 1, 1, 1);
+	Rdraw_rect(painter, 40, 40, 80, 60, 12, 0, 0, 1, 1);
+	Rdraw_push_clip_rect(painter, 160, 20, 50, 100);
+	Rdraw_shadow(painter, 180, 40, 60, 60, 0, 12, 1, 0, 0, 1);
+	Rdraw_pop_clip_rect(painter);
+}
+
+static void test_custom_shadow(void) {
 	Rid window = window_from(
-		"<Window Width=\"200\" Height=\"100\" ClearColor=\"#000000\">"
-		"  <Canvas>"
-		"    <Border Slot.Position=\"10,10\" Slot.Size=\"60,60\" Effect=\"" RAVEN_TEST_DATA "/solid.rfx\" EffectColor=\"#FF0000\"/>"
-		"    <Border Slot.Position=\"110,10\" Slot.Size=\"60,60\" Effect=\"" RAVEN_TEST_DATA "/solid.rfx\" EffectColor=\"#00FF00\"/>"
-		"  </Canvas>"
-		"</Window>");
+		"<Window Width=\"300\" Height=\"160\" ClearColor=\"#000000\"><Custom Name=\"custom\"/></Window>");
+	Rid custom = Rwidget_find(window, "custom");
+	int near_value, far_value;
+	Rcustom_set_paint_callback(custom, paint_shadow, NULL);
 	capture(window);
-	CHECK_PIXEL(40, 40, 255, 0, 0);
-	CHECK_PIXEL(140, 40, 0, 255, 0);
-	CHECK_PIXEL(90, 40, 0, 0, 0);
+	CHECK_PIXEL(80, 70, 0, 0, 255); /* solid shape covers the shadow beneath it */
+	CHECK_PIXEL(10, 70, 0, 0, 0);
+	far_value = pixel_at(30, 70)[0];
+	near_value = pixel_at(35, 70)[0];
+	CHECK(far_value > 0 && near_value > far_value && near_value < 255); /* soft falloff outside the shape */
+	CHECK_PIXEL(200, 70, 255, 0, 0);
+	CHECK_PIXEL(215, 70, 0, 0, 0); /* clipped even inside the underlying shadow shape */
+	Rwidget_set_opacity(custom, 0.5f);
+	capture(window);
+	CHECK_PIXEL(200, 70, 128, 0, 0);
+	CHECK(pixel_at(35, 70)[0] > 0 && pixel_at(35, 70)[0] < near_value);
 	Rwindow_destroy(window);
 }
 
@@ -389,8 +663,9 @@ static void test_glass(void) {
 	CHECK(p[0] > 235 && p[1] < 25 && p[2] < 25);
 	p = pixel_at(270, 100);
 	CHECK(p[2] > 235 && p[0] < 25 && p[1] < 25);
-	/* the rim catches the light: a bright line on the upper edge */
-	p = pixel_at(130, 50.5f);
+	/* the rim catches the light: a bright line on the upper edge, about one pixel of the screen
+	   thick, so the first row of pixels under the edge (50.5 at 100%, 50.25 at 200%) */
+	p = pixel_at(130, 50.0f + 0.5f / g_scale);
 	CHECK(p[1] > 40);
 
 	/* without the glass, the frame is drawn straight to the window again */
@@ -603,8 +878,8 @@ static void test_node_graph(void) {
 		"<Window Width=\"520\" Height=\"220\" ClearColor=\"#000000\">"
 		"  <NodeGraph Name=\"g\" Grid=\"false\" Flow=\"false\" Color.Input=\"#000000\">"
 		"    <Type Name=\"signal\" Color=\"#00FF00\"/>"
-		"    <Node Name=\"a\" Title=\"A\" X=\"30\" Y=\"40\" Color=\"#FF0000\"><Output Name=\"o\" Label=\"Out\" Type=\"signal\"/></Node>"
-		"    <Node Name=\"b\" Title=\"B\" X=\"330\" Y=\"40\" Color=\"#0000FF\"><Input Name=\"i\" Label=\"In\" Type=\"signal\"/></Node>"
+		"    <Node Name=\"a\" Title=\"A\" X=\"30\" Y=\"40\" Color=\"#FF0000\" HeaderStyle=\"Solid\"><Output Name=\"o\" Label=\"Out\" Type=\"signal\"/></Node>"
+		"    <Node Name=\"b\" Title=\"B\" X=\"330\" Y=\"40\" Color=\"#0000FF\" HeaderStyle=\"Solid\"><Input Name=\"i\" Label=\"In\" Type=\"signal\"/></Node>"
 		"    <Link From=\"a.o\" To=\"b.i\"/>"
 		"  </NodeGraph>"
 		"</Window>");
@@ -615,7 +890,7 @@ static void test_node_graph(void) {
 
 	capture(window);
 	Rnode_graph_get_node_size(graph, Rnode_graph_find_node(graph, "a"), &w, &h);
-	/* the headers wear the colors of their nodes */
+	/* the headers wear the colors of their nodes (filled with it: HeaderStyle="Solid") */
 	p = pixel_at(30.0f + w - 20.0f, 40.0f + 15.0f);
 	CHECK(p[0] > 150 && p[1] < 90 && p[2] < 90);
 	p = pixel_at(330.0f + w - 20.0f, 40.0f + 15.0f);
@@ -679,10 +954,8 @@ static void test_viewport(void) {
 	}
 	texture = Rtexture_create_from_pixels(pixels, 8, 8);
 	Rviewport_set_texture(texture_viewport, texture);
-	/* callback mode (a backend without R_BACKEND_CAP_CALLBACK skips the callback: nothing to check) */
-	if (Rbackend_get_caps() & R_BACKEND_CAP_CALLBACK) {
-		Rviewport_set_draw_callback(Rwidget_find(window, "callback"), on_viewport_draw, NULL);
-	}
+	/* callback mode */
+	Rviewport_set_draw_callback(Rwidget_find(window, "callback"), on_viewport_draw, NULL);
 
 	capture(window);
 	CHECK_PIXEL(60, 60, 0, 200, 100);
@@ -690,21 +963,63 @@ static void test_viewport(void) {
 	Rviewport_get_pixel_size(texture_viewport, &width, &height);
 	CHECK(width == (int)(100 * g_scale) && height == (int)(100 * g_scale));
 
-	if (Rbackend_get_caps() & R_BACKEND_CAP_CALLBACK) {
-		/* the capture waited for the frame, so the callback already ran on the render thread */
-		CHECK(g_callback_calls > 0);
-		CHECK(g_callback_info.backend == Rget_backend());
-		CHECK(g_callback_info.window == window);
+	/* the capture waited for the frame, so the callback already ran on the render thread */
+	CHECK(g_callback_calls > 0);
+	CHECK(g_callback_info.backend == g_backend);
+	CHECK(g_callback_info.window == window);
+	if (g_backend == R_BACKEND_METAL) {
+		/* the encoder of the frame, its command buffer and the device; MTLPixelFormatBGRA8Unorm (80) */
+		CHECK(g_callback_info.metal_encoder != NULL && g_callback_info.metal_command_buffer != NULL && g_callback_info.metal_device != NULL);
+		CHECK(g_callback_info.command_buffer == NULL && g_callback_info.render_pass == NULL);
+		CHECK(g_callback_info.color_format == 80);
+	} else {
 		CHECK(g_callback_info.command_buffer != NULL && g_callback_info.render_pass != NULL);
-		/* (at a fractional scale, 150 * 1.25 = 187.5: the place on the pixel grid may be either pixel) */
-		CHECK(abs(g_callback_info.x - (int)floorf(150 * g_scale + 0.5f)) <= 1 && abs(g_callback_info.y - (int)floorf(20 * g_scale + 0.5f)) <= 1);
-		CHECK(abs(g_callback_info.width - (int)floorf(120 * g_scale + 0.5f)) <= 1 && abs(g_callback_info.height - (int)floorf(80 * g_scale + 0.5f)) <= 1);
-		CHECK(g_callback_info.clip_width == g_callback_info.width);
+		CHECK(g_callback_info.metal_encoder == NULL);
 	}
+	/* (at a fractional scale, 150 * 1.25 = 187.5: the place on the pixel grid may be either pixel) */
+	CHECK(abs(g_callback_info.x - (int)floorf(150 * g_scale + 0.5f)) <= 1 && abs(g_callback_info.y - (int)floorf(20 * g_scale + 0.5f)) <= 1);
+	CHECK(abs(g_callback_info.width - (int)floorf(120 * g_scale + 0.5f)) <= 1 && abs(g_callback_info.height - (int)floorf(80 * g_scale + 0.5f)) <= 1);
+	CHECK(g_callback_info.clip_width == g_callback_info.width);
 
 	Rtexture_destroy(texture);
 	Rwindow_destroy(window);
 }
+
+#if defined(__APPLE__)
+/*
+ * Render thread. Changes the state Metal keeps in the encoder (not in the
+ * pipeline): front faces culled, triangles drawn as lines. Plain C, so through
+ * the Objective-C runtime.
+ */
+static void on_viewport_encoder_state(const RViewportDrawInfo* info, void* user_data) {
+	id encoder = (id)info->metal_encoder;
+	(void)user_data;
+	if (!encoder) return;
+	/* MTLCullModeFront = 1, MTLTriangleFillModeLines = 1, MTLWindingCounterClockwise = 1 */
+	((void (*)(id, SEL, unsigned long))objc_msgSend)(encoder, sel_registerName("setCullMode:"), 1ul);
+	((void (*)(id, SEL, unsigned long))objc_msgSend)(encoder, sel_registerName("setTriangleFillMode:"), 1ul);
+	((void (*)(id, SEL, unsigned long))objc_msgSend)(encoder, sel_registerName("setFrontFacingWinding:"), 1ul);
+}
+
+/* What a viewport callback leaves in the encoder does not change the UI drawn after it (Metal). */
+static void test_viewport_encoder_state(void) {
+	Rid window = window_from(
+		"<Window Width=\"200\" Height=\"100\" ClearColor=\"#000000\">"
+		"  <Canvas>"
+		"    <Viewport Name=\"view\" Slot.Position=\"0,0\" Slot.Size=\"50,50\"/>"
+		"    <Border Slot.Position=\"100,20\" Slot.Size=\"80,60\" Background=\"#FF0000\" CornerRadius=\"0\" BorderWidth=\"0\"/>"
+		"  </Canvas>"
+		"</Window>");
+	Rviewport_set_draw_callback(Rwidget_find(window, "view"), on_viewport_encoder_state, NULL);
+	capture(window);
+	/* the panel is filled, not culled away nor drawn as lines */
+	CHECK_PIXEL(140, 50, 255, 0, 0);
+	CHECK_PIXEL(110, 30, 255, 0, 0);
+	CHECK_PIXEL(170, 70, 255, 0, 0);
+	CHECK_PIXEL(190, 90, 0, 0, 0);
+	Rwindow_destroy(window);
+}
+#endif
 
 static void test_windows(void) {
 	Rid first = window_from("<Window Width=\"200\" Height=\"100\" ClearColor=\"#FF0000\"/>");
@@ -750,16 +1065,11 @@ static void test_windows(void) {
 	Rwindow_destroy(first);
 }
 
-#if defined(RAVEN_TEST_HAS_VULKAN)
+#if RAVEN_TEST_VULKAN
 static void test_vulkan_api(void) {
 	Ruint count = 0;
 	const char* const* names;
 	Rid shared;
-
-	if (Rget_backend() != R_BACKEND_VULKAN) {
-		printf("  skipped: raven_vulkan.h needs the Vulkan backend\n");
-		return;
-	}
 
 	CHECK(Rvulkan_get_instance() != NULL);
 	CHECK(Rvulkan_get_physical_device() != NULL);
@@ -791,17 +1101,11 @@ static void test_vulkan_api(void) {
 	}
 }
 
-#else
-static void test_vulkan_api(void) {
-	printf("  skipped: this build has no Vulkan backend\n");
-}
-#endif
-
 /* ---------------------------------------------------------------------------
  *  Start-up
  * ------------------------------------------------------------------------- */
 
-#if defined(RAVEN_TEST_HAS_VULKAN)
+/* Starts the Vulkan backend and checks that a window can really be rendered. */
 /* ---------------------------------------------------------------------------
  *  Loss of the device
  * ------------------------------------------------------------------------- */
@@ -916,9 +1220,67 @@ static void test_device_lost(void) {
 	free(g_big_pixels);
 	g_big_pixels = NULL;
 }
-#endif /* RAVEN_TEST_HAS_VULKAN */
 
-/* Starts the backend (RAVEN_BACKEND, Vulkan by default) and checks that a window can really be rendered. */
+#endif /* RAVEN_TEST_VULKAN */
+
+/* ---------------------------------------------------------------------------
+ *  Effects and windows seen through (every backend)
+ * ------------------------------------------------------------------------- */
+
+static int differs(const uint8_t* a, const uint8_t* b) {
+	return abs((int)a[0] - (int)b[0]) + abs((int)a[1] - (int)b[1]) + abs((int)a[2] - (int)b[2]);
+}
+
+/* The built-in effects are drawn by the backend (Metal has its own ports of them), inside their rounded rectangle. */
+static void test_effects(void) {
+	Rid window = window_from(
+		"<Window Width=\"300\" Height=\"140\" ClearColor=\"#000000\">"
+		"  <Canvas>"
+		"    <Border Slot.Position=\"10,10\" Slot.Size=\"120,120\" Effect=\"mesh\" CornerRadius=\"30\"/>"
+		"    <Border Slot.Position=\"160,10\" Slot.Size=\"120,120\" Effect=\"plasma\" CornerRadius=\"30\"/>"
+		"  </Canvas>"
+		"</Window>");
+	uint8_t a[4], b[4];
+	capture(window);
+	/* the corners of the rounded rectangles are left alone */
+	CHECK_PIXEL(12, 12, 0, 0, 0);
+	CHECK_PIXEL(128, 128, 0, 0, 0);
+	CHECK_PIXEL(162, 12, 0, 0, 0);
+	/* the mesh gradient: lit, and of another color in each corner */
+	memcpy(a, pixel_at(35, 35), 4);
+	memcpy(b, pixel_at(105, 105), 4);
+	CHECK(a[0] + a[1] + a[2] > 150 && b[0] + b[1] + b[2] > 150);
+	CHECK(differs(a, b) > 60);
+	/* the plasma too */
+	memcpy(a, pixel_at(185, 35), 4);
+	memcpy(b, pixel_at(255, 105), 4);
+	CHECK(a[0] + a[1] + a[2] > 150 || b[0] + b[1] + b[2] > 150);
+	CHECK(differs(a, b) > 60);
+	Rwindow_destroy(window);
+}
+
+/* A window seen through: the clear color is transparent, and a native backdrop erases what is behind it. */
+static void test_transparent_window(void) {
+	Rid window = window_from(
+		"<Window Width=\"300\" Height=\"200\" Transparent=\"true\" Borderless=\"true\">"
+		"  <Canvas>"
+		"    <Border Slot.Position=\"10,10\" Slot.Size=\"280,180\" Background=\"#FF0000\" CornerRadius=\"0\" BorderWidth=\"0\"/>"
+		"    <BackgroundBlur Slot.Position=\"60,60\" Slot.Size=\"120,80\" Style=\"Native\" CornerRadius=\"0\" Tint=\"#00000000\" Shadow=\"0\"/>"
+		"  </Canvas>"
+		"</Window>");
+	capture(window);
+	/* outside the panel: nothing drawn, transparent */
+	CHECK(pixel_at(4, 4)[3] < 8);
+	/* the panel: opaque red */
+	CHECK_PIXEL(30, 30, 255, 0, 0);
+	CHECK(pixel_at(30, 30)[3] > 247);
+	/* the native backdrop: a hole through the red, so that the system shows (and blurs) the desktop */
+	CHECK(pixel_at(120, 100)[3] < 8);
+	CHECK(pixel_at(120, 100)[0] < 8);
+	CHECK(pixel_at(200, 100)[3] > 247);
+	Rwindow_destroy(window);
+}
+
 static int start(int headless) {
 	RInitDesc desc;
 	Rid probe;
@@ -926,8 +1288,7 @@ static int start(int headless) {
 	int width = 0, height = 0;
 
 	memset(&desc, 0, sizeof(desc));
-	/* 0: the backend named by RAVEN_BACKEND (vulkan, sokol), Vulkan when it is not set */
-	desc.backend = 0;
+	desc.backend = g_backend;
 	desc.headless = headless;
 	desc.app_name = "test_render";
 	Rerror_set_callback(test_error_callback);
@@ -973,17 +1334,103 @@ static void test_windows_look(void) {
 	Rtheme_apply(R_THEME_DARK);
 }
 
+/* The pixels of a label that are mostly red, and those mostly green. */
+static void count_label_colors(Rid window, const char* name, int* red, int* green) {
+	float x, y, w, h, lx, ly;
+	*red = *green = 0;
+	Rwidget_get_rect(Rwidget_find(window, name), &x, &y, &w, &h);
+	for (ly = y; ly < y + h; ly += 1.0f) {
+		for (lx = x; lx < x + w; lx += 1.0f) {
+			const uint8_t* p = pixel_at(lx, ly);
+			if (p[0] > 160 && p[1] < 80) (*red)++;
+			if (p[1] > 160 && p[0] < 80) (*green)++;
+		}
+	}
+}
+
+static void test_label_foreground(void) {
+	/* the Foreground of a style colors a label, but a color given to the label itself comes first, as with Text */
+	static const char theme[] =
+		"<Theme Name=\"label-foreground\" Base=\"Dark\">"
+		"  <Style Widget=\"Label\" Class=\"fg\" Foreground=\"#FF0000\"/>"
+		"  <Style Widget=\"Label\" Class=\"text\" Text=\"#FF0000\"/>"
+		"</Theme>";
+	const char* name = Rtheme_load_from_memory(theme, strlen(theme));
+	Rid window;
+	int red, green;
+
+	CHECK(name != NULL);
+	Rtheme_use(name);
+	window = window_from(
+		"<Window Width=\"300\" Height=\"240\" ClearColor=\"#000000\">"
+		"  <VBox>"
+		"    <Label Name=\"styled\" Class=\"fg\" TextSize=\"40\">Raven</Label>"
+		"    <Label Name=\"own\" Class=\"fg\" Color=\"#00FF00\" TextSize=\"40\">Raven</Label>"
+		"    <Label Name=\"text\" Class=\"text\" Color=\"#00FF00\" TextSize=\"40\">Raven</Label>"
+		"  </VBox>"
+		"</Window>");
+	capture(window);
+	count_label_colors(window, "styled", &red, &green);
+	CHECK(red > 300 && green == 0);
+	count_label_colors(window, "own", &red, &green);
+	CHECK(green > 300 && red == 0);
+	count_label_colors(window, "text", &red, &green);
+	CHECK(green > 300 && red == 0);
+
+	/* given in code, after the window is made */
+	Rlabel_set_color(Rwidget_find(window, "styled"), 0.0f, 1.0f, 0.0f, 1.0f);
+	capture(window);
+	count_label_colors(window, "styled", &red, &green);
+	CHECK(green > 300 && red == 0);
+
+	Rwindow_destroy(window);
+	Rtheme_apply(R_THEME_DARK);
+}
+
+#if defined(__APPLE__)
+static void on_default_draw(const RViewportDrawInfo* info, void* user_data) {
+	*(RBackend*)user_data = info->backend;
+}
+
+/* On macOS and iOS, backend 0 is Metal when the library has it. */
+static void test_default_backend(void) {
+	RInitDesc desc;
+	RBackend used = R_BACKEND_DEFAULT;
+	Rid window;
+	uint8_t* pixels;
+	int width = 0, height = 0;
+
+	memset(&desc, 0, sizeof(desc));
+	desc.headless = !getenv("RAVEN_TEST_WINDOWED");
+	desc.app_name = "test_render";
+	CHECK(Rinit_ex(&desc));
+	window = window_from("<Window Width=\"100\" Height=\"100\"><Viewport Name=\"view\"/></Window>");
+	Rviewport_set_draw_callback(Rwidget_find(window, "view"), on_default_draw, &used);
+	pixels = Rwindow_capture(window, &width, &height);
+	CHECK(pixels != NULL);
+	Rpixels_free(pixels);
+	CHECK(used == R_BACKEND_METAL);
+	Rwindow_destroy(window);
+	Rshutdown();
+}
+#endif
+
 int main(void) {
-	/* failures to start are expected on machines without Vulkan: stay quiet */
+	/* failures to start are expected on machines without a GPU: stay quiet */
 	/* RAVEN_TEST_WINDOWED=1 forces a real window, to test the window system path too */
 	int windowed = getenv("RAVEN_TEST_WINDOWED") != NULL;
+	const char* backend = getenv("RAVEN_BACKEND");
+	if (backend && strcmp(backend, "metal") == 0) {
+		g_backend = R_BACKEND_METAL;
+		g_backend_name = "Metal";
+	}
 	EXPECT_ERRORS_BEGIN();
 	if (!windowed && start(R_TRUE)) {
-		printf("test_render: %s backend without a window system (headless surface)\n", Rget_backend() == R_BACKEND_SOKOL ? "Sokol" : "Vulkan");
+		printf("test_render: %s without a window system (headless surface)\n", g_backend_name);
 	} else if (start(R_FALSE)) {
-		printf("test_render: %s backend with a real window\n", Rget_backend() == R_BACKEND_SOKOL ? "Sokol" : "Vulkan");
+		printf("test_render: %s with a real window\n", g_backend_name);
 	} else {
-		printf("test_render: SKIPPED, no usable graphics driver or display\n");
+		printf("test_render: SKIPPED, no usable %s driver or display\n", g_backend_name);
 		return SKIP_CODE;
 	}
 	g_test_expect_errors = 0;
@@ -994,28 +1441,41 @@ int main(void) {
 	RUN(test_clipping);
 	RUN(test_textures);
 	RUN(test_mipmaps);
+	RUN(test_texture_streaming);
 	RUN(test_text);
+	RUN(test_color_glyphs);
+	RUN(test_label_foreground);
 	RUN(test_custom_drawing);
+	RUN(test_custom_shadow);
 	RUN(test_glass);
 	RUN(test_windows_look);
 	RUN(test_glass_theme);
 	RUN(test_materials);
-	RUN(test_effect_bundle);
 	RUN(test_curves_and_blur);
 	RUN(test_node_graph);
 	RUN(test_viewport);
-	RUN(test_windows);
-	RUN(test_vulkan_api);
-#if defined(RAVEN_TEST_HAS_VULKAN)
-	/* (a Vulkan device is lost: what the other backends have no way to do) */
-	if (Rget_backend() == R_BACKEND_VULKAN) RUN(test_device_lost);
+#if defined(__APPLE__)
+	if (g_backend == R_BACKEND_METAL) RUN(test_viewport_encoder_state);
 #endif
-	/* everything works on the new device */
-	RUN(test_shapes);
-	RUN(test_text);
-	RUN(test_glass);
+	RUN(test_windows);
+	RUN(test_effects);
+	RUN(test_transparent_window);
+#if RAVEN_TEST_VULKAN
+	if (g_backend == R_BACKEND_VULKAN) {
+		RUN(test_vulkan_api);
+		RUN(test_device_lost);
+		/* everything works on the new device */
+		RUN(test_shapes);
+		RUN(test_text);
+		RUN(test_glass);
+	}
+#endif
 
 	Rpixels_free(g_pixels);
+	g_pixels = NULL;
 	Rshutdown();
-	return test_report("test_render");
+#if defined(__APPLE__)
+	if (g_backend == R_BACKEND_METAL) RUN(test_default_backend);
+#endif
+	return test_report(g_backend == R_BACKEND_METAL ? "test_render_metal" : "test_render");
 }

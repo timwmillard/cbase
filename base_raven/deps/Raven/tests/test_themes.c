@@ -40,13 +40,8 @@ static unsigned theme_color(RColorRole role) {
 }
 
 static const char* temp_dir(void) {
-	static char dir[512];
 	const char* temp = getenv("TMPDIR") ? getenv("TMPDIR") : (getenv("TEMP") ? getenv("TEMP") : "/tmp");
-	size_t length;
-	snprintf(dir, sizeof(dir), "%s", temp);
-	/* (macOS ends TMPDIR with a slash: a path with "//" is not matched by the live reload of the XML loader) */
-	for (length = strlen(dir); length > 1 && (dir[length - 1] == '/' || dir[length - 1] == '\\'); length--) dir[length - 1] = '\0';
-	return dir;
+	return temp;
 }
 
 static void write_text(const char* path, const char* text) {
@@ -125,6 +120,20 @@ static void test_styles(void) {
 	CHECK_STR(Rwidget_get_class(plain), "");
 	Rwidget_set_attribute(plain, "Class", "danger");
 	CHECK(color_of(plain, R_COLOR_ACCENT) == 0x0000FFFFu);
+
+	/* between equals, the last one set wins, also when it had been set before (#119) */
+	{
+		Rid order = Rbutton_create("Order");
+		Rwidget_set_class(order, "first second");
+		Rtheme_set_style_color(NULL, "first", R_COLOR_ACCENT, 1.0f, 0.0f, 0.0f, 1.0f);
+		Rtheme_set_style_color(NULL, "second", R_COLOR_ACCENT, 0.0f, 0.0f, 1.0f, 1.0f);
+		CHECK(color_of(order, R_COLOR_ACCENT) == 0x0000FFFFu);
+		Rtheme_set_style_color(NULL, "first", R_COLOR_ACCENT, 0.0f, 1.0f, 0.0f, 1.0f);
+		CHECK(color_of(order, R_COLOR_ACCENT) == 0x00FF00FFu);
+		Rtheme_set_style_color(NULL, "second", R_COLOR_ACCENT, 0.0f, 0.0f, 1.0f, 1.0f);
+		CHECK(color_of(order, R_COLOR_ACCENT) == 0x0000FFFFu);
+		Rwidget_destroy(order);
+	}
 
 	Rtheme_clear_styles();
 	CHECK(color_of(danger, R_COLOR_ACCENT) == accent);
@@ -345,6 +354,19 @@ static void test_theme_files(void) {
 	CHECK(Rtheme_load("/no/such/folder/theme.xml") == NULL);
 	EXPECT_ERRORS_END(4);
 
+	/* between equals, the last one written wins, also when its selector was written before (#119) */
+	name = Rtheme_load_from_memory(
+		"<Theme Name=\"Order\" Look=\"RavenDark\">"
+		"<Style Class=\"danger\" Accent=\"#FF0000\"/>"
+		"<Style Class=\"big\" Accent=\"#0000FF\"/>"
+		"<Style Class=\"danger\" Accent=\"#00FF00\"/>"
+		"</Theme>", 0);
+	CHECK_STR(name, "Order");
+	CHECK(Rtheme_use("Order"));
+	Rwidget_set_class(b, "danger big");
+	CHECK(color_of(b, R_COLOR_ACCENT) == 0x00FF00FFu);
+	Rwidget_set_class(b, "danger");
+
 	Rtheme_apply(R_THEME_DARK);
 	Rwindow_destroy(window);
 }
@@ -406,7 +428,9 @@ static void test_live_reload(void) {
 		"<Include Source=\"raven_test_live_part.xml\"/>"
 		"<LiveCard Name=\"card\" Title=\"A\"/>"
 		"</VBox><Shortcut Keys=\"Ctrl+J\" Action=\"j\"/></Window>");
-	CHECK(Rxml_check_files() == 1);
+	/* (at least the file just written: on NTFS the new time of a file written just
+	 * before can show up late, and that file is then counted too) */
+	CHECK(Rxml_check_files() != 0);
 	CHECK(g_reloads == 1 && g_reload_ok);
 	CHECK_STR(g_reload_path, path);
 	CHECK_STR(Rwindow_get_title(window), "Two");
@@ -437,7 +461,7 @@ static void test_live_reload(void) {
 		"<Include Source=\"raven_test_live_part.xml\"/>"
 		"<LiveCard Name=\"card\" Title=\"A\"/>"
 		"</VBox></Window>");
-	CHECK(Rxml_check_files() == 1);
+	CHECK(Rxml_check_files() != 0);
 	CHECK(g_reloads == 2 && g_reload_ok);
 	CHECK(Rwidget_find(window, "go") == button);
 	CHECK(Rwidget_find(window, "title") == title);
@@ -467,14 +491,14 @@ static void test_live_reload(void) {
 	/* a file it includes changes */
 	extra = Rwidget_find(window, "part");
 	write_text(part, "<Label Name=\"part\">Part two</Label>");
-	CHECK(Rxml_check_files() == 1);
+	CHECK(Rxml_check_files() != 0);
 	CHECK(g_reloads == 3);
 	CHECK(Rwidget_find(window, "part") == extra);
 	CHECK_STR(Rlabel_get_text(extra), "Part two");
 
 	/* the file of a widget it uses changes */
 	write_text(library, "<Widgets><Widget Name=\"LiveCard\" Title=\"t\"><Border><Label Name=\"inner\" Text=\"new card {Title}\"/></Border></Widget></Widgets>");
-	CHECK(Rxml_check_files() == 1);
+	CHECK(Rxml_check_files() != 0);
 	CHECK_STR(Rlabel_get_text(Rwidget_find(window, "inner")), "new card A");
 	CHECK(Rwidget_find(window, "go") == button);
 
@@ -495,7 +519,7 @@ static void test_live_reload(void) {
 
 	/* and the next good one is taken */
 	write_text(path, "<Window Title=\"Three\" Width=\"400\" Height=\"300\"><HBox Name=\"box\"><Button Name=\"go\" Text=\"Again\"/></HBox></Window>");
-	CHECK(Rxml_check_files() == 1);
+	CHECK(Rxml_check_files() != 0);
 	CHECK(g_reload_ok);
 	CHECK_STR(Rwindow_get_title(window), "Three");
 	CHECK(!Rwidget_is_valid(button));
@@ -548,6 +572,41 @@ static void test_live_reload(void) {
 	remove(path);
 	remove(part);
 	remove(library);
+
+	/* a widget moved into a window of another theme takes the styles of that theme (#117) */
+	{
+		const char* app_xml =
+			"<Theme Name=\"MoveApp\" Look=\"RavenDark\">"
+			"<Style Widget=\"Button\" Accent=\"#FF0000\"/>"
+			"<Style Widget=\"Button\" State=\"Hovered\" Background=\"#00FF00\"/>"
+			"<Style Widget=\"Button\" State=\"Pressed\" Background=\"#0000FF\"/>"
+			"<Style Widget=\"Button\" State=\"Focused\" Background=\"#00FFFF\"/>"
+			"<Style Widget=\"Button\" Background=\"#FF00FF\"/>"
+			"</Theme>";
+		const char* plain_xml = "<Theme Name=\"MovePlain\" Look=\"RavenLight\"><Style Widget=\"Label\" FontSize=\"20\"/></Theme>";
+		const char* a_xml = "<Window Width=\"300\" Height=\"200\"><VBox><Button Name=\"b\" Text=\"Hello\"/></VBox></Window>";
+		const char* b_xml = "<Window Width=\"300\" Height=\"200\" Theme=\"MovePlain\"><VBox Name=\"box\"/></Window>";
+		Rid a, b, button, fresh;
+
+		CHECK(Rtheme_load_from_memory(app_xml, 0) != NULL);
+		CHECK(Rtheme_use("MoveApp"));
+		CHECK(Rtheme_load_from_memory(plain_xml, 0) != NULL);
+		a = Rwindow_create_from_xml(a_xml, strlen(a_xml));
+		b = Rwindow_create_from_xml(b_xml, strlen(b_xml));
+		button = Rwidget_find(a, "b");
+		Rdraw_frame();
+		CHECK(color_of(button, R_COLOR_ACCENT) == 0xFF0000FFu);
+		Rwidget_add_child(Rwidget_find(b, "box"), button);
+		fresh = Rbutton_create("Fresh");
+		Rwidget_add_child(Rwidget_find(b, "box"), fresh);
+		CHECK(color_of(fresh, R_COLOR_ACCENT) != 0xFF0000FFu);
+		CHECK(color_of(button, R_COLOR_ACCENT) == color_of(fresh, R_COLOR_ACCENT));
+		/* (painted with the rules of its new theme, not with indices into those of the old one) */
+		Rdraw_frame();
+		Rwindow_destroy(a);
+		Rwindow_destroy(b);
+		Rtheme_apply(R_THEME_DARK);
+	}
 }
 
 /* ---------------------------------------------------------------------------
@@ -599,8 +658,7 @@ static void test_looks(void) {
 #if defined(_WIN32)
 	CHECK_STR(Rtheme_get_name(), "WindowsLight");
 #elif defined(__APPLE__)
-	/* (Liquid Glass from macOS 26 on, the flat look before) */
-	CHECK(strcmp(Rtheme_get_name(), "MacOSLight") == 0 || strcmp(Rtheme_get_name(), "MacOSGlassLight") == 0);
+	CHECK_STR(Rtheme_get_name(), "MacOSLight");
 #else
 	CHECK_STR(Rtheme_get_name(), "GnomeLight");
 #endif
@@ -725,6 +783,32 @@ static void test_looks(void) {
 	Rlook_set(R_LOOK_RAVEN_DARK);
 	CHECK(Rtheme_get_font() == Rfont_get_default());
 	CHECK_STR(Rtheme_get_name(), "Dark");
+
+	/* what stays dark (the island) keeps the styles of a light theme too (#118) */
+	{
+		static const char* const themes[] = {
+			"<Theme Name=\"IslandDark\" Look=\"RavenDark\"><Style Class=\"danger\" Accent=\"#E02424\"/></Theme>",
+			"<Theme Name=\"IslandLight\" Look=\"RavenLight\"><Style Class=\"danger\" Accent=\"#E02424\"/></Theme>"
+		};
+		const char* island_xml =
+			"<Window Width=\"400\" Height=\"300\">"
+			"<Island><Button Name=\"in\" Class=\"danger\" Text=\"x\"/><Button Class=\"danger\" Text=\"Delete\"/></Island>"
+			"<VBox><Button Name=\"out\" Class=\"danger\" Text=\"Delete\"/></VBox></Window>";
+		size_t k;
+		for (k = 0; k < sizeof(themes) / sizeof(themes[0]); k++) {
+			Rid island_window;
+			name = Rtheme_load_from_memory(themes[k], 0);
+			CHECK(name != NULL);
+			CHECK(Rtheme_use(name));
+			CHECK(Rtheme_is_dark() == (k == 0));
+			island_window = Rwindow_create_from_xml(island_xml, strlen(island_xml));
+			Rdraw_frame();
+			CHECK(color_of(Rwidget_find(island_window, "out"), R_COLOR_ACCENT) == 0xE02424FFu);
+			CHECK(color_of(Rwidget_find(island_window, "in"), R_COLOR_ACCENT) == 0xE02424FFu);
+			Rwindow_destroy(island_window);
+		}
+		Rtheme_apply(R_THEME_DARK);
+	}
 }
 
 /* Captures of what is behind glass in the last frame of a window: 0 when nothing in it is glass. */

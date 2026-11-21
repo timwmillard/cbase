@@ -14,6 +14,17 @@
 struct rvn_widget_t;
 struct rvn_window_t;
 
+/**
+ * How deeply elements can be nested (the root is level 0). The reader and
+ * what walks a document go down one call per level: a document, which may
+ * come from anywhere, is refused past this (R_ERROR_XML) instead of
+ * overflowing the stack. A build can choose another limit
+ * (-DRVN_XML_MAX_DEPTH=...).
+ */
+#ifndef RVN_XML_MAX_DEPTH
+#define RVN_XML_MAX_DEPTH 256
+#endif
+
 typedef struct rvn_xml_attribute_t {
 	const char* name;
 	const char* value;
@@ -32,6 +43,13 @@ typedef struct rvn_xml_node_t {
 	/** Position of the opening tag in the source, starting at 1. */
 	int line;
 	int column;
+	/**
+	 * <Script> only: where its text starts in the source (the character after
+	 * the '>' of the opening tag). Its text is kept as written: not trimmed,
+	 * entities not decoded (see the reader).
+	 */
+	int text_line;
+	int text_column;
 	/**
 	 * Node of a public document (Rxml_document_...) this element was made
 	 * from, or 0. The widgets built from the element remember it.
@@ -53,11 +71,29 @@ typedef struct rvn_xml_document_t {
 	rvn_xml_node_t* prolog_last;
 	/** The text starts with an <?xml ...?> declaration. */
 	int has_declaration;
+	/**
+	 * The text the document was read from, or NULL. It belongs to the caller
+	 * of the parser and is only valid while that caller holds it: the build
+	 * that follows the parsing uses it (the excerpts of the diagnostics of
+	 * the scripts), nothing after.
+	 */
+	const char* source;
+	size_t source_size;
 	/** Filled when parsing fails. */
 	char error[160];
 	int error_line;
 	int error_column;
 } rvn_xml_document_t;
+
+/**
+ * The tag of the elements whose content is raw text, as in HTML: a <Script>
+ * holds Raven Script, where '<' and '&&' are written as they are. Its text
+ * runs to the first </Script> (case ignored, as the tag); it is not
+ * trimmed and its entities are not decoded. A CDATA section around the
+ * whole text is accepted too (and removed).
+ */
+#define RVN_XML_SCRIPT_TAG "Script"
+int rvn_xml_is_script(const char* tag);
 
 /** Parses `size` bytes of UTF-8. Returns R_FALSE and fills `error` on failure. */
 int  rvn_xml_parse(rvn_xml_document_t* document, const char* text, size_t size);

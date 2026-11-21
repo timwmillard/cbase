@@ -50,6 +50,8 @@ def rust_type(api, ctype):
         return "*const u8"
     if kind == "out":
         return "*mut %s" % (SCALAR[detail[1]] if detail[0] == "scalar" else detail[1])
+    if kind == "carray":
+        return "*const %s" % SCALAR[detail]
     if kind == "struct":
         return detail
     if kind == "struct_ptr":
@@ -80,7 +82,7 @@ LIB_RS = '''//! Raven for Rust.
 //!
 //! ```no_run
 //! use raven::*;
-//! unsafe { Rinit(R_BACKEND_VULKAN) };
+//! unsafe { Rinit(R_BACKEND_DEFAULT) };
 //! let _window = window_from_xml(r#"<Window Title="Hi"><Button Text="Quit" OnClicked="quit"/></Window>"#);
 //! action_bind("quit", |_, _| unsafe { Rquit(0) });
 //! while unsafe { Rwait_frame(-1.0) } != 0 {}
@@ -179,7 +181,7 @@ fn main() {
         let (libs, frameworks): (&[&str], &[&str]) = match target.as_str() {
             "windows" => (&["user32", "gdi32", "shell32", "comdlg32", "ole32"], &[]),
             "linux" => (&["X11", "dl", "pthread", "m"], &[]),
-            "macos" => (&["objc"], &["AppKit", "QuartzCore", "Metal", "Foundation", "CoreFoundation"]),
+            "macos" => (&["objc"], &["AppKit", "QuartzCore", "Metal", "UserNotifications", "Foundation", "CoreFoundation"]),
             _ => (&[], &[]),
         };
         for lib in libs {
@@ -242,7 +244,7 @@ fn main() {
     let test = std::env::args().any(|argument| argument == "--test");
     unsafe {
         let mut desc: RInitDesc = std::mem::zeroed();
-        desc.backend = if test { R_BACKEND_NULL } else { R_BACKEND_VULKAN };
+        desc.backend = if test { R_BACKEND_NULL } else { R_BACKEND_DEFAULT };
         desc.headless = test as i32;
         if Rinit_ex(&desc) == 0 {
             eprintln!("cannot start Raven");

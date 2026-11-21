@@ -77,7 +77,10 @@ int rvn_parse_float(const char* text, float* value) {
 int rvn_parse_int(const char* text, int* value) {
 	float number;
 	if (!rvn_parse_float(text, &number)) return R_FALSE;
-	*value = (int)(number < 0.0f ? number - 0.5f : number + 0.5f);
+	number = number < 0.0f ? number - 0.5f : number + 0.5f;
+	/* out of the range of an int, the conversion would be undefined */
+	if (!(number >= -2147483648.0f && number < 2147483648.0f)) return R_FALSE;
+	*value = (int)number;
 	return R_TRUE;
 }
 
@@ -309,13 +312,18 @@ static int rvn_widget_set_slot_attribute(rvn_widget_t* widget, const char* name,
 	} else if (RVN_ATTR("MaxSize")) {
 		if (!rvn_parse_float(value, &slot->max_size)) return R_FALSE;
 	} else if (RVN_ATTR("Column")) {
-		if (!rvn_parse_int(value, &slot->column) || slot->column < 0) return R_FALSE;
+		/* a rejected value leaves the slot as it is; the limits are those of Rslot_set_grid(_span) */
+		if (!rvn_parse_int(value, &count) || count < 0) return R_FALSE;
+		slot->column = rvn_clampi(count, 0, 4095);
 	} else if (RVN_ATTR("Row")) {
-		if (!rvn_parse_int(value, &slot->row) || slot->row < 0) return R_FALSE;
+		if (!rvn_parse_int(value, &count) || count < 0) return R_FALSE;
+		slot->row = rvn_clampi(count, 0, 4095);
 	} else if (RVN_ATTR("ColumnSpan")) {
-		if (!rvn_parse_int(value, &slot->column_span) || slot->column_span < 1) return R_FALSE;
+		if (!rvn_parse_int(value, &count) || count < 1) return R_FALSE;
+		slot->column_span = rvn_clampi(count, 1, 4096);
 	} else if (RVN_ATTR("RowSpan")) {
-		if (!rvn_parse_int(value, &slot->row_span) || slot->row_span < 1) return R_FALSE;
+		if (!rvn_parse_int(value, &count) || count < 1) return R_FALSE;
+		slot->row_span = rvn_clampi(count, 1, 4096);
 	} else if (RVN_ATTR("Anchors")) {
 		/* "x,y" pins the widget to a point, "minX,minY,maxX,maxY" stretches it */
 		count = rvn_parse_floats(value, values, 4);
@@ -459,7 +467,7 @@ int rvn_widget_set_base_attribute(rvn_widget_t* widget, const char* name, const 
 		else return R_FALSE;
 		Rwidget_set_direction(widget->id, direction);
 	} else if (RVN_ATTR("Tooltip")) {
-		rvn_str_set(&widget->tooltip, value[0] ? value : NULL);
+		Rwidget_set_tooltip(widget->id, value); /* (a label takes the hover then) */
 	} else if (RVN_ATTR("Cursor")) {
 		if (!rvn_parse_cursor(value, &widget->cursor)) return R_FALSE;
 	} else if (RVN_ATTR("Width")) {
@@ -482,11 +490,35 @@ int rvn_widget_set_base_attribute(rvn_widget_t* widget, const char* name, const 
 		rvn_widget_invalidate_layout(widget);
 	} else if (RVN_ATTR("Action") || RVN_ATTR("OnClicked") || RVN_ATTR("OnChanged") ||
 		RVN_ATTR("OnCommitted") || RVN_ATTR("OnActivated")) {
-		rvn_str_set(&widget->action, value[0] ? value : NULL);
+		char* action = rvn_action_name_normalize(value);
+		rvn_str_set(&widget->action, action && action[0] ? action : NULL);
+		rvn_free(action);
 	} else {
 		return R_FALSE;
 	}
 	return R_TRUE;
+}
+
+char* rvn_action_name_normalize(const char* value) {
+	/* OnClicked="app.quit()" names the same action as OnClicked="app.quit" (a reference, never a call):
+	   only a name made of identifiers and dots loses its "()", so "copy:a()" stays as written */
+	size_t length = value ? strlen(value) : 0, i;
+	size_t end = length;
+	while (end > 0 && (value[end - 1] == ' ' || value[end - 1] == '\t')) end--;
+	if (end >= 3 && value[end - 1] == ')' && value[end - 2] == '(') {
+		size_t name_end = end - 2;
+		int valid = name_end > 0;
+		while (name_end > 0 && (value[name_end - 1] == ' ' || value[name_end - 1] == '\t')) name_end--;
+		for (i = 0; i < name_end && valid; i++) {
+			char c = value[i];
+			int letter = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
+			int digit = c >= '0' && c <= '9';
+			if (c == '.') valid = i > 0 && i + 1 < name_end && value[i - 1] != '.';
+			else if (!letter && !(digit && i > 0 && value[i - 1] != '.')) valid = R_FALSE;
+		}
+		if (valid && name_end > 0) return rvn_strndup(value, name_end);
+	}
+	return rvn_strdup(value ? value : "");
 }
 
 int rvn_widget_set_attribute(rvn_widget_t* widget, const char* name, const char* value) {
@@ -502,10 +534,17 @@ int rvn_widget_set_attribute(rvn_widget_t* widget, const char* name, const char*
 }
 
 int Rwidget_set_attribute(Rid id, const char* name, const char* value) {
+	char* copy;
+	int ok;
 	RVN_WIDGET(widget, id, 0, R_FALSE);
 	if (!name || !value) {
 		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rwidget_set_attribute: NULL name or value");
 		return R_FALSE;
 	}
-	return rvn_widget_set_attribute(widget, name, value);
+	/* a copy: the value may be a string of the widget itself ("Items" from an item's text), which
+	 * the handler frees before it reads the value */
+	copy = rvn_strdup(value);
+	ok = rvn_widget_set_attribute(widget, name, copy);
+	rvn_free(copy);
+	return ok;
 }

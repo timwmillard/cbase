@@ -22,6 +22,8 @@
 static struct {
 	RNotificationFallback fallback;
 	void* fallback_user;
+	RNotificationClickedCallback clicked;
+	void* clicked_user;
 } g_notify;
 
 int Rnotification_show(const char* title, const char* body, RNotificationUrgency urgency) {
@@ -44,6 +46,24 @@ void Rnotification_set_fallback(RNotificationFallback callback, void* user_data)
 	RVN_API_GUARD_VOID();
 	g_notify.fallback = callback;
 	g_notify.fallback_user = user_data;
+}
+
+void Rnotification_set_clicked_callback(RNotificationClickedCallback callback, void* user_data) {
+	RVN_API_GUARD_VOID();
+	g_notify.clicked = callback;
+	g_notify.clicked_user = user_data;
+}
+
+void rvn_notification_clicked(void) {
+	/* (on macOS it comes from the main queue, which may run after Rshutdown) */
+	if (g_rvn.initialized && g_notify.clicked) g_notify.clicked(g_notify.clicked_user);
+}
+
+void rvn_notification_fallback(const char* title, const char* body, int urgency, const char* reason) {
+	if (!g_rvn.initialized) return;
+	if (reason && *reason) rvn_error(R_ERROR_PLATFORM, R_SEVERITY_WARNING, "Rnotification_show: the system shows no notifications: %s", reason);
+	if (g_notify.fallback)
+		g_notify.fallback(title ? title : "", body ? body : "", (RNotificationUrgency)(urgency + R_NOTIFICATION_LOW), g_notify.fallback_user);
 }
 
 int Rnotification_is_supported(void) {

@@ -59,6 +59,17 @@ static void test_json(void) {
 	rw_text_free(&out);
 	rw_json_free(&document);
 
+	/* numbers beyond the range of long long are written without converting them to it */
+	{
+		char big[] = "[1e20,-1e19,123456789012345,1e300]";
+		CHECK(rw_json_parse(&document, big, strlen(big)));
+		memset(&out, 0, sizeof(out));
+		rw_json_write(&out, document.root);
+		CHECK_STR(out.data, "[1e+20,-1e+19,123456789012345,1.0000000000000001e+300]");
+		rw_text_free(&out);
+		rw_json_free(&document);
+	}
+
 	CHECK(!rw_json_parse(&document, broken, strlen(broken)));
 
 	memset(&out, 0, sizeof(out));
@@ -188,6 +199,18 @@ static int pump(const int* flag, int wanted, double seconds) {
 	return *flag >= wanted;
 }
 
+/* Cold Chromium startup is separate from loading the queued first page.
+ * Keep that load queued before readiness so the test still covers setup order. */
+static int pump_ready(Rid view, double seconds) {
+	double start = Rget_time();
+	while (!Rweb_view_is_ready(view) && !Rweb_view_get_error(view)[0] &&
+	       Rget_time() - start < seconds) Rwait_frame(0.02);
+	if (!Rweb_view_is_ready(view)) fprintf(stderr, "browser setup timeout: %.2f s, ready=%d, error=%s\n",
+	       Rget_time() - start, Rweb_view_is_ready(view),
+	       Rweb_view_get_error(view));
+	return Rweb_view_is_ready(view);
+}
+
 static void pump_for(double seconds) {
 	double start = Rget_time();
 	while (Rget_time() - start < seconds) Rwait_frame(0.02);
@@ -227,7 +250,23 @@ static void test_with_browser(void) {
 
 	/* a page given as text: its script runs and talks to the application */
 	Rweb_view_load_html(view, g_page, NULL);
-	CHECK(pump(&g_messages, 1, 30.0));
+	{
+		int ready = pump_ready(view, 60.0);
+		CHECK(ready);
+		if (!ready) {
+			Rshutdown();
+			return;
+		}
+	}
+	{
+		double start = Rget_time();
+		int received = pump(&g_messages, 1, 30.0);
+		if (!received) fprintf(stderr,
+		    "first page message timeout: %.2f s, ready=%d, loading=%d, error=%s\n",
+		    Rget_time() - start, Rweb_view_is_ready(view),
+		    Rweb_view_is_loading(view), Rweb_view_get_error(view));
+		CHECK(received);
+	}
 	CHECK_STR(g_message, "ready");
 	CHECK(Rweb_view_is_ready(view));
 	CHECK_STR(Rweb_view_get_error(view), "");

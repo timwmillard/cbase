@@ -71,6 +71,7 @@ number of `<Shortcut>` and `<Widget>` declarations.
 | `MinWidth`, `MinHeight` | smallest size the user can give the window |
 | `Resizable` | boolean (default true) |
 | `Borderless`, `Maximized`, `Hidden` | boolean |
+| `IsSplashScreen` | boolean: a splash screen (`R_WINDOW_SPLASH_SCREEN`). No frame and a fixed size, centered on the screen before it shows (and again when its size changes), above the other windows, out of the taskbar and of Alt+Tab (Windows), of the Window menu (macOS), typed as a splash for the window manager (X11). On Wayland, a window without frame |
 | `ClearColor` | color behind the content (default: the theme color `Window`) |
 | `Background` | path of an image drawn behind the content, scaled to cover the window. With a glass theme it replaces the wallpaper of the theme |
 | `CustomHeader` | boolean: no title bar from the system; a `HeaderBar` in the content replaces it (see below). The window keeps its shadow, its resizing edges and its snapping |
@@ -93,6 +94,7 @@ these attributes change how, for the window (`Rwindow_set_touch_settings`):
 | `Touch.Deceleration` | how fast it slows down, units per second per second (default 2400) |
 | `Touch.Gestures` | boolean (default true): two fingers pinch to zoom and pan |
 | `Touch.PalmRejection` | boolean (default true): fingers are ignored while a pen is near the screen |
+| `Touch.MinSize` | smallest height of what a finger presses: controls and rows are at least this high, check boxes and slider handles half of it; 0 leaves the sizes of the theme (default 44 on iOS, 48 on Android, 0 elsewhere) |
 | `Pen.MouseEmulation` | boolean (default true): the pen drives the widgets as the mouse does; its barrel button is the right button |
 | `Pen.PressureCurve` | the pressure given to the application is the one of the pen to this power: 1 as it is, below 1 softer, above 1 harder |
 | `Pen.PressureThreshold` | pressure, 0 to 1, the tip needs before it presses (default 0) |
@@ -159,6 +161,39 @@ Raction_bind("file.save", on_save, NULL);
 /* or one function for everything that has no binding of its own */
 Raction_set_default_handler(on_any_action, NULL);
 ```
+
+#### Actions written in the document: `<Script>`
+
+The functions of the actions can be written in the document itself, in
+Raven Script (a small typed language with the syntax of TypeScript). A
+`<Script>` holds code (raw text up to `</Script>`: `<` and `&&` are written
+as they are) or names a file with `Src`; it is not a widget.
+
+```xml
+<Window Title="Counter">
+    <Script>
+        let counter: number = 0;
+        fn app.increment() {
+            counter += 1;
+            ui.setText("counter", counter.toString());
+        }
+        fn app.volume(value: number) {
+            app.log("Volume: " + value.toString());
+        }
+    </Script>
+    <Script Src="scripts/more.rvs"/>
+    <VBox>
+        <Label Name="counter" Text="0"/>
+        <Button Text="+1" OnClicked="app.increment"/>
+        <Slider OnChanged="app.volume"/>
+    </VBox>
+</Window>
+```
+
+The event gives its function arguments (the value of a Slider, the state of a
+Checkbox, the text of a TextInput...); a function whose parameters do not fit
+its widget is reported when the document loads. `OnClicked="app.quit()"` is
+the same as `OnClicked="app.quit"`. The whole language: [SCRIPT.md](SCRIPT.md).
 
 #### Actions that need no C
 
@@ -266,7 +301,7 @@ panel uses the attributes that make sense for it.
 | `Checkbox` (`CheckBox`) | `Text`, `Checked`, `Style` (`Check`, `Radio`, `Switch`). Radio boxes of the same parent are exclusive |
 | `Slider` | `Min`, `Max`, `Value`, `Step`, `Orientation` |
 | `ProgressBar` | `Value` (0..1) |
-| `SpinBox` | `Min`, `Max`, `Value`, `Step`, `Decimals` |
+| `SpinBox` | `Min`, `Max`, `Value`, `Step`, `Decimals`, `Buttons` (step buttons in the looks of Raven too) |
 | `TextInput` (`TextBox`, `EditableText`) | `Text`, `Placeholder`, `Password`, `ReadOnly`, `MaxLength` |
 | `ComboBox` | `Selected` (index), items as children `<Item Text="..."/>` or `Items="A|B|C"` |
 | `ListView` | `Selected`, items as children `<Item>` or `Items="A|B|C"` (large lists: `Rlist_view_set_virtual_items`) |
@@ -278,7 +313,7 @@ panel uses the attributes that make sense for it.
 | `MenuItem` | `Text`, `Shortcut`, `Checkable`, `Checked` |
 | `Viewport` | `Source` (image shown until the application sets a texture), `Stretch`, `FlipY`, `Realtime` |
 | `Custom` | drawn by the application: `Rcustom_set_paint_callback` |
-| `TextEditor` (`TextArea`) | `Text` (or the text inside the element), `Language` (`C`, `C++`, `C#`, `Java`, `JavaScript`, `TypeScript`, `Python`, `Rust`, `GLSL`, `JSON`, `CSS`, `XML`, `HTML`, one declared with `Rlanguage_register`, or `None`), `LineNumbers`, `Wrap`, `ReadOnly`, `Placeholder`, `TabSize`, `TabSpaces`, `Completion` (`false`: proposes words only on Ctrl+Space), `AutoPairs` (`false`: does not close brackets and quotes), `TextSize`, `Font`, `Markdown` (`true`: the same as `Language="Markdown"`: the text stays as typed, styled in place) |
+| `TextEditor` (`TextArea`) | `Text` (or the text inside the element), `Language` (`C`, `C++`, `C#`, `Java`, `JavaScript`, `TypeScript`, `Python`, `Rust`, `Zig`, `GLSL`, `JSON`, `CSS`, `XML`, `HTML`, one declared with `Rlanguage_register`, or `None`), `LineNumbers`, `Wrap`, `ReadOnly`, `Placeholder`, `TabSize`, `TabSpaces`, `Completion` (`false`: proposes words only on Ctrl+Space), `AutoPairs` (`false`: does not close brackets and quotes), `TextSize`, `Font`, `Markdown` (`true`: the same as `Language="Markdown"`: the text stays as typed, styled in place) |
 | `FileBrowser` | `Directory`, `Mode` (`Open`, `Save`, `Folder`), `Filter` (`*.png;*.jpg`), `FileName`, `DefaultExtension`, `ShowHidden`, `Multiple`, `Controls` (`false` hides the name, the filter and the buttons), `Places` (`false` hides the list of places) |
 
 A `MenuItem` shortcut works without any `<Shortcut>` element: the window
@@ -289,16 +324,24 @@ looks for it in its menus when the keys are pressed.
 | Tag | Attributes and elements |
 |---|---|
 | `ColorPicker` | `Color`, `Previous` (the color shown beside it, to compare), `Alpha` (`false`: no opacity), `Popup` (`true`: a swatch that opens the picker), `Compact` (`true`: no code, no numbers), `Numbers` (`RGB` or `HSV`), `Swatches` (`"#FF453A, #0A84FF, white"`), `OnChanged` |
-| `Timeline` | `Duration` (seconds), `Time`, `FrameRate` (0: none), `Snapping`, `ViewStart`, `ViewEnd`, `Loop`, `Playing`, `HeaderWidth` (0: fits the names), `TrackHeight` (0: follows the theme), `RulerHeight` (0: follows the theme), `OnChanged`. Contains `<Track>` and `<Marker>` elements |
-| `<Track>` | `Name`, `Color`, `Height`, `Locked`, `Muted`. Contains `<Clip>` and `<Key>` elements |
-| `<Clip>` | `Start`, `Length` or `End`, `Label` (or the text of the element), `Color`, `Selected` |
-| `<Key>` | `Time`, `Label`, `Color` |
-| `<Marker>` | `Time`, `Label`, `Color`: a flag on the ruler |
-| `NodeGraph` | `Zoom`, `CenterX`, `CenterY`, `Grid` (`false`: no dots), `Flow` (`Auto`: the pulses along the links run while the pointer is over the graph; `true`: always; `false`: never), `ReadOnly`, `FrameAll` (`true`: starts with every node in view), `OnChanged`. Contains `<Node>`, `<Link>` and `<Type>` elements |
-| `<Node>` | `Name` (for the links and `Rnode_graph_find_node`), `Title`, `X`, `Y`, `Color` (of its header), `Selected`. Contains `<Input>` and `<Output>` elements, and any widgets: they are shown inside the node (several are stacked) |
-| `<Input>`, `<Output>` | `Name`, `Label`, `Type` (free text; pins of different types do not link, a pin without a type links to any) |
+| `Timeline` | `Duration` (seconds), `Time`, `FrameRate` (0: none), `Snapping`, `ViewStart`, `ViewEnd`, `Loop`, `Playing`, `HeaderWidth` (0: fits the names), `TrackHeight` (0: follows the theme), `RulerHeight` (0: follows the theme), `OnChanged`; its look (below): `Preset`, `ClipStyle`, `ClipRadius`, `KeyShape`, `KeySize`, `GridStyle`, `PlayheadColor`, `PlayheadWidth`, and any part with a dot (`Clip.Glow`, `Ruler.Background`). Contains `<Track>` and `<Marker>` elements |
+| `<Track>` | `Name`, `Color`, `Height`, `Locked`, `Muted`; `ClipStyle`, `KeyShape`, `KeySize`, `Background` (its lane), `Clip.X`, `Key.X`. Contains `<Clip>` and `<Key>` elements |
+| `<Clip>` | `Start`, `Length` or `End`, `Label` (or the text of the element), `Color`, `Selected`; `Style` (`Solid`, `Gradient`, `Tint`, `Outline`) and the properties of the part `Clip` (`Glow`, `BorderColor`, `CornerRadius`, `Foreground`...) |
+| `<Key>` | `Time`, `Label`, `Color`; `Shape` and the properties of the part `Key` |
+| `<Marker>` | `Time`, `Label`, `Color`: a flag on the ruler; the properties of the part `Marker` |
+| `NodeGraph` | `Zoom`, `CenterX`, `CenterY`, `Grid` (`false`: no dots), `Flow` (`Auto`: the pulses along the links run while the pointer is over the graph; `true`: always; `false`: never), `ReadOnly`, `FrameAll` (`true`: starts with every node in view), `OnChanged`; its look (below): `Preset`, `LinkShape`, `LinkWidth`, `LinkGlow`, `PinShape`, `PinSize`, `GridStyle`, `GridSize`, `NodeRadius`, `HeaderStyle`, `HeaderHeight`, and any part with a dot (`Link.Glow`, `Node.ShadowSize`, `Header.Gradient`). Contains `<Node>`, `<Link>` and `<Type>` elements |
+| `<Node>` | `Name` (for the links and `Rnode_graph_find_node`), `Title`, `X`, `Y`, `Color` (of its header), `Selected`; `HeaderStyle`, `HeaderColor`, `HeaderGradient`, `TitleColor`, `Icon` (an image before the title), `Background`, `BorderColor`, `BorderWidth`, `CornerRadius`, `Glow`. Contains `<Input>` and `<Output>` elements, and any widgets: they are shown inside the node (several are stacked) |
+| `<Input>`, `<Output>` | `Name`, `Label`, `Type` (free text; pins of different types do not link, a pin without a type links to any); `Shape`, `Size`, `Color`, `Glow`, `LinkShape`, `LinkWidth`, `LinkColor` |
 | `<Link>` | `From="node.output"`, `To="node.input"`, after the nodes it links |
-| `<Type>` | `Name`, `Color`: the color of the pins of a type and of their links (without it, Raven picks one from the name) |
+| `<Type>` | `Name`, `Color`: the color of the pins of a type and of their links (without it, Raven picks one from the name); `Shape`, `Size`, `Glow`, `LinkShape`, `LinkWidth`, `LinkGlow` |
+
+**Looks.** `Preset` is the look the graph or the timeline starts from:
+`Auto` (the theme of the window and its platform), `Modern`, `Blueprint`,
+`Blender`, `Neon`. The styles of the theme are laid over it
+(`<Style Widget="NodeGraph" Part="Link" Shape="Step"/>`, see
+[THEMES.md](THEMES.md#parts-and-states)), then the attributes of the widget,
+then those of an item. `Part.Property` names any part and any property:
+`Grid.Shape="Lines"`, `Pin.Glow="0.8"`, `Clip.Gradient="#102030"`.
 
 ```xml
 <NodeGraph Name="graph">

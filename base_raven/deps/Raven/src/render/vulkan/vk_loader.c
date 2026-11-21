@@ -16,6 +16,11 @@
 #else
 #include <dlfcn.h>
 #endif
+#include <stdlib.h>
+#include <string.h>
+#if defined(__APPLE__)
+#include <mach-o/dyld.h>
+#endif
 
 rvn_vk_functions_t rvn_vk;
 
@@ -67,6 +72,10 @@ int rvn_vk_load_library(void) {
 #if defined(_WIN32)
 		"vulkan-1.dll"
 #elif defined(__APPLE__)
+		/* iOS: the bundle is flat, MoltenVK.framework is embedded in <name>.app/Frameworks */
+		"@executable_path/Frameworks/MoltenVK.framework/MoltenVK",
+		/* inside an .app (Contents/Frameworks), so it runs where nothing is installed */
+		"@executable_path/../Frameworks/libMoltenVK.dylib", "@executable_path/../Frameworks/libvulkan.1.dylib",
 		"libvulkan.1.dylib", "libvulkan.dylib", "libMoltenVK.dylib",
 		/* the system looks for a bare name in no folder of a package manager: MoltenVK
 		 * from Homebrew or MacPorts would be found by no entry above */
@@ -83,6 +92,28 @@ int rvn_vk_load_library(void) {
 	/* may already be open: raven_vulkan.h can be queried before Rinit */
 	if (g_vk_library) return R_TRUE;
 	memset(&rvn_vk, 0, sizeof(rvn_vk));
+	/* a library named by the environment first (an application that carries its own) */
+	{
+		const char* explicit_library = getenv("RAVEN_VULKAN_LIBRARY");
+		if (explicit_library && *explicit_library) g_vk_library = rvn_vk_library_open(explicit_library);
+	}
+#if defined(__APPLE__)
+	/* then the one of the application bundle: <name>.app/Contents/Frameworks, beside Contents/MacOS */
+	if (!g_vk_library) {
+		char path[4096];
+		uint32_t size = sizeof(path);
+		if (_NSGetExecutablePath(path, &size) == 0) {
+			char* slash = strrchr(path, '/');
+			static const char* const bundled[] = {"/../Frameworks/libvulkan.1.dylib", "/../Frameworks/libMoltenVK.dylib"};
+			size_t k;
+			for (k = 0; slash && k < RVN_COUNT_OF(bundled) && !g_vk_library; k++) {
+				if ((size_t)(slash - path) + strlen(bundled[k]) + 1 > sizeof(path)) break;
+				strcpy(slash, bundled[k]);
+				g_vk_library = rvn_vk_library_open(path);
+			}
+		}
+	}
+#endif
 	for (i = 0; i < RVN_COUNT_OF(names) && !g_vk_library; i++) g_vk_library = rvn_vk_library_open(names[i]);
 	if (!g_vk_library) {
 		rvn_error(R_ERROR_BACKEND, R_SEVERITY_ERROR,
@@ -133,6 +164,7 @@ int rvn_vk_load_instance(VkInstance instance) {
 	RVN_VK_ASSIGN(rvn_vk.CreateXcbSurfaceKHR, rvn_vk.GetInstanceProcAddr(instance, "vkCreateXcbSurfaceKHR"));
 	RVN_VK_ASSIGN(rvn_vk.CreateWaylandSurfaceKHR, rvn_vk.GetInstanceProcAddr(instance, "vkCreateWaylandSurfaceKHR"));
 	RVN_VK_ASSIGN(rvn_vk.CreateMetalSurfaceEXT, rvn_vk.GetInstanceProcAddr(instance, "vkCreateMetalSurfaceEXT"));
+	RVN_VK_ASSIGN(rvn_vk.CreateAndroidSurfaceKHR, rvn_vk.GetInstanceProcAddr(instance, "vkCreateAndroidSurfaceKHR"));
 	RVN_VK_ASSIGN(rvn_vk.CreateHeadlessSurfaceEXT, rvn_vk.GetInstanceProcAddr(instance, "vkCreateHeadlessSurfaceEXT"));
 	RVN_VK_ASSIGN(rvn_vk.CreateDebugUtilsMessengerEXT, rvn_vk.GetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));
 	RVN_VK_ASSIGN(rvn_vk.DestroyDebugUtilsMessengerEXT, rvn_vk.GetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT"));

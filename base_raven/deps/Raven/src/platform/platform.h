@@ -6,6 +6,8 @@
  *   platform/wayland/ Wayland            (Linux, BSD; compiled beside X11)
  *   platform/win32/   Win32              (Windows)
  *   platform/cocoa/   Cocoa + Metal      (macOS)
+ *   platform/uikit/   UIKit + Metal      (iOS; experimental)
+ *   platform/android/ NativeActivity     (Android, android_native_app_glue; experimental)
  *   platform/null/    no window at all   (headless runs, tests)
  *
  * To port Raven to another window system, implement this table and return
@@ -92,7 +94,37 @@ typedef enum rvn_pevent_type_t {
 	/** The system asks the application to quit (Quit in the application menu of macOS, in the Dock). `user` may be NULL. */
 	RVN_PEVENT_QUIT,
 	/** A tray icon was clicked: `user` is the one given to tray_create (not a window), `button` an RMouseButton. */
-	RVN_PEVENT_TRAY
+	RVN_PEVENT_TRAY,
+	/** The safe area of the window changed (rotation, status bar): the core asks window_get_safe_area again. */
+	RVN_PEVENT_INSETS,
+	/** The system switched between dark and light: the core asks system_dark again. `user` may be NULL. */
+	RVN_PEVENT_APPEARANCE,
+	/**
+	 * The application changed state (mobile): `app_event` is an RAppEvent.
+	 * `user` may be NULL. On R_APP_DID_PAUSE the core stops drawing and waits
+	 * until the GPU is idle before the handler returns: the platform sends it
+	 * while the system still lets the application use the GPU.
+	 */
+	RVN_PEVENT_APP,
+	/**
+	 * The native surface of the window is going away (Android: the activity's
+	 * ANativeWindow is destroyed). Before the handler returns, the core has
+	 * destroyed the surface and swapchain of the renderer and the GPU no
+	 * longer uses them: the platform may then let the system destroy the
+	 * native surface. The window and its widgets stay; nothing is drawn until
+	 * RVN_PEVENT_SURFACE_READY.
+	 */
+	RVN_PEVENT_SURFACE_LOST,
+	/** The window has a native surface again (maybe another one): the core asks window_get_native and makes the renderer's surface again. */
+	RVN_PEVENT_SURFACE_READY,
+	/**
+	 * The Back of the system (Android: back button, back gesture). The core
+	 * closes the top popup or dialog, else asks the back callback of the
+	 * window, and answers through `accepted` whether something took it. When
+	 * nothing did, the platform lets the system do its default (leave the
+	 * application). See Rwindow_wants_back for predictive back.
+	 */
+	RVN_PEVENT_BACK
 } rvn_pevent_type_t;
 
 /**
@@ -108,12 +140,15 @@ typedef struct rvn_pmenu_t {
 	const struct rvn_pmenu_t* items;
 	uint32_t count;
 	int separator;
+	int header;
 	int enabled;
 	int checkable;
 	int checked;
 	/** The shortcut (R_KEY_UNKNOWN: none) and its RModifier, shown by the system and handled by it. */
 	RKey key;
 	uint32_t modifiers;
+	/** Display-only override; NULL: use the native shortcut label. Never binds a key. */
+	const char* shortcut_hint;
 } rvn_pmenu_t;
 
 /** Parts of a window whose title bar is drawn by the application (R_WINDOW_CUSTOM_HEADER). */
@@ -185,6 +220,8 @@ typedef struct rvn_pevent_t {
 	/** RVN_PEVENT_MOUSE_WHEEL: from a trackpad (fractions of lines); the fingers left it, inertia to be made by the core. */
 	int wheel_precise;
 	int wheel_stop;
+	/** RVN_PEVENT_APP: an RAppEvent. */
+	int app_event;
 } rvn_pevent_t;
 
 typedef void (*rvn_pevent_handler_t)(const rvn_pevent_t* event);
@@ -224,6 +261,8 @@ typedef struct rvn_platform_t {
 	/** Pixels per logical unit on the monitor showing the window. */
 	float (*window_get_scale)(rvn_pwindow_t* window);
 	void  (*window_show)(rvn_pwindow_t* window, int visible);
+	/** Optional (may be NULL): in front, with the keyboard, the application activated. */
+	void  (*window_focus)(rvn_pwindow_t* window);
 	void  (*window_set_state)(rvn_pwindow_t* window, rvn_pwindow_state_t state);
 	rvn_pwindow_state_t (*window_get_state)(rvn_pwindow_t* window);
 	/**
@@ -249,6 +288,12 @@ typedef struct rvn_platform_t {
 	/** Optional (may be NULL). Opacity of the whole window, 0..1. Returns R_FALSE when it cannot. */
 	int   (*window_set_opacity)(rvn_pwindow_t* window, float opacity);
 	int   (*window_set_topmost)(rvn_pwindow_t* window, int topmost);
+	/**
+	 * Optional (may be NULL). `owner` (NULL: none) owns the window: the window
+	 * stays above it, out of the taskbar, and is minimized and restored with it
+	 * (Rwindow_set_owner). Returns R_FALSE when the window system cannot.
+	 */
+	int   (*window_set_owner)(rvn_pwindow_t* window, rvn_pwindow_t* owner);
 	/**
 	 * Optional (may be NULL). Picture in picture (Rwindow_set_picture_in_picture).
 	 * Entering: the platform keeps what it needs to come back (frame, style,
@@ -302,44 +347,19 @@ typedef struct rvn_platform_t {
 	void  (*tray_set_tooltip)(rvn_ptray_t* tray, const char* text);
 	/** The menu the system shows for it (copied); its entries come back as RVN_PEVENT_COMMAND. count 0: none. */
 	void  (*tray_set_menu)(rvn_ptray_t* tray, const rvn_pmenu_t* items, uint32_t count);
+	/** Text beside the icon ("" none). May be NULL: the system shows none. */
+	void  (*tray_set_title)(rvn_ptray_t* tray, const char* text);
+	/** Where the icon is, as window positions are given; R_FALSE (or NULL) when unknown. */
+	int   (*tray_get_rect)(rvn_ptray_t* tray, int* x, int* y, int* width, int* height);
 	void  (*window_center)(rvn_pwindow_t* window);
 	/** Optional (may be NULL). Icon from RGBA8 pixels; NULL rgba restores the default. */
 	void  (*window_set_icon)(rvn_pwindow_t* window, const uint8_t* rgba, int width, int height);
 	void  (*window_set_cursor)(rvn_pwindow_t* window, RCursor cursor);
-	/**
-	 * Optional (may be NULL). The focus is on (active) or left a widget the user types into, at this rectangle of
-	 * the window in pixels: a platform with a soft keyboard or an input method shows it (or hides it) and
-	 * keeps it near the rectangle. Called after the events that can change it, so that a platform that
-	 * only lets a page raise the keyboard from a gesture is called from inside that gesture; the same
-	 * rectangle is repeated then.
-	 */
-	void  (*window_text_input)(rvn_pwindow_t* window, int active, int x, int y, int width, int height);
 	void  (*window_get_native)(rvn_pwindow_t* window, RNativeWindow* native);
 
 	/** Child window used by native viewports. Destroyed with window_destroy. */
 	rvn_pwindow_t* (*child_create)(rvn_pwindow_t* parent, int x, int y, int width, int height, void* user);
 	void  (*child_set_rect)(rvn_pwindow_t* child, int x, int y, int width, int height, int visible);
-
-	/**
-	 * R_TRUE when the platform allows one window only (iOS, a browser): Rwindow_create fails while a window
-	 * exists and the layout needs no second window. RInitDesc::single_window asks for the same anywhere.
-	 */
-	int single_window;
-	/** R_TRUE when the graphics context can only be used from the UI thread (a browser): rendering runs there. */
-	int single_thread_render;
-	/**
-	 * Optional (may be NULL). The UI scale of an application that did not choose one (RInitDesc::ui_scale 0), on top of the
-	 * scale of the screen: a touch device makes controls larger (fingers are not mouse pointers). 1.0 = unchanged.
-	 */
-	float (*default_ui_scale)(void);
-
-	/**
-	 * Optional (NULL: the application owns the loop, as on a desktop). Called by Rrun when the system owns the
-	 * loop (a browser, iOS): arranges for `tick` to be called once per frame of the system, until it returns
-	 * R_FALSE, and returns R_TRUE. It may return at once (browser) or never (iOS: UIApplicationMain). R_FALSE:
-	 * the platform cannot, and Rrun runs the loop itself.
-	 */
-	int   (*run)(int (*tick)(void* user), void* user);
 
 	/**
 	 * Dispatches pending events to the handler.
@@ -363,6 +383,22 @@ typedef struct rvn_platform_t {
 	 * them here, without dispatching anything to the core.
 	 */
 	void  (*wait_service)(void);
+
+	/*
+	 * ---- frame pacing by the window system (optional, both NULL when it has none) ----
+	 *
+	 * A compositor that tells when it wants the next frame of a window
+	 * (Wayland: wl_surface.frame) paces drawing itself. The renderer then
+	 * presents without the driver's vertical synchronization (see
+	 * rvn_present_vsync): a driver waiting for the compositor inside the
+	 * present waits without limit when the compositor never answers, which
+	 * it is free not to do for a window it does not show.
+	 */
+
+	/** Seconds before `window` should present again: 0 = now. Always bounded: a compositor that never answers costs a slow frame, never a stuck window. */
+	double (*window_frame_wait)(rvn_pwindow_t* window);
+	/** A frame of `window` is about to be presented: ask the compositor when it wants the next one. */
+	void  (*window_frame_begin)(rvn_pwindow_t* window);
 
 	/* ---- accessibility (optional, NULL when the platform has none; core/accessibility.h) ---- */
 
@@ -402,7 +438,46 @@ typedef struct rvn_platform_t {
 	 * R_FALSE when it could not be shown.
 	 */
 	int   (*notify)(const char* app, const char* title, const char* body, int urgency);
+
+	/*
+	 * ---- mobile (optional, NULL on desktop) ----
+	 */
+	/**
+	 * The part of the window that the system covers (status bar, notch,
+	 * home indicator, navigation bar), in pixels: top, right, bottom, left.
+	 * The core lays the content out inside it. Sends RVN_PEVENT_INSETS when it changes.
+	 */
+	void  (*window_get_safe_area)(rvn_pwindow_t* window, float insets[4]);
+	/** R_TRUE when the system is in dark mode, R_FALSE in light mode, -1 when it does not tell. Sends RVN_PEVENT_APPEARANCE when it changes. */
+	int   (*system_dark)(void);
+	/**
+	 * Height of the on-screen keyboard over the bottom of the window, in
+	 * pixels; 0 when it is hidden. The core lays the content out above it.
+	 * Sends RVN_PEVENT_INSETS when it changes. The platform shows the
+	 * keyboard while Rwindow_wants_text_input says so, and delivers what is
+	 * typed as RVN_PEVENT_TEXT and RVN_PEVENT_KEY (Backspace, Enter).
+	 */
+	float (*window_get_keyboard_height)(rvn_pwindow_t* window);
+	/**
+	 * Whether the window takes the Back of the system now (Rwindow_wants_back:
+	 * a popup or dialog is open, or the application has somewhere to go back
+	 * to). Called after a frame when it changed. A system with predictive back
+	 * (Android 13+) is asked for Back only while it is R_TRUE; otherwise the
+	 * system handles Back itself (and animates back to the home screen).
+	 */
+	void  (*window_set_back_wanted)(rvn_pwindow_t* window, int wanted);
 } rvn_platform_t;
+
+#if defined(RAVEN_PLATFORM_EMSCRIPTEN)
+const rvn_platform_t* rvn_platform_emscripten(void);
+#endif
+
+/** The user clicked a notification of Rnotification_show: the platform tells the core (notify.c), on the UI thread. */
+void rvn_notification_clicked(void);
+/** The fallback of Rnotification_show for a notification the platform took but could not show
+ * (macOS: the user refused the permission it asked for); `urgency` as given to rvn_platform_t::notify,
+ * `reason` (or NULL) what the system said, reported as a warning. */
+void rvn_notification_fallback(const char* title, const char* body, int urgency, const char* reason);
 
 #if !defined(_WIN32) && !defined(__APPLE__)
 /** org.freedesktop.Notifications, for X11 and Wayland (platform/notify.c). */
@@ -454,11 +529,13 @@ const rvn_platform_t* rvn_platform_win32(void);
 #if defined(RAVEN_PLATFORM_COCOA)
 const rvn_platform_t* rvn_platform_cocoa(void);
 #endif
-#if defined(RAVEN_PLATFORM_WEB)
-const rvn_platform_t* rvn_platform_web(void);
-#endif
 #if defined(RAVEN_PLATFORM_UIKIT)
 const rvn_platform_t* rvn_platform_uikit(void);
+#endif
+#if defined(RAVEN_PLATFORM_ANDROID)
+const rvn_platform_t* rvn_platform_android(void);
+/** The JavaVM of the activity (a JavaVM*), NULL before Randroid_set_app: for the parts of Raven outside the platform that call Java (render/font_system.c). */
+void* rvn_android_java_vm(void);
 #endif
 
 #endif /* RVN_PLATFORM_H */
