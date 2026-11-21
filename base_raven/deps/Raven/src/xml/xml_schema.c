@@ -81,6 +81,7 @@ static const rvn_schema_attribute_t g_slot[] = {
 	V("Slot.Size", "Canvas: \"width,height\"."),
 	V("Slot.Alignment", "Canvas: \"x,y\", the point of the widget placed at the position, from 0 to 1."),
 	T("Slot.Title", "Title of the tab or of the docked panel that holds the widget."),
+	F("Slot.Icon", "Icon before the title of the tab (a TabView with Documents=\"true\") or of the docked panel: an icon of Raven (\"raven:folder\") or an image file."),
 	C("Slot.Dock", "Left|Right|Top|Bottom|Tab", "DockArea: the side of the area, or of Slot.DockTo, the panel takes."),
 	T("Slot.DockTo", "DockArea: name of the panel the panel is placed against."),
 	N("Slot.DockSize", "DockArea: share of the place it is cut from, between 0 and 1."),
@@ -124,7 +125,8 @@ static const rvn_schema_attribute_t g_colors[] = {
 	K("Color.Track", ""), K("Color.Handle", ""), K("Color.HandleHovered", ""), K("Color.Separator", ""), K("Color.Header", ""),
 	K("Color.HeaderHovered", ""), K("Color.TabActive", ""), K("Color.Popup", ""), K("Color.PopupBorder", ""), K("Color.Shadow", ""),
 	K("Color.Tooltip", ""), K("Color.TooltipText", ""), K("Color.Switch", ""), K("Color.Success", ""), K("Color.Warning", ""),
-	K("Color.Danger", ""), K("Color.Link", ""), K("Color.Code", ""),
+	K("Color.Danger", ""), K("Color.Link", ""), K("Color.Code", ""), K("Color.SearchMatch", ""), K("Color.SearchCurrent", ""), K("Color.Spelling", ""),
+	K("Color.DiffAdded", ""), K("Color.DiffRemoved", ""), K("Color.DiffAddedWord", ""), K("Color.DiffRemovedWord", ""),
 };
 
 static const rvn_schema_attribute_t g_metrics[] = {
@@ -242,12 +244,14 @@ static const rvn_schema_attribute_t g_progress_bar[] = {
 };
 static const rvn_schema_attribute_t g_separator[] = { C("Orientation", ORIENTATION, "Horizontal is a line across.") };
 static const rvn_schema_attribute_t g_image[] = {
-	F("Source", "Image file."),
+	F("Source", "Image file, or an icon of Raven: \"raven:search\" (drawn in the color of the text)."),
 	C("Stretch", STRETCH, "How the image fills its place."),
-	K("Tint", "Color the image is multiplied by."),
+	K("Tint", "Color the image is multiplied by; the color of an icon in currentColor (the text color by default)."),
 	N("CornerRadius", "Rounds the corners."),
 	V("Region", "Part of the image shown: \"minu,minv,maxu,maxv\" from 0 to 1."),
 	B("TintText", "Tinted with the color of the text around it: white icons that follow the theme."),
+	B("Animate", "An animated GIF or APNG plays (default); false: it stays on its first frame."),
+	N("Loop", "Times an animation plays, 0 for forever. Default: what the file says."),
 };
 static const rvn_schema_attribute_t g_text_input[] = {
 	T("Text", "The text."),
@@ -257,6 +261,8 @@ static const rvn_schema_attribute_t g_text_input[] = {
 	N("MaxLength", "Most characters accepted; 0 for no limit."),
 	C("InputType", "Text|Email|Number|Decimal|Phone|Url|Search", "What it holds: picks the on-screen keyboard on mobile."),
 	C("ReturnKey", "Default|Done|Go|Next|Search|Send", "The return key of the on-screen keyboard."),
+	B("SpellCheck", "Underlines the misspelled words, with corrections on a right click (off by default)."),
+	T("SpellLanguage", "Language of the spell checking (\"en_US\", \"fr\"...); none: the language of the application."),
 	A("OnChanged", "Action fired at each change."),
 	A("OnCommitted", "Action fired by Enter."),
 };
@@ -271,6 +277,9 @@ static const rvn_schema_attribute_t g_spin_box[] = {
 static const rvn_schema_attribute_t g_combo_box[] = {
 	L("Items", "The choices, separated by '|'."),
 	N("Selected", "Which one is chosen, from 0; -1 for none."),
+	B("Editable", "A text field: any text can be typed, not only the items."),
+	B("Searchable", "Typing filters the list to the items that contain the text, without regard to case or accents."),
+	T("Text", "The text of an editable combo box (the item equal to it is selected)."),
 	A("OnChanged", "Action fired when the choice changes."),
 };
 static const rvn_schema_attribute_t g_list_view[] = {
@@ -280,8 +289,10 @@ static const rvn_schema_attribute_t g_list_view[] = {
 	A("OnActivated", "Action fired by a double click or Enter."),
 };
 static const rvn_schema_attribute_t g_table[] = {
-	L("Columns", "The headers of the columns, separated by '|' (or Column elements: Header, Width, Fill, Sortable, Align)."),
+	L("Columns", "The headers of the columns, separated by '|' (or Column elements: Header, Width, Fill, Sortable, Align, Editable, Kind=\"Text|Check|Progress\")."),
+	N("FrozenColumns", "The first columns that stay in place when the table scrolls sideways."),
 	B("MultiSelect", "Ctrl/Cmd-click toggles rows; Shift selects an anchored range."),
+	C("SelectionMode", "Single|Multiple|None", "One row at a time (default), any number of rows (Ctrl/Cmd+click, Shift+click, Shift+arrows, Space, Ctrl/Cmd+A), or none."),
 	N("Selected", "Which row is selected, from 0; -1 for none."),
 	N("SortColumn", "The column the rows are sorted by, from 0; -1 for none."),
 	B("SortDescending", "Sorted from the largest to the smallest."),
@@ -296,12 +307,17 @@ static const rvn_schema_attribute_t g_date_picker[] = {
 	T("Max", "The latest date that can be chosen, \"YYYY-MM-DD\"."),
 	C("FirstDayOfWeek", "Sunday|Monday|Saturday", "The day the weeks of the calendar start with (or 0 to 6)."),
 	T("Format", "How the date is written: YYYY, MM, M, DD, D, MMMM, MMM, dddd, ddd; default YYYY-MM-DD."),
+	T("TimeZone", "The time zone of the date for Rdate_picker_get_instant: \"Europe/Paris\"; empty: the zone of the system."),
 	A("OnChanged", "Action fired when the user chooses a date."),
 };
 static const rvn_schema_attribute_t g_time_picker[] = {
 	T("Time", "The time, \"HH:MM\" or \"HH:MM:SS\"."),
 	B("ShowSeconds", "Shows the seconds."),
 	N("MinuteStep", "Step of the minutes for the arrows and the wheel."),
+	C("Clock", "Auto|12|24", "12 hours with AM and PM, or 24 hours; Auto: as the locale does."),
+	T("TimeZone", "The time zone of the time: \"America/New_York\", \"Europe/Paris\"; empty: the zone of the system."),
+	B("ShowTimeZone", "Writes the time zone after the time (\"EST\", \"CET\", \"UTC+3\")."),
+	T("Date", "The day of the time, for its time zone: \"YYYY-MM-DD\" or Today (default)."),
 	A("OnChanged", "Action fired when the user changes the time."),
 };
 static const rvn_schema_attribute_t g_toast[] = {
@@ -422,7 +438,15 @@ static const rvn_schema_attribute_t g_menu_item[] = {
 	B("Checkable", "Clicking it checks and unchecks it."),
 	B("Checked", "Its state."),
 	B("Separator", "A line instead of an item."),
+	F("Icon", "Icon before the text: an icon of Raven (\"raven:save\") or an image file."),
 	A("OnClicked", "Action fired by the item."),
+};
+static const rvn_schema_attribute_t g_system_web_view[] = {
+	T("Url", "Address of the page shown (\"https://...\", \"file:///...\")."),
+	F("Source", "A page of the computer (an .html file), found next to the document."),
+	T("Html", "HTML shown as the page."),
+	T("BaseUrl", "Where the relative addresses of Html are looked for."),
+	A("OnChanged", "Action fired when the view shows another address."),
 };
 static const rvn_schema_attribute_t g_viewport[] = {
 	C("Stretch", STRETCH, "How the picture fills its place."),
@@ -446,7 +470,30 @@ static const rvn_schema_attribute_t g_text_editor[] = {
 	B("Zoomable", "Ctrl + wheel, Ctrl + '+' / '-' / 0 zoom the text (on by default)."),
 	F("Font", "Font file, or \"monospace\"."),
 	B("Markdown", "The text is Markdown, styled where it is typed (the same as Language=\"Markdown\")."),
+	B("FindBar", "The find bar (Ctrl+F, Ctrl+H) and its keys (on by default)."),
+	T("Search", "Text searched for: its matches are highlighted."),
+	B("Folding", "Regions of the text can be folded: markers beside the line numbers, Ctrl+Shift+[ and ] (on by default)."),
+	B("SpellCheck", "Underlines the misspelled words, with corrections on a right click (off by default)."),
+	T("SpellLanguage", "Language of the spell checking (\"en_US\", \"fr\"...); none: the language of the application."),
 	A("OnChanged", "Action fired at each change."),
+};
+static const rvn_schema_attribute_t g_diff_view[] = {
+	F("LeftSource", "The file before, compared with RightSource; its path is the name shown unless LeftName is given."),
+	F("RightSource", "The file after."),
+	T("Left", "The text before (or a <Left> element holding it)."),
+	T("Right", "The text after (or a <Right> element holding it)."),
+	T("LeftName", "Name shown over the text before (its extension chooses the colors of the code)."),
+	T("RightName", "Name shown over the text after."),
+	T("Patch", "A unified diff (git diff, diff -u) to show instead of two texts (or a <Patch> element holding it)."),
+	F("PatchSource", "A file holding a unified diff."),
+	C("Mode", "Unified|Split", "One column, or the two texts side by side (Split)."),
+	N("Context", "Unchanged lines shown around each change (3); the others are folded. All, or -1: every line."),
+	C("IgnoreWhitespace", "None|Trailing|All", "Spaces that do not count: none, those at the end of the lines, all of them."),
+	B("IgnoreCase", "Upper and lower case letters are the same."),
+	B("WordDiff", "Marks the words that changed inside a changed line (default true)."),
+	B("LineNumbers", "The numbers of the lines of both sides (default true)."),
+	C("Language", "None|C|C++|C#|Java|JavaScript|TypeScript|Python|Rust|GLSL|JSON|CSS|XML|HTML", "Colors the code; by default guessed from the extension of the names."),
+	A("OnClicked", "Action fired when a line or its number is clicked."),
 };
 static const rvn_schema_attribute_t g_header_bar[] = {
 	T("Title", "Text of the bar."),
@@ -594,8 +641,10 @@ static const rvn_schema_tag_t g_tags[] = {
 	TAG("Menu", g_menu, "A menu: MenuItem, Separator and Menu elements."),
 	TAG("MenuItem", g_menu_item, "An item of a menu."),
 	TAG("Viewport", g_viewport, "A place the application draws in with its own renderer."),
+	TAG("SystemWebView", g_system_web_view, "A web page shown by the engine of the system (WKWebView on macOS and iOS) over the widget; elsewhere a message."),
 	TAG_PLAIN("Custom", "A widget painted and measured by the application."),
 	TAG("TextEditor", g_text_editor, "Text of several lines: notes, code."),
+	TAG("DiffView", g_diff_view, "The differences between two texts or files, or a patch: one column or side by side, unchanged lines folded, the words that changed marked."),
 	TAG("HeaderBar", g_header_bar, "The title bar of a window with a custom header; holds any widgets."),
 	TAG("FileBrowser", g_file_browser, "Folders and files to choose from."),
 	TAG("DockArea", g_dock_area, "Panels the user arranges by dragging their tabs."),

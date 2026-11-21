@@ -192,7 +192,9 @@ static const struct { const char* name; RColorRole role; } g_color_names[] = {
 	{ "TabActive", R_COLOR_TAB_ACTIVE }, { "Popup", R_COLOR_POPUP }, { "PopupBorder", R_COLOR_POPUP_BORDER },
 	{ "Shadow", R_COLOR_SHADOW }, { "Tooltip", R_COLOR_TOOLTIP }, { "TooltipText", R_COLOR_TOOLTIP_TEXT }, { "Switch", R_COLOR_SWITCH },
 	{ "Success", R_COLOR_SUCCESS }, { "Warning", R_COLOR_WARNING }, { "Danger", R_COLOR_DANGER }, { "Link", R_COLOR_LINK },
-	{ "Code", R_COLOR_CODE }
+	{ "Code", R_COLOR_CODE }, { "SearchMatch", R_COLOR_SEARCH_MATCH }, { "SearchCurrent", R_COLOR_SEARCH_CURRENT }, { "Spelling", R_COLOR_SPELLING },
+	{ "DiffAdded", R_COLOR_DIFF_ADDED }, { "DiffRemoved", R_COLOR_DIFF_REMOVED },
+	{ "DiffAddedWord", R_COLOR_DIFF_ADDED_WORD }, { "DiffRemovedWord", R_COLOR_DIFF_REMOVED_WORD }
 };
 
 static const struct { const char* name; RMetric metric; } g_metric_names[] = {
@@ -342,6 +344,15 @@ static int rvn_widget_set_slot_attribute(rvn_widget_t* widget, const char* name,
 		if (rvn_parse_floats(value, slot->alignment, 2) != 2) return R_FALSE;
 	} else if (RVN_ATTR("Title")) {
 		rvn_str_set(&slot->title, value);
+	} else if (RVN_ATTR("Icon")) {
+		/* the icon of the tab (TabView, DockArea): "raven:folder" or an image file; an empty value removes it */
+		Rid icon = value[0] ? rvn_xml_texture(value) : R_INVALID_ID;
+		if (value[0] && icon == R_INVALID_ID) return R_FALSE;
+		slot->has_icon = icon != R_INVALID_ID;
+		slot->icon = icon;
+		slot->icon_uv[0] = slot->icon_uv[1] = 0.0f;
+		slot->icon_uv[2] = slot->icon_uv[3] = 1.0f;
+		slot->icon_tint = R_FALSE;
 	} else if (RVN_ATTR("Dock")) {
 		if (rvn_stricmp(value, "Left") == 0) slot->dock = R_DOCK_LEFT;
 		else if (rvn_stricmp(value, "Right") == 0) slot->dock = R_DOCK_RIGHT;

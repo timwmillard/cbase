@@ -126,6 +126,15 @@ RVN_INLINE rvn_color_t rvn_color_mix(rvn_color_t a, rvn_color_t b, float t) {
 	}
 	return out;
 }
+/** Each channel of `a` times the same channel of `b`. */
+RVN_INLINE rvn_color_t rvn_color_multiply(rvn_color_t a, rvn_color_t b) {
+	uint32_t i, out = 0;
+	for (i = 0; i < 4; i++) {
+		uint32_t ca = (a >> (i * 8)) & 0xFFu, cb = (b >> (i * 8)) & 0xFFu;
+		out |= ((ca * cb + 127u) / 255u) << (i * 8);
+	}
+	return out;
+}
 RVN_INLINE void rvn_color_to_floats(rvn_color_t c, float* r, float* g, float* b, float* a) {
 	if (r) *r = (float)(c & 0xFFu) / 255.0f;
 	if (g) *g = (float)((c >> 8) & 0xFFu) / 255.0f;
@@ -187,6 +196,11 @@ void rvn_text_add(rvn_text_t* text, const char* string);
 void rvn_text_printf(rvn_text_t* text, const char* format, ...);
 uint32_t rvn_hash_bytes(const void* data, size_t size);
 uint32_t rvn_hash_str(const char* text);
+/**
+ * Compresses `data` as a zlib stream (core/deflate.c: fixed Huffman codes,
+ * LZ77 over a 32 KB window). Never NULL. Free with rvn_free.
+ */
+uint8_t* rvn_zlib_compress(const uint8_t* data, size_t size, size_t* out_size);
 /** Reads a whole file. The result has one extra '\0' byte. Free with rvn_free. */
 char* rvn_read_file(const char* path, size_t* size);
 /**
@@ -239,6 +253,14 @@ int rvn_utf8_encode(uint32_t codepoint, char out[4]);
 int rvn_utf8_next(const char* text, int length, int offset);
 int rvn_utf8_prev(const char* text, int offset);
 int rvn_utf8_count(const char* text, int length);
+/**
+ * A code point as a search compares it: lower case, without its accent
+ * (Latin, Greek and Cyrillic letters: "É" -> 'e', "Ł" -> 'l', "Ά" -> 'α').
+ * Combining marks (U+0300..U+036F) give 0: they are skipped.
+ */
+uint32_t rvn_utf8_fold(uint32_t codepoint);
+/** R_TRUE when `text` contains `part`, compared folded (rvn_utf8_fold); an empty part is in every text. */
+int rvn_utf8_contains_folded(const char* text, const char* part);
 
 /* ---------------------------------------------------------------------------
  *  Errors (core/error.c)

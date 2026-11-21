@@ -348,6 +348,8 @@ void rvn_widget_destroy(rvn_widget_t* widget);
 int rvn_widget_add_child(rvn_widget_t* parent, rvn_widget_t* child, int index);
 /** Removes the widget from its parent without destroying it. */
 void rvn_widget_detach(rvn_widget_t* widget);
+/** A widget whose paint must run on the UI thread from now on (+1) or no longer (-1): RVN_CF_UI_PAINT for one widget. */
+void rvn_widget_add_ui_paint(rvn_widget_t* widget, int delta);
 int  rvn_widget_child_index(const rvn_widget_t* parent, const rvn_widget_t* child);
 /** Sets the window of a whole subtree (used for roots and popups). */
 void rvn_widget_set_window(rvn_widget_t* widget, rvn_window_t* window);
@@ -817,6 +819,13 @@ struct rvn_window_t {
 	rvn_atomic_t animating;
 	/** When the window was last painted, for the pace of the animations. */
 	double paint_time;
+	/**
+	 * A frame asked for later (rvn_paint_wake_after) while painting: INT_MAX
+	 * minus its delay in ms, 0 for none; then when that frame is due (clock
+	 * seconds, 0: none).
+	 */
+	rvn_atomic_t wake_request;
+	double wake_time;
 	/** Image drawn behind the content (Rwindow_set_background), or R_INVALID_ID. */
 	Rid background;
 
@@ -845,6 +854,13 @@ struct rvn_window_t {
 	/** Last painted editable caret, in surface pixels; its owner guards against stale focus. */
 	rvn_box_t text_input_rect;
 	Rid text_input_owner;
+	/**
+	 * The text an input method is composing for the focus (preedit), not in
+	 * the widget's text: the text widgets draw it at their caret, underlined.
+	 * NULL: none. composition_start / _end: its selection (bytes).
+	 */
+	char* composition;
+	int composition_start, composition_end;
 	rvn_widget_t* capture;
 	/** R_TRUE when the focus was moved with the keyboard: widgets then draw a focus outline. */
 	int focus_visible;
@@ -900,7 +916,7 @@ struct rvn_window_t {
 	uint32_t shortcut_count;
 	uint32_t shortcut_cap;
 
-	/* viewports of this window that own a native child window */
+	/* viewports of this window that own a native child window, and SystemWebViews whose view is in it */
 	rvn_widget_t** native_viewports;
 	uint32_t native_viewport_count;
 	uint32_t native_viewport_cap;
@@ -963,6 +979,8 @@ void rvn_window_layout(rvn_window_t* window);
 int  rvn_window_wants_frame(rvn_window_t* window);
 /** Seconds until the window wants a frame: 0 = now, negative = nothing to do (it waits for an event). */
 double rvn_window_frame_in(rvn_window_t* window);
+/** R_TRUE when the window waits for no frame: nothing to lay out or paint, nothing moving (widget/testing.c). Continuous redraws are not counted. */
+int rvn_window_is_settled(rvn_window_t* window);
 /*
  * Waits until the windows that will paint can take a frame (the previous one
  * left for the renderer). Called before the input is read: the frame that
@@ -1002,6 +1020,8 @@ int  rvn_touch_on_wheel(rvn_window_t* window, const rvn_pevent_t* event);
 /** Moves flicked content and fires a due long press; R_TRUE while something still moves. */
 int  rvn_touch_step(rvn_window_t* window);
 int  rvn_touch_animating(const rvn_window_t* window);
+/** R_TRUE while the press of a finger is delivered as the left button of the mouse (a tap, or a finger that drags). */
+int  rvn_touch_finger_pressing(const rvn_window_t* window);
 void rvn_touch_forget_widget(rvn_window_t* window, rvn_widget_t* widget);
 /** The window lost the input (the keyboard focus, a dialog of the system): every finger and the pen are let go. */
 void rvn_touch_cancel(rvn_window_t* window);
@@ -1051,6 +1071,22 @@ int rvn_locale_attribute(rvn_widget_t* widget, const char* name, const char* val
 int rvn_locale_rtl(void);
 int rvn_locale_code_is_rtl(const char* code);
 void rvn_locale_shutdown(void);
+/* (core/locale.c: the clock) 12 or 24 for the locale now; for a language code; for a time pattern of a system (0: no hour in it). */
+int rvn_locale_clock(void);
+int rvn_locale_code_clock(const char* code);
+int rvn_locale_pattern_clock(const char* pattern, int* period_first);
+/** AM or PM of the locale (never NULL), and whether it is written before the time. */
+const char* rvn_locale_day_period(int pm);
+int rvn_locale_day_period_first(void);
+/** A time as the locale writes it; clock 12 or 24, 0 for the locale's. */
+void rvn_locale_time_text(int hour, int minute, int second, int show_seconds, int clock, char* out, size_t size);
+/* (core/timezone.c) fields: year, month, day, hour, minute, second. NULL or "" zone: the system's. */
+int rvn_timezone_local(const char* zone, double utc, int* fields);
+/** The instant of local fields (see Rtimezone_from_local); returns how many instants have them (0, 1, 2), -1 for an unknown zone. */
+int rvn_timezone_instant(const char* zone, const int* fields, double* utc);
+/** "CET", or "UTC+3" when the abbreviation is not a name; "" for an unknown zone. */
+void rvn_timezone_short_label(const char* zone, double utc, char* out, size_t size);
+void rvn_timezone_shutdown(void);
 
 /* ---- core/accessibility.c ---- */
 float rvn_a11y_text_scale(void);
@@ -1094,7 +1130,15 @@ int  rvn_window_is_leaving(const rvn_window_t* window, const rvn_widget_t* root)
 /** Triggers a menu item (shortcuts). Implemented in widgets/menu.c. */
 void rvn_menu_item_trigger(rvn_widget_t* item);
 int rvn_menu_item_is_header(const rvn_widget_t* item);
+/** Where an entry (item or sub-menu) of an open menu is drawn, in its window; R_FALSE when its menu is not shown (widget/testing.c). */
+int rvn_menu_entry_bounds(const rvn_widget_t* entry, rvn_rect_t* rect);
 int rvn_table_multi_select(const rvn_widget_t* table);
+/** R_FALSE for a table whose selection mode is none. */
+int rvn_table_selectable(const rvn_widget_t* table);
+/** The row the keyboard is on (the selected row, or in multiple selection the current one), or -1. */
+int rvn_table_cursor_row(const rvn_widget_t* table);
+/** The text a screen reader is given for a cell: a check box and a progress bar are said in words. */
+const char* rvn_table_accessible_cell(rvn_widget_t* table, int row, int column);
 rvn_rect_t rvn_table_accessible_rect(rvn_widget_t* table, int row);
 int rvn_table_accessible_row_at(rvn_widget_t* table, float x, float y);
 /** Destroys the native child windows of the viewports inside a subtree leaving the window. */
@@ -1102,6 +1146,9 @@ void rvn_window_release_natives(rvn_window_t* window, rvn_widget_t* subtree);
 /** Native viewports (widgets/viewport.c): release the child window / apply its state after a paint. */
 void rvn_viewport_native_release(rvn_widget_t* widget, rvn_window_t* window);
 void rvn_viewport_native_sync(rvn_widget_t* widget, uint64_t frame);
+/* The same for the view of a SystemWebView (widgets/system_web_view.c), kept in the same list of the window. */
+void rvn_system_web_view_native_release(rvn_widget_t* widget, rvn_window_t* window);
+void rvn_system_web_view_native_sync(rvn_widget_t* widget, uint64_t frame);
 
 /** Enabled menu item bound to a shortcut anywhere below `root`, or NULL. Implemented in widgets/menu.c. */
 rvn_widget_t* rvn_menu_find_shortcut(rvn_widget_t* root, RKey key, uint32_t modifiers);
@@ -1127,6 +1174,19 @@ void rvn_tray_update(void);
 int  rvn_tray_count(void);
 void rvn_tray_on_event(const struct rvn_pevent_t* event);
 void rvn_tray_shutdown(void);
+/** The notifications (platform/notify.c): what is remembered of them goes. */
+void rvn_notify_shutdown(void);
+
+/* ---- widgets/toast.c: the fallback of the notifications (Rnotification_set_fallback_toast) ---- */
+struct rvn_notification_t;
+/**
+ * Shows a notification as a message of the toast, with its title, icon and
+ * buttons; a message of the same tag still there is replaced. What the user
+ * does with it goes to rvn_notification_event. R_FALSE: not a toast.
+ */
+int  rvn_toast_show_notification(Rid toast, const struct rvn_notification_t* notification);
+/** Takes away the message of that tag, without reporting anything. */
+void rvn_toast_close_notification(Rid toast, const char* tag);
 
 /* ---- widget/inspector.c (Rwindow_set_inspector) ---- */
 /** Once a frame: the inspectors follow the windows they inspect. */
@@ -1139,6 +1199,29 @@ void rvn_inspector_paint(rvn_window_t* window, RPainter* painter);
 int  rvn_inspector_pick_move(rvn_window_t* window, float x, float y);
 int  rvn_inspector_pick_button(rvn_window_t* window, int pressed);
 void rvn_inspector_shutdown(void);
+
+/* ---- widget/testing.c and widget/headless.c (raven_testing.h, RAVEN_HEADLESS) ---- */
+/** The pixels of a window, or of the rectangle of a widget in its window (Rpixels_free); NULL (and an error naming `function`) when it cannot be captured. */
+uint8_t* rvn_test_capture(Rid id, const char* function, int* width, int* height);
+/** Writes RGBA8 pixels as a PNG file, making the folders above it. */
+int rvn_test_write_png(const char* path, const uint8_t* rgba, int width, int height);
+/**
+ * Reads the RAVEN_HEADLESS... environment variables before Rinit_ex starts
+ * anything: no window system when asked, the backend, the scale. R_TRUE
+ * when the run is driven by them.
+ */
+int  rvn_headless_configure(RInitDesc* desc);
+/** Rinit_ex could not start the backend asked for: R_TRUE when the run may go on with the null backend. */
+int  rvn_headless_allows_null_fallback(void);
+/** Rinit_ex succeeded: the run starts being driven at the next frame. */
+void rvn_headless_start(void);
+/** Once a frame, at the end of rvn_update: the next steps of the run. */
+void rvn_headless_frame(void);
+/** R_TRUE while a run is driven: Rwait_events must not sleep. */
+int  rvn_headless_busy(void);
+/** Rshutdown: frees what the runs held. Returns the exit code of a failed run driven by the environment, else 0. */
+int  rvn_headless_shutdown(void);
+
 /** The same for a window: its menu bars, then the menus that belong to no tree (Rmenu_open, context menus). */
 rvn_widget_t* rvn_menu_find_window_shortcut(rvn_window_t* window, RKey key, uint32_t modifiers);
 /** Parses "Ctrl+Shift+S". Implemented in widgets/menu.c. */

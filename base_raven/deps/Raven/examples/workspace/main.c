@@ -12,6 +12,10 @@
  *                  for one widget and what it contains
  *   Island         tells what just happened, then folds back
  *   HeaderBar      without background: the bar is the top of the window
+ *   Table          cells edited in place, checked by the application
+ *                  (Rtable_set_cell_edited_callback), a frozen first column,
+ *                  several selected rows, a check box and a progress bar column
+ *   ComboBox       searchable: typing filters the people of the list
  */
 
 #include "../common/example.h"
@@ -21,7 +25,7 @@
 #endif
 
 static struct {
-	Rid window, dock, welcome, files, log, island, look;
+	Rid window, dock, welcome, files, log, island, look, tasks;
 	char* saved_layout;
 	int notes;
 } app;
@@ -135,6 +139,53 @@ static void action_look(Rid sender, const char* action, void* user_data) {
 	}
 }
 
+/* ---------------------------------------------------------------------------
+ *  Tasks: a table edited in place
+ * ------------------------------------------------------------------------- */
+
+/* The application checks what was typed: an estimate is a number of hours. */
+static int on_task_edited(Rid table, int row, int column, const char* text, void* user_data) {
+	char line[200];
+	(void)user_data;
+	if (column == 1) {
+		/* the Done check box: the task is finished, or opened again */
+		Rtable_set_cell(table, row, 3, text[0] == '1' ? "Done" : "In progress");
+		if (text[0] == '1') Rtable_set_cell(table, row, 4, "1");
+		say(text[0] == '1' ? "Task done" : "Task opened again", Rtable_get_cell(table, row, 0));
+		return R_TRUE;
+	}
+	if (column == 5) {
+		char* end = NULL;
+		double hours = strtod(text, &end);
+		if (end == text || *end != '\0' || hours < 0.0) {
+			say("Not a number of hours", text);
+			return R_FALSE; /* the editor stays open on the text */
+		}
+		/* what is kept is written by the application: "4.50" for "4.5" */
+		snprintf(line, sizeof(line), "%g", hours);
+		Rtable_set_cell(table, row, column, line);
+	}
+	snprintf(line, sizeof(line), "%s, %s: %s", Rtable_get_cell(table, row, 0), Rtable_get_column_header(table, column), text);
+	say("Task edited", line);
+	return R_TRUE;
+}
+
+/* Every selected task is given to the person chosen: the selection is read range by range. */
+static void action_assign(Rid sender, const char* action, void* user_data) {
+	int i, first, last, row, count = 0;
+	char line[200];
+	(void)action;
+	(void)user_data;
+	if (Rcombo_box_get_selected(sender) < 0) return;
+	for (i = 0; i < Rtable_get_selection_range_count(app.tasks); i++) {
+		Rtable_get_selection_range(app.tasks, i, &first, &last);
+		for (row = first; row <= last; row++, count++) Rtable_set_cell(app.tasks, row, 2, Rcombo_box_get_text(sender));
+	}
+	if (count == 0) return;
+	snprintf(line, sizeof(line), "%d task%s to %s", count, count > 1 ? "s" : "", Rcombo_box_get_text(sender));
+	say("Assigned", line);
+}
+
 static void example_shutdown(void) {
 	free(app.saved_layout);
 	Rshutdown();
@@ -163,6 +214,7 @@ int main(void) {
 	Raction_bind("look.theme", action_look, NULL);
 	Raction_bind("look.material", action_look, NULL);
 	Raction_bind("look.panel", action_look, NULL);
+	Raction_bind("tasks.assign", action_assign, NULL);
 
 	app.window = Rwindow_create_from_xml_file(RAVEN_EXAMPLE_DIR "/workspace.xml");
 	if (app.window == R_INVALID_ID) {
@@ -175,6 +227,8 @@ int main(void) {
 	app.log = Rwidget_find(app.window, "log");
 	app.island = Rwidget_find(app.window, "island");
 	app.look = Rwidget_find(app.window, "look");
+	app.tasks = Rwidget_find(app.window, "tasks.table");
+	Rtable_set_cell_edited_callback(app.tasks, on_task_edited, NULL);
 
 	Rtext_editor_set_text(app.welcome, WELCOME);
 	Rfile_browser_set_directory(app.files, RAVEN_EXAMPLE_DIR "/..");

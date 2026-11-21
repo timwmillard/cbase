@@ -404,6 +404,20 @@ enum : RDropPhase
     R_DROP_DROPPED = 0x00E3,
 }
 
+/// What the application that takes a drag does with it (Rdrag_begin_external): a bitmask of what is allowed, or the one done.
+alias RDragOperation = int;
+enum : RDragOperation
+{
+    /// Nothing was taken: dropped where nothing accepted it, or cancelled.
+    R_DRAG_OPERATION_NONE = 0,
+    /// The target made a copy: the source keeps its data.
+    R_DRAG_OPERATION_COPY = 1,
+    /// The target took the data: the source removes it (a file the file manager moved...).
+    R_DRAG_OPERATION_MOVE = 2,
+    /// The target made a link, an alias or a shortcut to it.
+    R_DRAG_OPERATION_LINK = 4,
+}
+
 /// What a finger does on a widget (Rwidget_set_touch_mode).
 alias RTouchMode = int;
 enum : RTouchMode
@@ -646,6 +660,18 @@ enum : RColorRole
     R_COLOR_LINK = 0x0122,
     /// Background of code in formatted text.
     R_COLOR_CODE = 0x0123,
+    /// The matches of a search in a text editor (usually see-through).
+    R_COLOR_SEARCH_MATCH = 0x0124,
+    /// The selected match of a search in a text editor.
+    R_COLOR_SEARCH_CURRENT = 0x0125,
+    /// Wavy underline of the misspelled words of a TextInput or a TextEditor (spell checking).
+    R_COLOR_SPELLING = 0x0126,
+    /// Diff view: the background of an added line and of a removed line (see-through: the background shows).
+    R_COLOR_DIFF_ADDED = 0x0127,
+    R_COLOR_DIFF_REMOVED = 0x0128,
+    /// Diff view: the words that changed inside an added line and inside a removed line, over the color of the line.
+    R_COLOR_DIFF_ADDED_WORD = 0x0129,
+    R_COLOR_DIFF_REMOVED_WORD = 0x012A,
 }
 
 /// Sizes, in logical units.
@@ -806,6 +832,10 @@ enum : RWidgetType
     R_WIDGET_MAP_VIEW = 0x0235,
     /// Pages shown one at a time and swiped (a page view), with dots and arrows.
     R_WIDGET_CAROUSEL = 0x0236,
+    /// A web page shown by the engine of the system (WKWebView) in a view kept over the widget.
+    R_WIDGET_SYSTEM_WEB_VIEW = 0x0237,
+    /// The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
+    R_WIDGET_DIFF_VIEW = 0x0238,
 }
 
 alias RHAlign = int;
@@ -1132,6 +1162,48 @@ enum : RChartKind
     R_CHART_SPARKLINE = 0x0594,
 }
 
+/// What happens in a SystemWebView (Rsystem_web_view_set_event_callback).
+alias RSystemWebViewEvent = int;
+enum : RSystemWebViewEvent
+{
+    /// The view shows another address (Rsystem_web_view_get_url).
+    R_SYSTEM_WEB_VIEW_NAVIGATED = 0x0B90,
+    /// The title of the page changed (Rsystem_web_view_get_title).
+    R_SYSTEM_WEB_VIEW_TITLE = 0x0B91,
+    /// A page starts loading.
+    R_SYSTEM_WEB_VIEW_LOADING = 0x0B92,
+    /// The page and what it refers to are loaded.
+    R_SYSTEM_WEB_VIEW_LOADED = 0x0B93,
+    /// The page could not be loaded, or the engine showing it stopped (Rsystem_web_view_get_error).
+    R_SYSTEM_WEB_VIEW_FAILED = 0x0B94,
+}
+
+/// How the rows of a Table are selected (Rtable_set_selection_mode).
+alias RTableSelectionMode = int;
+enum : RTableSelectionMode
+{
+    /// One row at a time (the default).
+    R_TABLE_SELECTION_SINGLE = 0x0BC0,
+    /// Any number of rows: Ctrl/Cmd+click, Shift+click, Shift+arrows, Space, Ctrl/Cmd+A.
+    R_TABLE_SELECTION_MULTIPLE = 0x0BC1,
+    /// The user selects nothing (the rows are only shown; cells may still be edited and checked).
+    R_TABLE_SELECTION_NONE = 0x0BC2,
+}
+
+/// What the cells of a column show (Rtable_set_column_kind).
+alias RTableColumnKind = int;
+enum : RTableColumnKind
+{
+    /// Their text (the default).
+    R_TABLE_COLUMN_TEXT = 0x0BD0,
+    /// A check box, checked when the text is "1", "true" or "yes". The user
+    /// toggles it with a click or Space unless the column is made not
+    /// editable; the cell edited callback is then called with "1" or "0".
+    R_TABLE_COLUMN_CHECK = 0x0BD1,
+    /// A progress bar, from a number 0..1 or a percentage ("45%"); an empty cell shows nothing.
+    R_TABLE_COLUMN_PROGRESS = 0x0BD2,
+}
+
 /// Shorthands of Rtext_editor_set_language for two languages.
 alias RSyntax = int;
 enum : RSyntax
@@ -1190,6 +1262,18 @@ enum : RToken
     R_TOKEN_STRONG = 0x03AC,
     R_TOKEN_EMPHASIS = 0x03AD,
     R_TOKEN_LINK = 0x03AE,
+}
+
+/// Options of a search (Rtext_editor_set_search), a bitmask.
+alias RSearchFlags = int;
+enum : RSearchFlags
+{
+    /// Upper and lower case differ. Without it the case is ignored, for the
+    /// letters of ASCII, Latin-1, the Latin letters of Unicode, Greek,
+    /// Cyrillic and Armenian.
+    R_SEARCH_MATCH_CASE = 1,
+    /// A match is a whole word: "for" does not find the start of "format".
+    R_SEARCH_WHOLE_WORD = 2,
 }
 
 /// What a marker says about the text it underlines.
@@ -1295,6 +1379,57 @@ enum : RBlockPlace
     R_BLOCK_INPUT = 0x0712,
 }
 
+alias RDiffViewMode = int;
+enum : RDiffViewMode
+{
+    /// One column: the removed lines, then the added lines, between the lines kept.
+    R_DIFF_VIEW_UNIFIED = 0x0C50,
+    /// Two columns: the left text and the right text side by side, aligned.
+    R_DIFF_VIEW_SPLIT = 0x0C51,
+}
+
+alias RDiffSide = int;
+enum : RDiffSide
+{
+    /// The text before (the old one, "a/", the lines removed).
+    R_DIFF_LEFT = 0x0C54,
+    /// The text after (the new one, "b/", the lines added).
+    R_DIFF_RIGHT = 0x0C55,
+}
+
+alias RDiffRowKind = int;
+enum : RDiffRowKind
+{
+    /// A line that is on both sides.
+    R_DIFF_ROW_SAME = 0x0C58,
+    /// A line of the left text only.
+    R_DIFF_ROW_REMOVED = 0x0C59,
+    /// A line of the right text only.
+    R_DIFF_ROW_ADDED = 0x0C5A,
+    /// Split mode: a removed line facing the added line that replaces it.
+    R_DIFF_ROW_CHANGED = 0x0C5B,
+    /// Unchanged lines folded away ("12 unchanged lines"); Rdiff_view_expand shows them.
+    R_DIFF_ROW_FOLD = 0x0C5C,
+    /// A patch: the header of a hunk ("@@ -12,7 +12,8 @@ main").
+    R_DIFF_ROW_HUNK = 0x0C5D,
+    /// A patch: the names of a file.
+    R_DIFF_ROW_FILE = 0x0C5E,
+    /// A note attached to the line above it (Rdiff_view_add_annotation).
+    R_DIFF_ROW_NOTE = 0x0C5F,
+}
+
+/// How lines are compared (Rdiff_view_set_flags, Rdiff_unified).
+alias RDiffFlags = int;
+enum : RDiffFlags
+{
+    /// Spaces and tabs at the end of a line (and a carriage return) do not count.
+    R_DIFF_IGNORE_TRAILING_SPACE = 1,
+    /// No space or tab counts, wherever it is.
+    R_DIFF_IGNORE_SPACE = 2,
+    /// Upper and lower case letters are the same (A to Z).
+    R_DIFF_IGNORE_CASE = 4,
+}
+
 /// How much a notification of the system asks for attention (Rnotification_show).
 alias RNotificationUrgency = int;
 enum : RNotificationUrgency
@@ -1304,6 +1439,36 @@ enum : RNotificationUrgency
     R_NOTIFICATION_NORMAL = 0x04F1,
     /// Stays until the user dismisses it, where the system allows it.
     R_NOTIFICATION_CRITICAL = 0x04F2,
+}
+
+/// What happened to a notification (Rnotification_set_callback).
+alias RNotificationEvent = int;
+enum : RNotificationEvent
+{
+    /// The user clicked the notification itself (not one of its buttons).
+    R_NOTIFICATION_ACTIVATED = 0x0C20,
+    /// The user clicked one of its buttons: `action` is the id of that button.
+    R_NOTIFICATION_ACTION_INVOKED = 0x0C21,
+    /// It went away without being clicked: closed by the user, or its time ran out (where the system tells).
+    R_NOTIFICATION_DISMISSED = 0x0C22,
+}
+
+/// What the notifications of the system can do here (Rnotification_supports).
+alias RNotificationFeature = int;
+enum : RNotificationFeature
+{
+    /// Buttons (RNotificationDesc::actions).
+    R_NOTIFICATION_FEATURE_ACTIONS = 1,
+    /// A notification shown again with the same tag replaces the first one.
+    R_NOTIFICATION_FEATURE_REPLACE = 2,
+    /// Rnotification_close takes a notification away.
+    R_NOTIFICATION_FEATURE_CLOSE = 4,
+    /// An image beside the text (RNotificationDesc::icon).
+    R_NOTIFICATION_FEATURE_ICON = 8,
+    /// A click on the notification is reported (R_NOTIFICATION_ACTIVATED).
+    R_NOTIFICATION_FEATURE_ACTIVATED = 0x0010,
+    /// Its dismissal is reported (R_NOTIFICATION_DISMISSED).
+    R_NOTIFICATION_FEATURE_DISMISSED = 0x0020,
 }
 
 alias RFileDialogFlags = int;
@@ -1344,6 +1509,77 @@ enum : RMessageResult
     R_MESSAGE_RESULT_OK = 1,
     R_MESSAGE_RESULT_YES = 2,
     R_MESSAGE_RESULT_NO = 3,
+}
+
+/// What the application may be allowed to use (Rpermission_request).
+alias RPermission = int;
+enum : RPermission
+{
+    R_PERMISSION_CAMERA = 0x0C00,
+    /// Notifications of the system (Rnotification_show).
+    R_PERMISSION_NOTIFICATIONS = 0x0C01,
+    /// Reading the whole photo library. Rphoto_pick needs none: the system's picker gives only what the user chose.
+    R_PERMISSION_PHOTOS = 0x0C02,
+    R_PERMISSION_MICROPHONE = 0x0C03,
+    /// The location of the device while the application is in use.
+    R_PERMISSION_LOCATION = 0x0C04,
+}
+
+/// What the user answered, or would be asked (Rpermission_get_status).
+alias RPermissionStatus = int;
+enum : RPermissionStatus
+{
+    /// There is nothing to ask for here: the platform has no such permission,
+    /// or Raven cannot ask for it on this platform. Whether the service itself
+    /// exists is told by its own function (Rcamera_is_available,
+    /// Rnotification_is_supported).
+    R_PERMISSION_UNSUPPORTED = 0x0C10,
+    /// Not asked yet: Rpermission_request shows the question of the system.
+    R_PERMISSION_NOT_ASKED = 0x0C11,
+    /// Allowed (also where the system asks nothing: notifications on Windows and Linux).
+    R_PERMISSION_GRANTED = 0x0C12,
+    /// Allowed in part: some photos only (iOS, Android 14), quiet notifications (iOS provisional), the approximate location only.
+    R_PERMISSION_LIMITED = 0x0C13,
+    /// Refused, and the system may ask again (Android, after a first refusal).
+    R_PERMISSION_DENIED = 0x0C14,
+    /// Refused for good, or not the user's to give (parental controls, a
+    /// profile of the company): the system shows no question any more, only
+    /// its Settings can change it (Rpermission_open_settings).
+    R_PERMISSION_BLOCKED = 0x0C15,
+}
+
+/// How a request of a picker, the camera or a share sheet ended.
+alias RDeviceResult = int;
+enum : RDeviceResult
+{
+    /// Done: the files were chosen, the photo taken, the file saved, the sheet shown.
+    R_DEVICE_DONE = 0x0C20,
+    /// The user closed the screen of the system without choosing.
+    R_DEVICE_CANCELLED = 0x0C21,
+    /// A permission it needs was refused (Rcamera_take_photo: the camera).
+    R_DEVICE_DENIED = 0x0C22,
+    /// The platform does not have this service.
+    R_DEVICE_UNSUPPORTED = 0x0C23,
+    /// Another screen of the system is still open: one at a time.
+    R_DEVICE_BUSY = 0x0C24,
+    /// The system reported an error (also reported as an R_ERROR_PLATFORM warning).
+    R_DEVICE_FAILED = 0x0C25,
+}
+
+/// A short vibration that answers a touch (Rhaptic_play).
+alias RHaptic = int;
+enum : RHaptic
+{
+    /// Impacts: something touched, snapped, landed.
+    R_HAPTIC_LIGHT = 0x0C30,
+    R_HAPTIC_MEDIUM = 0x0C31,
+    R_HAPTIC_HEAVY = 0x0C32,
+    /// The selection moved (a picker wheel, a switch, a segmented control).
+    R_HAPTIC_SELECTION = 0x0C33,
+    /// The outcome of an action.
+    R_HAPTIC_SUCCESS = 0x0C34,
+    R_HAPTIC_WARNING = 0x0C35,
+    R_HAPTIC_ERROR = 0x0C36,
 }
 
 /// How a spring moves. Animations in Raven are springs, as on iOS: a value is
@@ -1416,6 +1652,18 @@ enum : RXmlValueType
     R_XML_LIST = 0x03C8,
 }
 
+/// How the hours of a time are shown.
+alias RClock = int;
+enum : RClock
+{
+    /// As the locale does (Rlocale_uses_12_hour_clock).
+    R_CLOCK_AUTO = 0x0C30,
+    /// 1 to 12, with AM and PM.
+    R_CLOCK_12_HOUR = 0x0C31,
+    /// 0 to 23.
+    R_CLOCK_24_HOUR = 0x0C32,
+}
+
 alias RColorFilter = int;
 enum : RColorFilter
 {
@@ -1477,6 +1725,41 @@ enum : RAccessibleRole
     R_ROLE_PANE = 0x0783,
 }
 
+/// What a request of a service of the device asks the application for (RHostServiceRequest).
+alias RHostService = int;
+enum : RHostService
+{
+    /// Files to read (Rfile_open_async): `filters`, `flags` (R_FILE_DIALOG_MULTIPLE).
+    R_HOST_SERVICE_OPEN_FILES = 0x0C40,
+    /// Save `data` / `size`, or the file `path` when data is NULL, as `file_name` (Rfile_save_async, Rfile_export_async).
+    R_HOST_SERVICE_SAVE_FILE = 0x0C41,
+    /// A folder (Rfile_select_folder_async).
+    R_HOST_SERVICE_SELECT_FOLDER = 0x0C42,
+    /// A photo from the camera (Rcamera_take_photo); camera permission already asked.
+    R_HOST_SERVICE_TAKE_PHOTO = 0x0C43,
+    /// Up to `max_count` photos (0: no limit) from the library (Rphoto_pick).
+    R_HOST_SERVICE_PICK_PHOTOS = 0x0C44,
+    /// The share sheet: `text` and / or the file `path` (`mime_type`), pointing at `anchor_*` (Rshare_show).
+    R_HOST_SERVICE_SHARE = 0x0C45,
+}
+
+alias RGoldenStatus = int;
+enum : RGoldenStatus
+{
+    /// The capture matches the golden.
+    R_GOLDEN_MATCH = 0x0BA0,
+    /// RAVEN_UPDATE_GOLDENS=1: the capture was written as the golden.
+    R_GOLDEN_UPDATED = 0x0BA1,
+    /// Too many pixels differ: NAME.actual.png and NAME.diff.png were written.
+    R_GOLDEN_MISMATCH = 0x0BA2,
+    /// The capture and the golden do not have the same size: NAME.actual.png was written.
+    R_GOLDEN_SIZE_MISMATCH = 0x0BA3,
+    /// There is no golden yet: NAME.actual.png was written (run with RAVEN_UPDATE_GOLDENS=1 to keep it).
+    R_GOLDEN_MISSING = 0x0BA4,
+    /// The window could not be captured, or a file could not be read or written.
+    R_GOLDEN_FAILED = 0x0BA5,
+}
+
 /// Registers a function called once per frame, before the layout.
 /// The body of your loop does the same job; the callback is also called
 /// while the OS keeps the thread in a loop of its own (on Windows, while
@@ -1527,6 +1810,10 @@ alias RKeyboardCallback = extern (C) void function(Rid window, int visible, floa
 /// shows the "can drop here" cursor and highlights the target; for
 /// R_DROP_DROPPED it tells the source that the data was taken.
 alias RDropCallback = extern (C) int function(Rid target, const(RDropEvent)* event, void* user_data);
+/// The end of a drag out of the window (Rdrag_begin_external):
+/// `operation` is what the target did, R_DRAG_OPERATION_NONE when nothing
+/// took it. Called once per drag, whatever ended it.
+alias RDragFinishedCallback = extern (C) void function(Rid source, RDragOperation operation, void* user_data);
 /// Called on Back when no popup or dialog of Raven is open. Return
 /// R_TRUE when the application went back, R_FALSE when it had nowhere to
 /// go (the system then does its default). NULL removes it.
@@ -1572,9 +1859,13 @@ alias RLabelLinkCallback = extern (C) void function(Rid label, const(char)* url,
 alias RButtonClickedCallback = extern (C) void function(Rid button, void* user_data);
 alias RCheckboxChangedCallback = extern (C) void function(Rid checkbox, int checked, void* user_data);
 alias RSliderChangedCallback = extern (C) void function(Rid slider, float value, void* user_data);
+/// Called when the animation stops after its last play (at the next frame), before the action of the image.
+alias RImageFinishedCallback = extern (C) void function(Rid image, void* user_data);
 alias RTextChangedCallback = extern (C) void function(Rid text_input, const(char)* text, void* user_data);
 alias RSpinBoxChangedCallback = extern (C) void function(Rid spin_box, double value, void* user_data);
 alias RComboBoxChangedCallback = extern (C) void function(Rid combo_box, int index, void* user_data);
+/// Called each time the user changes the text of an editable or searchable combo box.
+alias RComboBoxTextCallback = extern (C) void function(Rid combo_box, const(char)* text, void* user_data);
 /// Virtual mode, for large or computed data: the list stores nothing and
 /// asks for the text of the rows it draws. The returned string must stay
 /// valid until the next call.
@@ -1617,6 +1908,15 @@ alias RTableCellColorCallback = extern (C) int function(Rid table, int row, int 
 alias RTableEventCallback = extern (C) void function(Rid table, int row, void* user_data);
 /// Called when the user clicks a header; `column` -1: not sorted.
 alias RTableSortCallback = extern (C) void function(Rid table, int column, int descending, void* user_data);
+/// Called when the user keeps the text typed in a cell (Enter, Tab,
+/// a click elsewhere). Return R_TRUE to accept it: a stored table then
+/// keeps the text in the cell, unless the callback set the cell itself
+/// (Rtable_set_cell, to keep "12.50" for "12.5"). A virtual table stores
+/// nothing: the application keeps the text in its data. Return R_FALSE to
+/// refuse it: after Enter or Tab the field stays open on the text, so the
+/// user can correct it; after a click elsewhere the edit is dropped.
+/// Without a callback, a stored table keeps every text.
+alias RTableCellEditedCallback = extern (C) int function(Rid table, int row, int column, const(char)* text, void* user_data);
 /// Called when the user chooses a date. This also fires the action of the widget.
 alias RDateChangedCallback = extern (C) void function(Rid date_picker, int year, int month, int day, void* user_data);
 /// Called when the user changes the time. This also fires the action of the widget.
@@ -1653,6 +1953,13 @@ alias RMapMarkerCallback = extern (C) void function(Rid map, int marker, void* u
 /// end of an animated zoom), with its new center and zoom. This also fires
 /// the action of the widget.
 alias RMapViewCallback = extern (C) void function(Rid map, double latitude, double longitude, double zoom, void* user_data);
+/// Receives the result of a script: `result` is its value written
+/// as JSON ("42", "\"text\"", "{\"a\":1}", "null"), or NULL when the
+/// script failed, `error` then telling why.
+alias RSystemWebViewResultCallback = extern (C) void function(Rid view, const(char)* result, const(char)* error, void* user_data);
+/// Receives what the page sends with `window.raven.postMessage(value)`.
+alias RSystemWebViewMessageCallback = extern (C) void function(Rid view, const(char)* message, void* user_data);
+alias RSystemWebViewEventCallback = extern (C) void function(Rid view, RSystemWebViewEvent event, void* user_data);
 /// Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
 alias RTextEditorZoomCallback = extern (C) void function(Rid editor, float zoom, void* user_data);
 /// Called each time the editor gathers its proposals, with the
@@ -1714,6 +2021,11 @@ alias RNodeGraphPointCallback = extern (C) void function(Rid graph, int item, fl
 alias RBlockEditorCallback = extern (C) void function(Rid editor, int block, void* user_data);
 /// Right click: on a block (0 on the canvas), at x, y in the widget.
 alias RBlockEditorContextCallback = extern (C) void function(Rid editor, int block, float x, float y, void* user_data);
+/// A line, or its number in the gutter, was clicked. `side` is the side
+/// of the line clicked (in unified mode: the left side for a removed line
+/// and for the left column of numbers, else the right side), `line` its
+/// number on that side, from 1.
+alias RDiffViewLineCallback = extern (C) void function(Rid diff_view, RDiffSide side, int line, int in_gutter, void* user_data);
 /// Called when a dialog closes. `result` is the value given to Rdialog_close, 0 when dismissed.
 alias RDialogClosedCallback = extern (C) void function(Rid content, int result, void* user_data);
 /// Called when the user chooses: a double click or Enter on a file,
@@ -1723,6 +2035,17 @@ alias RDialogClosedCallback = extern (C) void function(Rid content, int result, 
 alias RFileBrowserCallback = extern (C) void function(Rid browser, const(char)* path, void* user_data);
 alias RNotificationFallback = extern (C) void function(const(char)* title, const(char)* body_, RNotificationUrgency urgency, void* user_data);
 alias RNotificationClickedCallback = extern (C) void function(void* user_data);
+/// Called on the UI thread when the user clicks a notification or
+/// one of its buttons, or dismisses it. `tag` names the notification,
+/// `action` is the id of the button for R_NOTIFICATION_ACTION_INVOKED, else NULL.
+/// NULL: none.
+alias RNotificationCallback = extern (C) void function(const(char)* tag, RNotificationEvent event, const(char)* action, void* user_data);
+/// The answer to Rpermission_request.
+alias RPermissionCallback = extern (C) void function(RPermission permission, RPermissionStatus status, void* user_data);
+/// The end of a request of a picker, the camera, a save or a share
+/// sheet. `files` (count of them) are what it gave: none unless `result` is
+/// R_DEVICE_DONE. Called on the UI thread, once.
+alias RDeviceCallback = extern (C) void function(RDeviceResult result, const(RPickedFile)* files, int count, void* user_data);
 /// Called on the render thread each time the window is rendered.
 /// State you bind (pipeline, descriptor sets, viewport, scissor) does not
 /// need to be restored. NULL removes the callback.
@@ -1819,6 +2142,36 @@ struct RFrameStats
     uint backdrop_count = 0;
     uint paint_job_count = 0;
     ulong frame_index = 0;
+}
+
+/// One format of something given to the other applications: put on
+/// the clipboard (Rclipboard_set_data) or dragged out of a window
+/// (Rdrag_begin_external). The program that receives it takes the format
+/// it prefers.
+///
+/// `mime` names the format. Raven gives these their native names on each
+/// system (and converts them), so that every program understands them:
+///
+///   text/plain      UTF-8 text
+///   text/html       HTML (UTF-8)
+///   image/png       a PNG file (Rimage_encode_png); on Windows it is also
+///                   given as a bitmap (CF_DIBV5), on macOS also as TIFF
+///   text/uri-list   files, as file:// URLs, one per line: the file
+///                   manager copies or moves them, the other programs
+///                   open them
+///   text/rtf, image/jpeg, image/tiff, image/gif, application/pdf,
+///   application/json, text/csv, image/svg+xml
+///
+/// Any other name is a format of the application ("application/x-myapp-node"):
+/// passed as it is, and read back by the programs that know it (other
+/// instances of the application).
+struct RDataItem
+{
+    /// The format: a MIME type.
+    const(char)* mime = null;
+    /// The bytes (copied by the function they are given to). Text is not followed by a '\0'.
+    const(void)* data = null;
+    size_t size = 0;
 }
 
 /// Distances from the edges of a window, in logical units.
@@ -2087,7 +2440,7 @@ struct RTileItem
     const(char)* detail = null;
     /// Small text at the top right of the tile, or NULL.
     const(char)* badge = null;
-    /// Icon texture (R_INVALID_ID: none), the region of it and its tint (white by default).
+    /// Icon texture (R_INVALID_ID: none), the region of it and its tint (white by default; an SVG in currentColor is also tinted with the color of the name).
     Rid icon = 0;
     float[4] uv = 0;
     float[4] tint = 0;
@@ -2159,6 +2512,41 @@ struct RJumpTask
     const(char)* description = null;
 }
 
+/// A button of a notification.
+struct RNotificationAction
+{
+    /// Given back to the callback ("reply", "snooze"); not empty, and not "default".
+    const(char)* id = null;
+    /// Shown to the user ("Reply").
+    const(char)* label = null;
+}
+
+/// A notification for Rnotification_show_desc. `size` must be
+/// sizeof(RNotificationDesc): the fields that later versions of Raven add
+/// come after the others, and a smaller size tells Raven they were not
+/// given. The other fields may be left to zero.
+struct RNotificationDesc
+{
+    /// sizeof(RNotificationDesc).
+    uint size = 0;
+    /// Names the notification: shown again with the same tag, it replaces the
+    /// one still shown instead of adding another; Rnotification_close takes it
+    /// away; the callback is given it. NULL or "": a tag of its own
+    /// ("raven.1", "raven.2"...).
+    const(char)* tag = null;
+    const(char)* title = null;
+    const(char)* body_ = null;
+    /// 0: R_NOTIFICATION_NORMAL.
+    RNotificationUrgency urgency = 0;
+    /// An image file shown beside the text (PNG, JPEG, SVG...: what Raven reads), or NULL.
+    const(char)* icon = null;
+    /// Up to 3 buttons, or NULL.
+    const(RNotificationAction)* actions = null;
+    int action_count = 0;
+    /// The window brought back when the notification is clicked. R_INVALID_ID: the main window (the first one opened).
+    Rid window = 0;
+}
+
 /// A kind of file in a file dialog.
 struct RFileFilter
 {
@@ -2185,6 +2573,41 @@ struct RFileDialogDesc
     const(char)* default_extension = null;
     /// Bitmask of RFileDialogFlags.
     uint flags = 0;
+}
+
+/// A file given by a service of the device. Valid during the callback only: copy what you keep.
+struct RPickedFile
+{
+    /// A path Raven and the C library can read (Rfile_read, textures, fonts,
+    /// fopen). On iOS and Android a copy in the cache of the application.
+    /// NULL for Rfile_save_async on iOS and Android: the file went where the
+    /// user chose, which the application cannot write to again.
+    const(char)* path = null;
+    /// The name the user saw ("IMG_0042.JPG"), to show.
+    const(char)* name = null;
+    /// The MIME type when the system tells ("image/jpeg"), or NULL.
+    const(char)* mime_type = null;
+    /// Bytes.
+    ulong size = 0;
+    /// Pixels of a photo (Rcamera_take_photo, Rphoto_pick) when known, else 0.
+    int width = 0;
+    /// Pixels of a photo (Rcamera_take_photo, Rphoto_pick) when known, else 0.
+    int height = 0;
+}
+
+/// What a share sheet offers to the other applications (Rshare_show). Every field may be left to zero, but not all of them.
+struct RShareDesc
+{
+    /// Text, or a link ("https://..."). May be NULL.
+    const(char)* text = null;
+    /// A file to send (a path Raven can read), or NULL.
+    const(char)* path = null;
+    /// Its MIME type ("image/png"); NULL: guessed from its extension.
+    const(char)* mime_type = null;
+    /// The title of the sheet, where the system shows one (Android's chooser). May be NULL.
+    const(char)* title = null;
+    /// The widget the sheet points at on a tablet (the button that shares). 0 or R_INVALID_ID: the middle of the window.
+    Rid anchor = 0;
 }
 
 /// Passed to the draw callback of a viewport. Sizes are in pixels.
@@ -2292,6 +2715,38 @@ struct RAccessibilitySettings
     int screen_reader = 0;
 }
 
+/// A request of a service of the device, valid during the call only. Fields that do not concern the service are zero.
+struct RHostServiceRequest
+{
+    /// Given back to Rhost_service_complete.
+    uint id = 0;
+    RHostService service = 0;
+    /// The window it is for (R_INVALID_ID: none).
+    Rid window = 0;
+    /// What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window.
+    float anchor_x = 0;
+    /// What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window.
+    float anchor_y = 0;
+    /// What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window.
+    float anchor_width = 0;
+    /// What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window.
+    float anchor_height = 0;
+    const(char)* title = null;
+    const(RFileFilter)* filters = null;
+    int filter_count = 0;
+    /// Bitmask of RFileDialogFlags.
+    uint flags = 0;
+    const(char)* file_name = null;
+    const(char)* default_extension = null;
+    const(void)* data = null;
+    size_t size = 0;
+    const(char)* path = null;
+    int max_count = 0;
+    const(char)* text = null;
+    const(char)* mime_type = null;
+    const(char)* share_title = null;
+}
+
 struct RHostPlatformDesc
 {
     /// The pointer over `window` should look like `cursor`. May be NULL.
@@ -2303,6 +2758,53 @@ struct RHostPlatformDesc
     /// Raven has work to do (a timer, a posted task, a redraw): produce a frame soon. Thread-safe. May be NULL.
     void* wake = null;
     void* user_data = null;
+    /// An RPermissionStatus, without asking. NULL: as on desktops (notifications granted, the rest unsupported).
+    void* permission_status = null;
+    /// Ask the user (the status is not asked or denied); answer with Rhost_permission_answer.
+    void* permission_request = null;
+    /// A picker, the camera, a save or a share sheet; answer with Rhost_service_complete. NULL: the file dialogs of Raven, nothing else.
+    void* service_request = null;
+    /// R_TRUE: there is a camera (Rcamera_is_available) for R_HOST_SERVICE_TAKE_PHOTO.
+    int has_camera = 0;
+    /// Ropen_url. Returns R_FALSE when it could not. NULL: as on desktops (`open`, `xdg-open`...).
+    void* open_url = null;
+    /// Rhaptic_play: an RHaptic. Returns R_TRUE when played.
+    void* haptic = null;
+    /// Downloads an http(s) URL (images from a URL): returns its content in a
+    /// buffer from Rmemory_alloc and its size, or NULL. Called on worker
+    /// threads, several at a time, and may block. NULL: as on desktops.
+    void* download = null;
+}
+
+/// How Rtest_expect_golden compares. NULL options: a tolerance of 2 per channel and no different pixel.
+struct RGoldenOptions
+{
+    /// Largest difference on one channel (0..255) for which two pixels are still the same.
+    int channel_tolerance = 0;
+    /// Share of the pixels (0..1) that may differ while the images still match.
+    float max_diff_ratio = 0;
+    /// R_TRUE: the golden of this OS and backend, "button.png" read as "button.macos-metal.png" (Rtest_get_platform_tag).
+    int per_platform = 0;
+    /// Folder of the .actual.png and .diff.png written on a mismatch. NULL: beside the golden.
+    const(char)* output_directory = null;
+}
+
+/// What Rtest_expect_golden found.
+struct RGoldenResult
+{
+    RGoldenStatus status = 0;
+    /// Size of the capture, in pixels.
+    int width = 0;
+    /// Size of the capture, in pixels.
+    int height = 0;
+    /// Pixels farther from the golden than the tolerance.
+    int differing_pixels = 0;
+    /// Largest difference found on one channel (0..255).
+    int max_channel_difference = 0;
+    /// The golden that was read or written (with the platform tag). Valid until the next call.
+    const(char)* golden_path = null;
+    /// One line that says what happened, for the log of the test. Valid until the next call.
+    const(char)* message = null;
 }
 
 /// Starts the library with default settings on the given backend.
@@ -2479,7 +2981,9 @@ void Raction_set_builtins(int enabled);
 int Raction_is_builtin(const(char)* name);
 /// Opens an address with the program the user has for it: a web
 /// page in the browser, a mailto: in the mail program, a file in its
-/// application. Returns at once.
+/// application. Returns at once. On iOS and Android the system opens it
+/// (a web page, a tel:, a mailto:; not a file: share it with Rshare_show),
+/// and Raven must be initialized and this be called on the UI thread.
 /// Returns: R_FALSE when the OS could not be asked (nothing tells whether
 /// a program then really opened it).
 int Ropen_url(const(char)* url);
@@ -2487,11 +2991,45 @@ void Rclipboard_set_text(const(char)* text);
 /// Copies one content in two formats: `html` for the programs that
 /// paste formatting (word processors, chat, mail) and `text` for the
 /// others (editors, terminals). Each program takes the format it prefers.
-/// Where the window system has no clipboard formats (Win32 and macOS for
-/// now), or `html` is NULL, it is Rclipboard_set_text(text).
+/// Where the window system has no clipboard formats, or `html` is NULL,
+/// it is Rclipboard_set_text(text).
 void Rclipboard_set_html(const(char)* text, const(char)* html);
 /// Returns: The clipboard text, or "" when empty. Valid until the next call.
+/// On iOS a read that does not follow a paste of the user (the Paste of a
+/// menu, a button, Command-V) shows the system's question "Allow Paste?",
+/// and on Android 12+ the system says that the application pasted: read it
+/// when the user pastes, not to look at it. Android lets only the
+/// application in front read it.
 const(char)* Rclipboard_get_text();
+/// Returns: R_TRUE when the clipboard holds text, without reading it (no
+/// question of the system on iOS): to enable a Paste button.
+int Rclipboard_has_text();
+/// Replaces what the clipboard holds with one content in several
+/// formats (RDataItem): each program pastes the one it prefers.
+/// Returns: R_TRUE when every format was put on the clipboard; R_FALSE when
+/// some could not be (a window system that only takes text: X11 and
+/// Wayland for now, where the text/plain item, if any, still is).
+int Rclipboard_set_data(const(RDataItem)* items, int count);
+/// Returns: R_TRUE when the clipboard holds this format (Rclipboard_set_data), or one Raven converts to it.
+int Rclipboard_has_data(const(char)* mime);
+/// What the clipboard holds in one format, converted from the
+/// native one when needed (a bitmap given as image/png...).
+/// Returns: The bytes, followed by a '\0' that `size` does not count, to
+/// release with Rmemory_free; NULL when the clipboard does not hold it.
+char* Rclipboard_get_data(const(char)* mime, size_t* size);
+/// Copies a picture: RGBA8 pixels, straight alpha, rows `stride`
+/// bytes apart (0: width * 4). It goes on the clipboard as image/png
+/// (and as the bitmaps of the system), so that image editors, documents
+/// and mail paste it.
+/// Returns: R_FALSE when it could not be put there.
+int Rclipboard_set_image(const(ubyte)* rgba, int width, int height, int stride);
+/// Returns: R_TRUE when the clipboard holds a picture Rclipboard_get_image can read.
+int Rclipboard_has_image();
+/// The picture on the clipboard (copied from any program: PNG,
+/// TIFF, a bitmap...), as tightly packed RGBA8 pixels, straight alpha.
+/// Returns: The pixels, to release with Rpixels_free; NULL when there is
+/// none (or no decoder: RAVEN_WITH_STB_IMAGE off).
+ubyte* Rclipboard_get_image(int* width, int* height);
 /// Retrieves and clears the last recorded error.
 /// detail   Optional output: human-readable description.
 /// severity Optional output: severity of the error.
@@ -2699,12 +3237,28 @@ void Rwindow_inject_mouse_button(Rid window, RMouseButton button, int pressed);
 void Rwindow_inject_mouse_wheel(Rid window, float wheel_x, float wheel_y);
 void Rwindow_inject_key(Rid window, RKey key, int pressed, uint modifiers);
 void Rwindow_inject_text(Rid window, const(char)* text);
+/// The text an input method is composing (preedit: Chinese,
+/// Japanese, Korean, dead keys), as the platforms send it. The focused
+/// TextInput, SpinBox or TextEditor shows it at its caret, underlined, in
+/// place of its selection, but it is not in its text and no changed
+/// callback runs. [selection_start, selection_end) are bytes of `text`:
+/// the part the input method works on (underlined thicker), or the caret
+/// when they are equal; -1 is the end of `text`. NULL or "" ends the
+/// composition without typing anything (cancel). The committed text comes
+/// through Rwindow_inject_text, which ends the composition too, and so
+/// does a change of focus. Ignored when the focus takes no text.
+void Rwindow_inject_composition(Rid window, const(char)* text, int selection_start, int selection_end);
 /// A drag from another application moves over the window
 /// (`inside` R_TRUE) or leaves it.
 /// Returns: R_TRUE when a drop at this position would be accepted.
 int Rwindow_inject_drag(Rid window, float x, float y, int inside);
 /// Drops files and / or text at a position. Returns R_TRUE when a target took them.
 int Rwindow_inject_drop(Rid window, float x, float y, const(char*)* paths, int path_count, const(char)* text);
+/// The end of the drag out of the window that the window system
+/// holds (Rdrag_begin_external), as it reports it: `operation` is what the
+/// target did (an RDragOperation). Returns R_FALSE when no such drag is in
+/// progress.
+int Rwindow_inject_drag_end(Rid window, RDragOperation operation);
 /// Back, as the system sends it (Rwindow_set_back_callback). Returns R_TRUE when something took it.
 int Rwindow_inject_back(Rid window);
 /// R_TRUE while the key is held down in the window (cleared when the window loses the keyboard).
@@ -2729,12 +3283,18 @@ int Rwindow_set_text_input_selection(Rid window, int start, int end);
 /// after it, as typing would (the changed callback runs; MaxLength
 /// applies). R_FALSE when there is none or it is read-only.
 int Rwindow_replace_text_input(Rid window, int start, int end, const(char)* text);
+/// The composition of the input method in progress (UTF-8, valid
+/// until it changes) and its selection in bytes; NULL when there is none.
+/// Any output pointer may be NULL.
+const(char)* Rwindow_get_text_composition(Rid window, int* selection_start, int* selection_end);
 /// R_TRUE while a menu, list or dialog is open over the window.
 int Rwindow_has_popup(Rid window);
 /// Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
 /// Call after Rdraw_frame. Independent of the blink phase. Returns R_FALSE and zeros the
 /// outputs when there is no visible editable caret, the window is inactive, or focus changed
-/// since painting. Any output pointer may be NULL.
+/// since painting. Any output pointer may be NULL. While an input method
+/// composes, it is the caret inside the composition: where its candidate
+/// window goes.
 int Rwindow_get_text_input_rect(Rid window, int* x, int* y, int* width, int* height);
 /// Returns: Number of open in-window popups (menus, combo lists, pickers), bottom to top.
 int Rwindow_get_popup_count(Rid window);
@@ -2760,6 +3320,42 @@ const(char)* Rdrag_get_type(Rid window);
 const(char)* Rdrag_get_data(Rid window);
 /// Ends the drag in progress without dropping (the target receives R_DROP_LEAVE).
 void Rdrag_cancel(Rid window);
+/// Lets the user drag data out of the window, to another
+/// application: a picture into a document, files into the file manager,
+/// text into an editor. `items` is one content in several formats
+/// (RDataItem, copied): the target takes the one it prefers.
+/// `operations` is a bitmask of RDragOperation the target may do (0:
+/// R_DRAG_OPERATION_COPY).
+///
+/// Call it as Rdrag_begin, while the mouse button is held (from a mouse
+/// move once the pointer has moved a few units). The window system then
+/// takes the drag at the next move of the pointer: it shows the picture
+/// that follows the pointer (Rdrag_set_image) and the cursor that tells
+/// what a drop there does; the button released, `callback` (may be NULL)
+/// is told what the target did.
+///
+/// Called while a drag inside the application (Rdrag_begin) is in progress
+/// in the window of `source`, it gives that drag the data for outside:
+/// the drag stays inside the window, to its drop targets, and becomes a
+/// drag of the window system only when the pointer leaves the window.
+/// Brought back over a window of the application, it still comes to the
+/// drop targets with the type and data given to Rdrag_begin.
+///
+/// Implemented on macOS and Windows; elsewhere it returns R_FALSE
+/// (Rdrag_external_supported).
+/// Returns: R_FALSE when the widget is not in a window or the window
+/// system cannot drag out of its windows.
+int Rdrag_begin_external(Rid source, const(RDataItem)* items, int count, uint operations, RDragFinishedCallback callback, void* user_data);
+/// The picture that follows the pointer during the drag given by
+/// Rdrag_begin_external (RGBA8 pixels, straight alpha, tightly packed,
+/// copied), held by the pointer at its center. Call it right after
+/// Rdrag_begin_external. Without it the system chooses: the picture
+/// dragged, the icons of the files, or a generic one.
+void Rdrag_set_image(const(ubyte)* rgba, int width, int height);
+/// R_TRUE when the window system lets Raven drag data out of its windows (Rdrag_begin_external).
+int Rdrag_external_supported();
+/// R_TRUE from Rdrag_begin_external until its callback was called.
+int Rdrag_external_is_active();
 void Rwindow_register_shortcut(Rid window, RKey key, uint modifiers, const(char)* action);
 void Rwindow_unregister_shortcut(Rid window, RKey key, uint modifiers);
 /// The settings every window follows, unless it has its own.
@@ -2942,7 +3538,8 @@ Rid Rfont_get_variant(Rid font, RFontStyle style);
 /// size Font size; 0 uses R_METRIC_FONT_SIZE.
 void Rfont_measure_text(Rid font, float size, const(char)* text, float* width, float* height);
 /// Creates a texture from the content of an image file (PNG, JPEG,
-/// BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread.
+/// BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread. An
+/// animated GIF or APNG keeps its frames: an Image showing it plays them.
 /// Returns: R_INVALID_ID on failure.
 Rid Rtexture_create(const(char)* data, size_t data_size);
 /// Same as Rtexture_create, decoded on a worker thread. The handle
@@ -2963,12 +3560,34 @@ Rid Rtexture_create_async(const(char)* data, size_t data_size);
 /// does not. Rtexture_create, Rtexture_create_from_file and the asynchronous
 /// ones read SVG files this way. Paths, fills, strokes and gradients are
 /// drawn; text, filters and masks are not.
+///
+/// currentColor: an SVG painted only in currentColor (fill="currentColor",
+/// stroke="currentColor") is drawn in white, keeping its shape and its
+/// opacity, and the widgets that show it (Image, the icons of menu items,
+/// tabs, tree items, dock panels, tiles, nodes) tint it with the color of
+/// their text at draw time: it follows the theme, hover, pressed and
+/// disabled without being drawn again. Rdraw_image draws it in its tint
+/// color. In an SVG that also uses other colors, currentColor is black.
+/// See Rtexture_uses_current_color.
 Rid Rtexture_create_from_svg(const(char)* svg, size_t svg_size, float scale);
+/// R_TRUE when the texture is an SVG painted only in currentColor:
+/// white where it is painted, tinted with the color of the text by the
+/// widgets that show it (see Rtexture_create_from_svg).
+int Rtexture_uses_current_color(Rid texture);
 /// Pixels of the texture per logical unit: the scale of an SVG, 1 otherwise.
 float Rtexture_get_density(Rid texture);
 Rid Rtexture_create_from_file(const(char)* path);
 /// Reads and decodes the file on a worker thread.
 Rid Rtexture_create_from_file_async(const(char)* path);
+/// Downloads an http:// or https:// image and decodes it on a worker
+/// thread, as an Image whose Source is a URL does. The handle is usable at
+/// once: widgets showing it draw nothing until it is ready (Rtexture_is_ready;
+/// a texture that could not be downloaded is ready with a size of 0, and the
+/// failure is reported as a warning). Desktops download with WinHTTP or
+/// `curl`; iOS and Android through their platform. Android needs the INTERNET
+/// permission in the manifest; iOS refuses http:// unless Info.plist allows
+/// it (App Transport Security). Up to 32 MiB.
+Rid Rtexture_create_from_url_async(const(char)* url);
 /// Creates a texture from tightly packed RGBA8 pixels (straight alpha). Its filter is R_FILTER_LINEAR.
 Rid Rtexture_create_from_pixels(const(ubyte)* rgba, int width, int height);
 /// Replaces the pixels of a texture. The size may change. Use it to
@@ -2981,8 +3600,30 @@ void Rtexture_update(Rid texture, const(ubyte)* rgba, int width, int height);
 /// Returns: The pixels, to release with Rpixels_free; NULL when the data
 /// is not an image Raven can read.
 ubyte* Rimage_decode(const(void)* data, size_t data_size, int* width, int* height);
+/// Reads what an image file in memory holds without keeping its
+/// pixels: its size, its frames (1 for a still image, more for an animated
+/// GIF or APNG) and how many times it plays (0: forever). Thread-safe.
+/// Each pointer may be NULL.
+/// Returns: R_FALSE when the data is not an image Raven can read.
+int Rimage_decode_info(const(void)* data, size_t data_size, int* width, int* height, int* frame_count, int* loop_count);
+/// Decodes one frame of an animated GIF or APNG into tightly packed
+/// RGBA8 pixels, composed as it is shown (the frames before it drawn and
+/// disposed of). Frame 0 of a still image is the image. Thread-safe.
+/// delay Receives the seconds the frame is shown (0 for a still image); may be NULL.
+/// Returns: The pixels, to release with Rpixels_free; NULL when the frame does not exist.
+ubyte* Rimage_decode_frame(const(void)* data, size_t data_size, int frame, int* width, int* height, double* delay);
 /// Releases pixels returned by Raven (Rimage_decode, Rwindow_capture). Thread-safe.
 void Rpixels_free(ubyte* pixels);
+/// Encodes tightly packed RGBA8 pixels (what Rwindow_capture
+/// returns) as a PNG file in memory. Thread-safe.
+/// size Receives the number of bytes.
+/// Returns: The bytes of the file, to release with Rpixels_free; NULL when
+/// there are no pixels.
+ubyte* Rimage_encode_png(const(ubyte)* rgba, int width, int height, size_t* size);
+/// Writes tightly packed RGBA8 pixels to a PNG file: a screenshot
+/// of Rwindow_capture, a picture made by the application. Thread-safe.
+/// Returns: R_FALSE when the file cannot be written.
+int Rimage_save_png(const(char)* path, const(ubyte)* rgba, int width, int height);
 /// Returns: R_TRUE once an asynchronous texture is decoded (or failed).
 int Rtexture_is_ready(Rid texture);
 /// Blocks until an asynchronous texture is ready.
@@ -2994,6 +3635,21 @@ void Rtexture_get_size(Rid texture, int* width, int* height);
 /// from image files start with R_FILTER_MIPMAP, the others with
 /// R_FILTER_LINEAR.
 void Rtexture_set_filter(Rid texture, RFilterType filter);
+/// An icon shipped with Raven, by its name: "search", "settings",
+/// "close"... (Ricon_get_name lists them; "raven:search" works too, as in
+/// XML: Source="raven:search"). The icons are the ones of Lucide (ISC
+/// License), 24 x 24 logical units, drawn with lines in currentColor: the
+/// widgets that show them tint them with the color of their text, so they
+/// follow the theme and the states (Rtexture_create_from_svg). Drawn at
+/// the density they are shown with, sharp on every screen.
+/// Returns: A texture owned by Raven, made on first use and then shared
+/// (do not destroy it; if it was, the next call makes it again);
+/// R_INVALID_ID, with an error, when there is no icon of that name.
+Rid Ricon_get(const(char)* name);
+/// Returns: The number of icons shipped with Raven.
+int Ricon_get_count();
+/// Returns: The name of an icon, from 0 to Ricon_get_count() - 1, in alphabetical order; NULL out of range.
+const(char)* Ricon_get_name(int index);
 /// Creates a widget. It is not shown until it is added to a parent
 /// that belongs to a window (Rwidget_add_child, Rwindow_set_content).
 Rid Rwidget_create(RWidgetType type);
@@ -3271,7 +3927,7 @@ Rid Rtab_view_get_tab(Rid tab_view, int index);
 /// Index of the tab of a page, -1 if none.
 int Rtab_view_find_tab(Rid tab_view, Rid content);
 void Rtab_view_set_tab_title(Rid tab_view, Rid content, const(char)* title);
-/// Icon before the title (documents). R_INVALID_ID removes it; tint: a mask in the text color.
+/// Icon before the title (documents). R_INVALID_ID removes it; tint: a mask in the text color (always, for an SVG in currentColor). XML: Slot.Icon.
 void Rtab_view_set_tab_icon(Rid tab_view, Rid content, Rid texture, float u0, float v0, float u1, float v1, int tint);
 /// R_FALSE: no close button (documents ; the level tab). Tabs can be closed by default.
 void Rtab_view_set_tab_closable(Rid tab_view, Rid content, int closable);
@@ -3368,6 +4024,9 @@ void Rslider_set_changed_callback(Rid slider, RSliderChangedCallback callback, v
 void Rprogress_bar_set_value(Rid progress_bar, float value);
 float Rprogress_bar_get_value(Rid progress_bar);
 void Rimage_set_texture(Rid image, Rid texture);
+/// Color the image is multiplied by (white by default). An SVG in
+/// currentColor (Ricon_get, Rtexture_create_from_svg) is drawn in the color of
+/// the text around it until a tint is given; then in the tint. XML: Tint.
 void Rimage_set_tint_color(Rid image, float r, float g, float b, float a);
 /// R_TRUE: the image is tinted with the text color around it (white icons that follow the theme). XML: TintText.
 void Rimage_set_tint_text(Rid image, int enabled);
@@ -3375,6 +4034,33 @@ void Rimage_set_stretch(Rid image, RStretch stretch);
 /// Part of the texture to show, in UV coordinates. Default: 0, 0, 1, 1.
 void Rimage_set_region(Rid image, float min_u, float min_v, float max_u, float max_v);
 void Rimage_set_corner_radius(Rid image, float radius);
+/// R_TRUE when the texture of the image is an animated GIF or APNG (two frames or more).
+int Rimage_is_animated(Rid image);
+/// Returns: The frames of its animation; 1 for a still image, 0 without a texture.
+int Rimage_get_frame_count(Rid image);
+/// Returns: The seconds one play of its animation lasts (0 for a still image).
+double Rimage_get_duration(Rid image);
+/// Returns: The seconds a frame of its animation is shown (0 for a frame that does not exist).
+double Rimage_get_frame_delay(Rid image, int frame);
+/// Plays the animation from the frame it is on (from the first
+/// again when it had finished). An Image plays as soon as it is given an
+/// animated texture, unless XML says Animate="false".
+void Rimage_play(Rid image);
+/// Stops the animation on the frame it is on.
+void Rimage_pause(Rid image);
+/// Stops the animation and shows its first frame.
+void Rimage_stop(Rid image);
+int Rimage_is_playing(Rid image);
+/// Shows a frame (from 0), playing on from it if it plays.
+void Rimage_set_frame(Rid image, int frame);
+int Rimage_get_frame(Rid image);
+/// How many times the animation plays before it stops on its last
+/// frame: 0 forever, -1 what the file says (the default). XML: Loop
+/// (a number; also Forever, Once).
+void Rimage_set_loop_count(Rid image, int count);
+/// Returns: The plays of the animation (0: forever), the file's unless it was set.
+int Rimage_get_loop_count(Rid image);
+void Rimage_set_finished_callback(Rid image, RImageFinishedCallback callback, void* user_data);
 void Rtext_input_set_text(Rid text_input, const(char)* text);
 const(char)* Rtext_input_get_text(Rid text_input);
 /// Dimmed text shown while the input is empty.
@@ -3396,6 +4082,38 @@ RReturnKey Rtext_input_get_return_key(Rid text_input);
 void Rtext_input_set_changed_callback(Rid text_input, RTextChangedCallback callback, void* user_data);
 /// Called when Enter is pressed. This also fires the action of the widget.
 void Rtext_input_set_committed_callback(Rid text_input, RTextChangedCallback callback, void* user_data);
+/// Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+/// a right click on one offers corrections (see SPELL CHECKING). Off by
+/// default. A password is never checked.
+void Rtext_input_set_spell_check(Rid text_input, int enabled);
+int Rtext_input_get_spell_check(Rid text_input);
+/// Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language).
+void Rtext_input_set_spell_language(Rid text_input, const(char)* language);
+/// R_TRUE when the system has a spell checker that Raven can use.
+int Rspell_is_supported();
+/// The languages the checker has dictionaries for.
+int Rspell_get_language_count();
+const(char)* Rspell_get_language_at(int index);
+/// The language used when a widget or a call gives none. NULL
+/// follows the locale again.
+/// Returns: R_FALSE when the checker has no dictionary for it (the default
+/// of the system is then used).
+int Rspell_set_language(const(char)* language);
+/// The code of the language used by default, as the checker names it; "" when there is no checker.
+const(char)* Rspell_get_language();
+/// Checks a text. `language` NULL: the default.
+/// Returns: The number of misspelled words, read with Rspell_get_misspelling.
+int Rspell_check(const(char)* text, const(char)* language);
+/// A misspelled word found by the last Rspell_check: bytes [start, end) of its text.
+int Rspell_get_misspelling(int index, int* start, int* end);
+/// Returns: The number of corrections for a word (best first), read with Rspell_get_suggestion.
+int Rspell_suggest(const(char)* word, const(char)* language);
+/// A correction found by the last Rspell_suggest; valid until the next call.
+const(char)* Rspell_get_suggestion(int index);
+/// Adds a word to the dictionary of the user, which the system keeps (with Hunspell alone: for the session).
+void Rspell_learn(const(char)* word, const(char)* language);
+/// The word is no longer a misspelling, in every language, until the application quits.
+void Rspell_ignore(const(char)* word);
 void Rspin_box_set_range(Rid spin_box, double minimum, double maximum);
 void Rspin_box_set_value(Rid spin_box, double value);
 double Rspin_box_get_value(Rid spin_box);
@@ -3421,6 +4139,28 @@ const(char)* Rcombo_box_get_item_text(Rid combo_box, int index);
 void Rcombo_box_set_selected(Rid combo_box, int index);
 int Rcombo_box_get_selected(Rid combo_box);
 void Rcombo_box_set_changed_callback(Rid combo_box, RComboBoxChangedCallback callback, void* user_data);
+/// R_TRUE: the combo box is a text field with its list: the user
+/// may type a text that is not one of the items (Editable="true"). The text
+/// is Rcombo_box_get_text; choosing an item puts its text there. A typed
+/// text equal to an item selects it, any other selects nothing (-1).
+void Rcombo_box_set_editable(Rid combo_box, int editable);
+int Rcombo_box_is_editable(Rid combo_box);
+/// R_TRUE: typing in the combo box filters its list (Searchable="true"):
+/// the items that contain what was typed, without regard to case or
+/// accents ("zoe" finds "Zoë", "sao" finds "São Paulo"), or a row saying that nothing
+/// matches. Up and Down move in the list, Enter chooses, Escape closes it.
+/// A searchable combo box that is not editable comes back to the item
+/// chosen when nothing is.
+void Rcombo_box_set_searchable(Rid combo_box, int searchable);
+int Rcombo_box_is_searchable(Rid combo_box);
+/// The text shown: what was typed in an editable combo box, else the text of the selected item ("" for none).
+const(char)* Rcombo_box_get_text(Rid combo_box);
+/// Editable combo box: sets the text of the field (the item equal to it is selected); otherwise selects the item with this text.
+void Rcombo_box_set_text(Rid combo_box, const(char)* text);
+void Rcombo_box_set_text_changed_callback(Rid combo_box, RComboBoxTextCallback callback, void* user_data);
+/// Opens (R_TRUE) or closes the list.
+void Rcombo_box_set_open(Rid combo_box, int open);
+int Rcombo_box_is_open(Rid combo_box);
 /// R_HORIZONTAL draws a horizontal line (default).
 void Rseparator_set_orientation(Rid separator, ROrientation orientation);
 /// Returns: The index of the new item.
@@ -3467,6 +4207,7 @@ void Rtree_view_set_selection_changed_callback(Rid tree_view, RTreeEventCallback
 /// Called on double click or Enter. This also fires the action of the widget.
 void Rtree_view_set_activated_callback(Rid tree_view, RTreeEventCallback callback, void* user_data);
 /// Icon drawn before the text of the item (a region u0,v0,u1,v1 of the texture). R_INVALID_ID removes it.
+/// An SVG in currentColor (Ricon_get) takes the color of the text. XML: Icon on an Item.
 void Rtree_item_set_icon(Rid item, Rid texture, float u0, float v0, float u1, float v1);
 /// Color of the text of the item; alpha 0 goes back to the theme.
 void Rtree_item_set_text_color(Rid item, float r, float g, float b, float a);
@@ -3525,6 +4266,7 @@ void Rmenu_item_set_checked(Rid item, int checked);
 /// Icon drawn before the text of a menu item (after the check mark column).
 /// texture R_INVALID_ID removes it. u0, v0, u1, v1 : region of the texture.
 /// tint    R_TRUE: the texture is a mask drawn in the text color (monochrome icons).
+///                An SVG in currentColor (Ricon_get) always is. XML: Icon.
 void Rmenu_item_set_icon(Rid item, Rid texture, float u0, float v0, float u1, float v1, int tint);
 int Rmenu_item_is_checked(Rid item);
 void Rmenu_item_set_clicked_callback(Rid item, RMenuItemClickedCallback callback, void* user_data);
@@ -3573,6 +4315,14 @@ void Rtile_view_set_drop_highlight(Rid tile_view, int index);
 /// with this type and, as data, their indices separated by spaces.
 void Rtile_view_set_drag_type(Rid tile_view, const(char)* type);
 void Rtile_view_set_drag_data_callback(Rid tile_view, RTileDragDataCallback callback, void* user_data);
+/// Tiles can be dragged out of the window, to other applications:
+/// when the user starts dragging the selected tiles (`index` is the one
+/// under the pointer), the callback gives their data by calling
+/// Rdrag_begin_external (the pictures, the files they stand for...), and
+/// Rdrag_set_image. With a drag type too (Rtile_view_set_drag_type), the
+/// drag first goes to the drop targets of the window and only leaves it
+/// with the pointer. NULL: the tiles stay in the application (default).
+void Rtile_view_set_drag_out_callback(Rid tile_view, RTileEventCallback callback, void* user_data);
 void Rtile_view_set_selection_changed_callback(Rid tile_view, RTileEventCallback callback, void* user_data);
 void Rtile_view_set_activated_callback(Rid tile_view, RTileEventCallback callback, void* user_data);
 void Rtile_view_set_context_callback(Rid tile_view, RTileContextCallback callback, void* user_data);
@@ -3609,17 +4359,40 @@ void Rtable_set_cell_color_callback(Rid table, RTableCellColorCallback callback,
 /// Stored rows: a fixed text color; column -1 colors the row; cells override it.
 /// Alpha 0 restores the inherited/theme color. A color from the cell color callback wins over it.
 void Rtable_set_cell_text_color(Rid table, int row, int column, float r, float g, float b, float a);
-/// Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default.
+/// Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default. Same as Rtable_set_selection_mode(MULTIPLE or SINGLE).
 void Rtable_set_multi_select(Rid table, int enabled);
+/// Single (default), multiple or no selection (SelectionMode="Multiple" in XML).
+/// Going to single keeps the selected row, going to none clears the selection.
+void Rtable_set_selection_mode(Rid table, RTableSelectionMode mode);
+RTableSelectionMode Rtable_get_selection_mode(Rid table);
 void Rtable_set_row_selected(Rid table, int row, int selected);
 int Rtable_is_row_selected(Rid table, int row);
+/// Selects (`selected` R_TRUE) or deselects the rows first..last, both
+/// included, keeping the others: multiple selection only (in single
+/// selection, selecting a range selects `last`).
+void Rtable_select_range(Rid table, int first, int last, int selected);
+/// Multiple selection: selects every row (Ctrl/Cmd+A). Nothing in the other modes.
+void Rtable_select_all(Rid table);
 void Rtable_clear_selection(Rid table);
 int Rtable_get_selection_count(Rid table);
 /// Selected row at index, top to bottom; -1 outside the selection.
 int Rtable_get_selection(Rid table, int index);
+/// The selection as runs of consecutive rows, top to bottom: the
+/// fast way to go through a large selection (select all of a million rows
+/// is one range).
+int Rtable_get_selection_range_count(Rid table);
+/// The rows first..last (both included) of a range of the selection. Returns: R_FALSE outside the ranges.
+int Rtable_get_selection_range(Rid table, int index, int* first, int* last);
 /// Replaces the selection with one row. -1 selects nothing, including in multi-select mode.
 void Rtable_set_selected(Rid table, int row);
+/// The selected row (-1: none). In multiple selection, the one
+/// selected last, or else the first one; the selection changed callback
+/// receives it.
 int Rtable_get_selected(Rid table);
+/// The row the keyboard is on: the selected row in single
+/// selection; in multiple selection the row last clicked or reached with
+/// the arrows, which Space toggles (it may be unselected). -1: none.
+int Rtable_get_current_row(Rid table);
 void Rtable_scroll_to_row(Rid table, int row);
 /// Sorts by a column (stored rows are moved); -1 shows no sorted column.
 void Rtable_sort(Rid table, int column, int descending);
@@ -3633,6 +4406,35 @@ void Rtable_set_selection_changed_callback(Rid table, RTableEventCallback callba
 /// Called on double click or Enter. This also fires the action of the widget.
 void Rtable_set_activated_callback(Rid table, RTableEventCallback callback, void* user_data);
 void Rtable_set_sort_callback(Rid table, RTableSortCallback callback, void* user_data);
+/// R_TRUE: the cells of the column are edited in place by the user (default R_FALSE).
+void Rtable_set_column_editable(Rid table, int column, int editable);
+int Rtable_is_column_editable(Rid table, int column);
+void Rtable_set_cell_edited_callback(Rid table, RTableCellEditedCallback callback, void* user_data);
+/// Opens the editor on a cell, its text selected, as F2 does (the
+/// row is selected and scrolled into view). Any column can be edited this
+/// way, editable or not. Returns: R_TRUE when the editor is open.
+int Rtable_edit_cell(Rid table, int row, int column);
+int Rtable_is_editing(Rid table);
+/// Closes the editor: `commit` R_TRUE keeps the text (through the
+/// cell edited callback), R_FALSE forgets it. Returns: R_FALSE when the text
+/// was refused (the editor then stays open), R_TRUE otherwise.
+int Rtable_end_edit(Rid table, int commit);
+/// The first `count` columns stay in place when the table scrolls
+/// sideways; a thin shadow marks where the others pass under them. 0 (the
+/// default): every column scrolls.
+void Rtable_set_frozen_columns(Rid table, int count);
+int Rtable_get_frozen_columns(Rid table);
+/// Text (default), check box or progress bar: how the cells of the
+/// column are drawn from their texts. A check column is made editable (the
+/// user toggles it; Rtable_set_column_editable(R_FALSE) after this shows it
+/// only) and centered. For anything else, a cell color callback and the
+/// texts are what the table offers: it draws no other widget in its cells.
+void Rtable_set_column_kind(Rid table, int column, RTableColumnKind kind);
+RTableColumnKind Rtable_get_column_kind(Rid table, int column);
+/// A cell of a check column: R_TRUE when its text is "1", "true" or "yes". Any cell can be asked.
+int Rtable_is_cell_checked(Rid table, int row, int column);
+/// Stored rows: writes "1" or "0" in the cell (no callback is called).
+void Rtable_set_cell_checked(Rid table, int row, int column, int checked);
 /// Sets the date (today when the picker is created). An invalid date is refused.
 void Rdate_picker_set_date(Rid date_picker, int year, int month, int day);
 void Rdate_picker_get_date(Rid date_picker, int* year, int* month, int* day);
@@ -3650,12 +4452,41 @@ const(char)* Rdate_picker_get_text(Rid date_picker);
 void Rdate_picker_set_open(Rid date_picker, int open);
 int Rdate_picker_is_open(Rid date_picker);
 void Rdate_picker_set_changed_callback(Rid date_picker, RDateChangedCallback callback, void* user_data);
+/// The time zone of the date, for the instants below; NULL or "" (default): the zone of the system. TimeZone="..." in XML.
+void Rdate_picker_set_time_zone(Rid date_picker, const(char)* zone);
+const(char)* Rdate_picker_get_time_zone(Rid date_picker);
+/// Shows the date an instant (seconds since 1970, UTC) has in the zone of the picker.
+void Rdate_picker_set_instant(Rid date_picker, double utc);
+/// The first instant of the date in the zone: its midnight (or, where the clocks skip midnight, the time they go to).
+double Rdate_picker_get_instant(Rid date_picker);
 void Rtime_picker_set_time(Rid time_picker, int hour, int minute, int second);
 void Rtime_picker_get_time(Rid time_picker, int* hour, int* minute, int* second);
 void Rtime_picker_set_seconds_visible(Rid time_picker, int visible);
 /// Step of the minutes for the arrows and the wheel (default 1).
 void Rtime_picker_set_minute_step(Rid time_picker, int step);
 void Rtime_picker_set_changed_callback(Rid time_picker, RTimeChangedCallback callback, void* user_data);
+/// 12 or 24 hours for this picker; R_CLOCK_AUTO (default): the clock of the locale. Clock="Auto|12|24" in XML.
+void Rtime_picker_set_clock(Rid time_picker, RClock clock);
+RClock Rtime_picker_get_clock(Rid time_picker);
+/// The time as the field shows it: "3:05 PM", "15:05", with the zone when it is shown (valid until the next call).
+const(char)* Rtime_picker_get_text(Rid time_picker);
+/// The time zone of the time ("America/New_York", see
+/// Rtimezone_is_valid); NULL or "" (default): the zone of the system. An
+/// unknown zone is refused. TimeZone="..." in XML.
+void Rtime_picker_set_time_zone(Rid time_picker, const(char)* zone);
+/// The zone set, "" for none.
+const(char)* Rtime_picker_get_time_zone(Rid time_picker);
+/// Writes the zone after the time ("EST", "CET", "UTC+3"). ShowTimeZone="true" in XML.
+void Rtime_picker_set_time_zone_visible(Rid time_picker, int visible);
+/// The day of the time, for its zone (month 1 to 12); year 0: today (default). Date="YYYY-MM-DD" in XML.
+void Rtime_picker_set_date(Rid time_picker, int year, int month, int day);
+void Rtime_picker_get_date(Rid time_picker, int* year, int* month, int* day);
+/// Shows an instant (seconds since 1970, UTC) in the zone of the picker: its day and its time.
+void Rtime_picker_set_instant(Rid time_picker, double utc);
+/// The instant the day and the time are in the zone. A time the
+/// clocks skipped is moved forward, a time they repeated is the first
+/// (see Rtimezone_from_local).
+double Rtime_picker_get_instant(Rid time_picker);
 /// Shows a message for `seconds` (0 or less: until Rtoast_hide), with the kind and button set now.
 void Rtoast_show(Rid toast, const(char)* text, double seconds);
 /// Same, with a kind of its own (the kind set by Rtoast_set_kind is left as it is).
@@ -4011,6 +4842,43 @@ void Rmap_view_set_view_changed_callback(Rid map, RMapViewCallback callback, voi
 /// licences ask for, such as "(c) OpenStreetMap contributors". NULL or "": none.
 void Rmap_view_set_attribution(Rid map, const(char)* text);
 const(char)* Rmap_view_get_attribution(Rid map);
+/// Returns: R_TRUE when web views show pages here (the system has an engine Raven can embed, and Raven runs with a window system).
+int Rsystem_web_view_is_supported();
+Rid Rsystem_web_view_create();
+/// Goes to an address ("https://...", "file:///...", "about:blank"). A file: address may read the files of its folder.
+void Rsystem_web_view_load_url(Rid view, const(char)* url);
+/// Shows a file of the computer (an .html file, and what it refers to in its folder).
+void Rsystem_web_view_load_file(Rid view, const(char)* path);
+/// Shows HTML given as text.
+/// base_url Where the relative addresses of the text are looked
+/// for ("file:///Users/me/app/pages/", "https://example.org/"), or NULL.
+void Rsystem_web_view_load_html(Rid view, const(char)* html, const(char)* base_url);
+void Rsystem_web_view_reload(Rid view);
+void Rsystem_web_view_stop(Rid view);
+void Rsystem_web_view_go_back(Rid view);
+void Rsystem_web_view_go_forward(Rid view);
+int Rsystem_web_view_can_go_back(Rid view);
+int Rsystem_web_view_can_go_forward(Rid view);
+/// Returns: The address of the page shown (the one asked for, where unsupported). Valid until it changes.
+const(char)* Rsystem_web_view_get_url(Rid view);
+/// Returns: The title of the page, "" when it has none. Valid until it changes.
+const(char)* Rsystem_web_view_get_title(Rid view);
+int Rsystem_web_view_is_loading(Rid view);
+/// Returns: Why the last page could not be shown, or "" when all is well.
+const(char)* Rsystem_web_view_get_error(Rid view);
+/// Runs JavaScript in the page; the value of its last statement is
+/// the result. If it is a promise, the result is what the promise
+/// resolves to. The callback (may be NULL) always comes later, never
+/// during this call.
+void Rsystem_web_view_run_javascript(Rid view, const(char)* script, RSystemWebViewResultCallback callback, void* user_data);
+void Rsystem_web_view_set_message_callback(Rid view, RSystemWebViewMessageCallback callback, void* user_data);
+/// Called when something happens in the page. The action of the
+/// widget (Rwidget_set_action, OnChanged in XML) is fired as well each
+/// time the address changes.
+void Rsystem_web_view_set_event_callback(Rid view, RSystemWebViewEventCallback callback, void* user_data);
+/// The view of the system, to go further than these functions:
+/// a WKWebView* on macOS and iOS. NULL where unsupported.
+void* Rsystem_web_view_get_native_handle(Rid view);
 Rid Rpdf_document_create();
 void Rpdf_document_delete(Rid document);
 /// The information of the document, shown by readers (the title in their window).
@@ -4081,7 +4949,8 @@ int Rtext_editor_get_line_count(Rid editor);
 /// Returns: One line, without its line break. Valid until the next edit. NULL when `line` is out of range.
 const(char)* Rtext_editor_get_line(Rid editor, int line);
 /// Types a text at the cursor, replacing the selection, as the user
-/// would: it can be undone and the changed callback is called.
+/// would (at every cursor when there are several): it can be undone and
+/// the changed callback is called.
 void Rtext_editor_insert_text(Rid editor, const(char)* text);
 void Rtext_editor_set_cursor(Rid editor, int line, int column);
 void Rtext_editor_get_cursor(Rid editor, int* line, int* column);
@@ -4094,6 +4963,57 @@ int Rtext_editor_get_selection(Rid editor, int* from_line, int* from_column, int
 const(char)* Rtext_editor_get_selected_text(Rid editor);
 /// Scrolls so that a line is visible.
 void Rtext_editor_scroll_to_line(Rid editor, int line);
+/// Adds a cursor (a caret) to the editor; the main cursor stays
+/// the main one. A cursor over another one, or at the place of another
+/// caret, becomes one with it. Rtext_editor_set_cursor,
+/// Rtext_editor_select and Rtext_editor_set_text go back to one cursor.
+void Rtext_editor_add_cursor(Rid editor, int line, int column);
+/// Adds a cursor that selects from one position to another (its caret on the second).
+void Rtext_editor_add_selection(Rid editor, int from_line, int from_column, int to_line, int to_column);
+/// Returns: The number of cursors, the main one included (1 at least).
+int Rtext_editor_get_cursor_count(Rid editor);
+/// A cursor by its index, in the order of the text (0 for the
+/// first): its caret and the anchor of its selection (the same position
+/// when nothing is selected). Returns R_FALSE when `index` is out of range.
+int Rtext_editor_get_cursor_at(Rid editor, int index, int* line, int* column, int* anchor_line, int* anchor_column);
+/// Returns: The index of the main cursor, in the order of Rtext_editor_get_cursor_at.
+int Rtext_editor_get_main_cursor(Rid editor);
+/// Back to the main cursor alone, as Escape does.
+void Rtext_editor_clear_cursors(Rid editor);
+/// What Ctrl+D does: with nothing selected, selects the word at
+/// each caret; else adds a cursor on the next occurrence of the main
+/// selection (with its case, a whole word when it was selected so) that no
+/// cursor selects, going on from the start of the text. Returns R_FALSE
+/// when there is none.
+int Rtext_editor_add_next_occurrence(Rid editor);
+/// What Ctrl+Shift+L does: a cursor on every occurrence of the main selection (or of the word at the caret). Returns their number.
+int Rtext_editor_select_all_occurrences(Rid editor);
+/// Folds the region that starts at a line: the lines after it, up
+/// to the one before the bracket that closes it (or to the last one more
+/// indented), are hidden. When the line starts none, or it is folded
+/// already, the nearest region around the line is folded. Cursors in it
+/// go to the end of its first line. Returns R_FALSE when there is none.
+/// Line numbers stay those of the text. Folds follow the lines when text
+/// is added or removed elsewhere; editing a hidden line (or the line break
+/// of the first line) unfolds its region, and so does a match of the
+/// search or a cursor that goes into it.
+int Rtext_editor_fold(Rid editor, int line);
+/// Unfolds the region that starts at a line, or what hides it. Returns R_FALSE when nothing was folded there.
+int Rtext_editor_unfold(Rid editor, int line);
+/// Folds every region, those inside others too.
+void Rtext_editor_fold_all(Rid editor);
+void Rtext_editor_unfold_all(Rid editor);
+/// Returns: R_TRUE when a folded region starts at this line.
+int Rtext_editor_is_folded(Rid editor, int line);
+/// Returns: R_TRUE when the line is hidden in a folded region.
+int Rtext_editor_is_line_hidden(Rid editor, int line);
+/// Returns: The last line of the region that starts at a line (folded or not), -1 when it starts none.
+int Rtext_editor_get_fold_end(Rid editor, int line);
+/// R_FALSE unfolds everything and stops folding: no markers, and
+/// Ctrl+Shift+[ / ] go to the shortcuts of the window. On by default.
+/// XML: Folding="false".
+void Rtext_editor_set_folding(Rid editor, int enabled);
+int Rtext_editor_get_folding(Rid editor);
 void Rtext_editor_undo(Rid editor);
 void Rtext_editor_redo(Rid editor);
 int Rtext_editor_can_undo(Rid editor);
@@ -4151,6 +5071,14 @@ const(char)* Rtext_editor_get_language(Rid editor);
 /// formatted. R_FALSE removes the language.
 void Rtext_editor_set_markdown(Rid editor, int enabled);
 int Rtext_editor_get_markdown(Rid editor);
+/// Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+/// a right click on one offers corrections (see SPELL CHECKING in
+/// raven_controls.h). Only the lines shown are checked, again when they
+/// change. Off by default: it is meant for prose, not for code.
+void Rtext_editor_set_spell_check(Rid editor, int enabled);
+int Rtext_editor_get_spell_check(Rid editor);
+/// Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language).
+void Rtext_editor_set_spell_language(Rid editor, const(char)* language);
 /// What the language of the editor makes of the character at a
 /// position: the colors come from it. R_TOKEN_TEXT without a language.
 RToken Rtext_editor_get_token(Rid editor, int line, int column);
@@ -4186,6 +5114,58 @@ void Rtext_editor_add_marker(Rid editor, int line, int from_column, int to_colum
 void Rtext_editor_clear_markers(Rid editor);
 int Rtext_editor_get_marker_count(Rid editor);
 void Rtext_editor_set_hover_callback(Rid editor, RTextEditorHoverCallback callback, void* user_data);
+/// Sets what is searched for, with RSearchFlags, and shows every
+/// match of the visible text (theme colors R_COLOR_SEARCH_MATCH and
+/// R_COLOR_SEARCH_CURRENT). A match lies on one line: a query with a line
+/// break finds nothing. NULL or "" clears the search. The selection does
+/// not move; Rtext_editor_find_next goes to a match.
+void Rtext_editor_set_search(Rid editor, const(char)* query, uint flags);
+/// Returns: The text searched for, "" when there is none.
+const(char)* Rtext_editor_get_search(Rid editor);
+/// Returns: The RSearchFlags of the search.
+uint Rtext_editor_get_search_flags(Rid editor);
+/// Selects the next match after the selection (or the cursor),
+/// going on from the start of the text after its end, and scrolls to it.
+/// Returns R_FALSE when the text has no match.
+int Rtext_editor_find_next(Rid editor);
+/// The same, toward the start: the match before the selection, from the end of the text after its start.
+int Rtext_editor_find_previous(Rid editor);
+/// Returns: The number of matches in the whole text. Counted once per change of the text or of the search.
+int Rtext_editor_get_match_count(Rid editor);
+/// Returns: The index of the selected match (0 for the first in the text), -1 when the selection is not a match.
+int Rtext_editor_get_match_index(Rid editor);
+/// Where a match is: its line and the columns of its first byte and
+/// of the byte after it. Returns R_FALSE when `index` is out of range.
+int Rtext_editor_get_match(Rid editor, int index, int* line, int* from_column, int* to_column);
+/// Selects a match by its index and scrolls to it. Returns R_FALSE when `index` is out of range.
+int Rtext_editor_select_match(Rid editor, int index);
+/// Replaces the selected match by `replacement`, as one step of
+/// the history, then selects the next match. When the selection is not a
+/// match, only selects the next one (the user sees what will be replaced).
+/// Returns R_TRUE when something was replaced. As with
+/// Rtext_editor_insert_text, the changed callback is called.
+int Rtext_editor_replace(Rid editor, const(char)* replacement);
+/// Replaces every match by `replacement`, as a single step of the
+/// history (one undo puts them all back). Returns the number of matches
+/// replaced.
+int Rtext_editor_replace_all(Rid editor, const(char)* replacement);
+/// Opens the find bar of the editor (Ctrl+F), with the row to
+/// replace when `replace` is R_TRUE (Ctrl+H), and gives it the keyboard.
+/// Text selected on one line becomes the text searched for.
+/// Its texts are English unless the locale has the keys Raven.Find,
+/// Raven.Replace, Raven.ReplaceAll, Raven.FindNoResults, Raven.FindCount
+/// ("{0} of {1}"), Raven.FindMatchCase, Raven.FindWholeWord,
+/// Raven.FindPrevious, Raven.FindNext, Raven.FindClose and
+/// Raven.FindToggleReplace.
+void Rtext_editor_show_find(Rid editor, int replace);
+/// Closes the find bar; the matches are no longer shown, F3 still goes to the next one.
+void Rtext_editor_hide_find(Rid editor);
+int Rtext_editor_is_find_shown(Rid editor);
+/// R_FALSE removes the find bar and its keys (Ctrl+F, Ctrl+H, F3,
+/// Cmd+G), which then go to the shortcuts of the window: for an
+/// application with its own search, built on Rtext_editor_set_search. On
+/// by default. XML: FindBar="false".
+void Rtext_editor_set_find_bar(Rid editor, int enabled);
 /// Color of a kind of token in the theme in use, instead of the
 /// one Raven picks for dark and for light themes. Theme files set them
 /// with <Syntax Keyword="#FF7AB2" String="..."/>.
@@ -4769,6 +5749,84 @@ void Rblock_editor_select(Rid editor, int block, int add);
 /// Pan (canvas units at the top left) and zoom.
 void Rblock_editor_get_view(Rid editor, float* x, float* y, float* zoom);
 void Rblock_editor_set_view(Rid editor, float x, float y, float zoom);
+/// The differences between two texts as a unified diff (the format
+/// of `diff -u` and `git diff`), with `context` unchanged lines around each
+/// change (3 is usual). `left_name` and `right_name` follow `---` and `+++`
+/// (NULL: "a" and "b"). `flags`: RDiffFlags. It touches nothing else of
+/// the library: it may be called from any thread.
+/// Returns: The patch followed by a '\0' (an empty text when the texts are
+/// the same), to release with Rmemory_free; NULL when a text is NULL.
+/// `size` receives its length in bytes, and may be NULL.
+char* Rdiff_unified(const(char)* left, const(char)* right, const(char)* left_name, const(char)* right_name, int context, uint flags, size_t* size);
+/// The number of changes (runs of lines removed and / or added) between two texts. Any thread.
+int Rdiff_count_changes(const(char)* left, const(char)* right, uint flags);
+Rid Rdiff_view_create();
+/// The two texts to compare (NULL: empty). Lines end with "\n" or "\r\n".
+void Rdiff_view_set_texts(Rid diff_view, const(char)* left, const(char)* right);
+/// Names shown over the two sides (file names, "Before" / "After"); NULL: none. Their extension chooses the colors of the code.
+void Rdiff_view_set_names(Rid diff_view, const(char)* left_name, const(char)* right_name);
+/// Compares two files. Their paths become the names unless names
+/// were given. Returns: R_FALSE when a file cannot be read (it is compared
+/// as empty).
+int Rdiff_view_load_files(Rid diff_view, const(char)* left_path, const(char)* right_path);
+/// Shows a patch (unified diff: the output of `git diff`, `diff -u`)
+/// instead of two texts: each file with its name, each hunk with its header.
+/// Returns: R_FALSE when the text holds no hunk (nothing is shown).
+int Rdiff_view_set_patch(Rid diff_view, const(char)* patch);
+void Rdiff_view_set_mode(Rid diff_view, RDiffViewMode mode);
+RDiffViewMode Rdiff_view_get_mode(Rid diff_view);
+/// Unchanged lines shown around each change (3 by default); the
+/// others are folded. A negative number shows every line.
+void Rdiff_view_set_context(Rid diff_view, int lines);
+int Rdiff_view_get_context(Rid diff_view);
+/// How lines are compared: RDiffFlags (0 by default). Not used by a patch.
+void Rdiff_view_set_flags(Rid diff_view, uint flags);
+uint Rdiff_view_get_flags(Rid diff_view);
+/// Marks the words that changed inside a changed line (default R_TRUE).
+void Rdiff_view_set_word_diff(Rid diff_view, int enabled);
+/// Shows the numbers of the lines (default R_TRUE).
+void Rdiff_view_set_line_numbers(Rid diff_view, int visible);
+/// Colors the code as the text editor does: a language name of
+/// Rlanguage_register ("C", "Python", "JSON"...), "None" for plain text,
+/// NULL (default) to guess it from the extension of the names.
+void Rdiff_view_set_language(Rid diff_view, const(char)* language);
+/// The number of changes: runs of lines removed and / or added.
+int Rdiff_view_get_change_count(Rid diff_view);
+/// Where a change is: its first line and its number of lines on
+/// each side (a count of 0: nothing on that side; the line is then the one
+/// after which the other side's lines go). Returns: R_FALSE when there is
+/// no such change.
+int Rdiff_view_get_change(Rid diff_view, int change, int* left_line, int* left_count, int* right_line, int* right_count);
+/// Scrolls to a change (from 0) and marks it as the current one.
+void Rdiff_view_go_to_change(Rid diff_view, int change);
+/// The current change, -1 before the first one is gone to.
+int Rdiff_view_get_current_change(Rid diff_view);
+/// Goes to the next / previous change. Returns: Its index, -1 when there is none.
+int Rdiff_view_next_change(Rid diff_view);
+int Rdiff_view_prev_change(Rid diff_view);
+/// The rows shown, folds, hunk headers and notes included.
+int Rdiff_view_get_row_count(Rid diff_view);
+/// What a row shows, and the numbers of its lines (0 for a side it
+/// has no line of). A fold gives the first line it hides on each side.
+RDiffRowKind Rdiff_view_get_row(Rid diff_view, int row, int* left_line, int* right_line);
+/// The text of a row on one side (in unified mode the side does not
+/// matter for a line); a fold, a hunk, a file or a note give their label.
+/// Valid until the next call. "" when there is none.
+const(char)* Rdiff_view_get_row_text(Rid diff_view, int row, RDiffSide side);
+/// Shows the lines of a fold. Returns: R_FALSE when the row is not a fold.
+int Rdiff_view_expand(Rid diff_view, int row);
+/// The first row at the top of the view; Rdiff_view_scroll_to_row brings one there.
+int Rdiff_view_get_first_visible_row(Rid diff_view);
+void Rdiff_view_scroll_to_row(Rid diff_view, int row);
+/// Attaches a short note to a line (a review comment, an error): a
+/// mark in the gutter and the text in a row under the line, which is never
+/// folded away. Several notes may go to one line.
+void Rdiff_view_add_annotation(Rid diff_view, RDiffSide side, int line, const(char)* text);
+void Rdiff_view_clear_annotations(Rid diff_view);
+/// The text selected by the user ("" when none), one line after another.
+const(char)* Rdiff_view_get_selected_text(Rid diff_view);
+/// Called when a line or its number is clicked (the action of the widget is fired too).
+void Rdiff_view_set_line_clicked_callback(Rid diff_view, RDiffViewLineCallback callback, void* user_data);
 /// Shows a widget as a dialog of a window. The window takes
 /// ownership of `content`: it is deleted when the dialog closes, so read
 /// what you need from it before, or in `closed`.
@@ -4864,16 +5922,86 @@ void Rfile_browser_set_cancelled_callback(Rid browser, RFileBrowserCallback call
 void Rfile_browser_set_selection_changed_callback(Rid browser, RFileBrowserCallback callback, void* user_data);
 /// Returns: R_TRUE when the system took the notification.
 int Rnotification_show(const(char)* title, const(char)* body_, RNotificationUrgency urgency);
-/// R_FALSE when the platform has no notifications (Rnotification_show then always uses the fallback).
+/// R_FALSE when the system shows no notifications here (Rnotification_show then always uses
+/// the fallback): the null platform, no notification server on Linux, an executable outside of a
+/// bundle on macOS.
 int Rnotification_is_supported();
 /// Called with the notifications the system could not show; NULL: none.
 void Rnotification_set_fallback(RNotificationFallback callback, void* user_data);
 /// Called when the user clicks a notification of Rnotification_show
-/// (on the UI thread; the application may then bring its window to the
-/// front: the system lets it). It is the last one shown that was clicked:
-/// the application remembers what it was about. NULL: none.
-/// Windows and macOS (elsewhere it is never called).
+/// (on the UI thread), as R_NOTIFICATION_ACTIVATED of
+/// Rnotification_set_callback, which also tells which one. NULL: none.
 void Rnotification_set_clicked_callback(RNotificationClickedCallback callback, void* user_data);
+/// Shows a notification described by `desc` (see RNotificationDesc).
+/// Returns: R_TRUE when the system took it; R_FALSE when it went to the fallback (or nowhere).
+int Rnotification_show_desc(const(RNotificationDesc)* desc);
+/// Takes away the notification of that tag, shown by the system or by the fallback toast. The callback is not called.
+void Rnotification_close(const(char)* tag);
+void Rnotification_set_callback(RNotificationCallback callback, void* user_data);
+/// R_TRUE (the default): a click on a notification (not on one of
+/// its buttons) brings its window back before the callback is called:
+/// shown again if it was hidden or minimized, in front, with the keyboard.
+/// R_FALSE: the application does what it wants in the callback.
+void Rnotification_set_bring_to_front(int enabled);
+/// A Toast that shows the notifications the system could not show,
+/// with their title, icon and buttons; a click on one, or on a button, is
+/// reported to Rnotification_set_callback as for the system's. Put it in
+/// an Overlay (Queue="Stack" shows several at once). It takes the place
+/// of the fallback callback (Rnotification_set_fallback). R_INVALID_ID: none.
+void Rnotification_set_fallback_toast(Rid toast);
+/// Whether the notifications of the system have that feature here (R_FALSE where there are none).
+int Rnotification_supports(RNotificationFeature feature);
+/// What the user answered, without asking. Cheap: the platform
+/// remembers it. On iOS the status of notifications is known shortly after
+/// the start (R_PERMISSION_NOT_ASKED until then).
+RPermissionStatus Rpermission_get_status(RPermission permission);
+/// Asks the user, with the question of the system, when the status
+/// is R_PERMISSION_NOT_ASKED or R_PERMISSION_DENIED; otherwise only answers
+/// with the status. Several requests for the same permission share one
+/// question. `callback` may be NULL.
+void Rpermission_request(RPermission permission, RPermissionCallback callback, void* user_data);
+/// Opens the page of the application in the Settings of the system,
+/// where the user changes what was refused for good (R_PERMISSION_BLOCKED).
+/// Returns: R_FALSE when the platform has no such page.
+int Rpermission_open_settings();
+/// Returns: The name of a permission or a status ("camera", "granted"...), for logs.
+const(char)* Rpermission_to_string(RPermission permission);
+const(char)* Rpermission_status_to_string(RPermissionStatus status);
+/// Asks for one file to read (several with R_FILE_DIALOG_MULTIPLE). `desc` may be NULL.
+void Rfile_open_async(const(RFileDialogDesc)* desc, RDeviceCallback callback, void* user_data);
+/// Saves `size` bytes (copied: `data` may be freed at once) as a
+/// file where the user chooses, proposed under `desc->file_name`. The
+/// callback gives the file as saved: its name, and its path on desktops.
+void Rfile_save_async(const(RFileDialogDesc)* desc, const(void)* data, size_t size, RDeviceCallback callback, void* user_data);
+/// Same as Rfile_save_async, for a file that already exists (a path Raven can read), copied where the user chooses.
+void Rfile_export_async(const(RFileDialogDesc)* desc, const(char)* path, RDeviceCallback callback, void* user_data);
+/// Asks for a folder: desktops only for now (R_DEVICE_UNSUPPORTED on iOS and Android).
+void Rfile_select_folder_async(const(RFileDialogDesc)* desc, RDeviceCallback callback, void* user_data);
+/// Returns: R_TRUE when Rcamera_take_photo can show a camera (none on desktops, nor in the iOS Simulator).
+int Rcamera_is_available();
+/// Shows the camera of the system to take one photo. It asks for
+/// R_PERMISSION_CAMERA first when needed (R_DEVICE_DENIED when refused).
+/// The photo is a JPEG file in the cache of the application, with its
+/// size in pixels, upright.
+void Rcamera_take_photo(RDeviceCallback callback, void* user_data);
+/// Shows the photo picker of the system (desktops: a file dialog for
+/// images). No permission is needed: the application only sees what the
+/// user picks. Each photo is a file Raven can load (iOS: converted to JPEG
+/// when it is HEIC).
+/// max_count How many photos may be picked; 0: no limit.
+void Rphoto_pick(int max_count, RDeviceCallback callback, void* user_data);
+/// Returns: R_TRUE when the device can play haptics (a phone; never a desktop).
+int Rhaptic_is_supported();
+/// A short vibration, as the controls of the system play when
+/// touched. Nothing happens where there are none, or when the user turned
+/// them off. Returns: R_TRUE when it was handed to the system.
+int Rhaptic_play(RHaptic haptic);
+/// Shows the share sheet of the system with a text and / or a file,
+/// to send them to another application (mail, chat, Files...). The
+/// callback says R_DEVICE_DONE once something was chosen (Android: once the
+/// sheet was shown; it does not tell more), R_DEVICE_CANCELLED when it was
+/// closed. R_DEVICE_UNSUPPORTED on desktops.
+void Rshare_show(const(RShareDesc)* desc, RDeviceCallback callback, void* user_data);
 /// Shows a texture. R_INVALID_ID shows nothing.
 void Rviewport_set_texture(Rid viewport, Rid texture);
 /// How the texture is fitted in the widget. Default: R_STRETCH_FILL.
@@ -4988,9 +6116,10 @@ void Rxml_set_base_path(const(char)* path);
 /// the places where paths are looked for stay the same.
 void Rxml_set_auto_load(int enabled);
 int Rxml_get_auto_load();
-/// Turns live reload on or off. It is on by default; the
-/// environment variable RAVEN_LIVE_RELOAD=0 turns it off without
-/// rebuilding. When off, files are never looked at again.
+/// Turns live reload on or off. It is on by default, except in
+/// the browser (Emscripten), where watching files would keep the page
+/// drawing; the environment variable RAVEN_LIVE_RELOAD=0 or 1 changes the
+/// default without rebuilding. When off, files are never looked at again.
 void Rxml_set_live_reload(int enabled);
 int Rxml_get_live_reload();
 void Rxml_set_reload_callback(RXmlReloadCallback callback, void* user_data);
@@ -5199,6 +6328,54 @@ const(char)* Rtr_plural(const(char)* key, int count);
 void Rwidget_set_text_key(Rid widget, const(char)* attribute, const(char)* key);
 /// A number written in the conventions of the language: decimal separator and digit grouping ("1 234,5" in French).
 const(char)* Rlocale_format_number(double value, int decimals);
+/// Forces the clock of every time shown (a setting of the
+/// application): R_CLOCK_12_HOUR, R_CLOCK_24_HOUR, or R_CLOCK_AUTO (default)
+/// to follow the locale. A TimePicker can still choose its own (Clock="24").
+void Rlocale_set_clock(RClock clock);
+RClock Rlocale_get_clock();
+/// R_TRUE when times are shown on 12 hours with AM and PM. With
+/// Rlocale_set_clock, what it forces; else, when the application chose a
+/// language (Rlocale_set_language), the usage of that language (from CLDR:
+/// en-US, en-CA, en-AU, en-IN, hi, ar, ko, zh-TW, fil... use 12 hours, most
+/// others 24); else the setting of the user on the system (Windows, macOS,
+/// the LC_TIME of Linux), or the usage of the language of the system.
+int Rlocale_uses_12_hour_clock();
+/// "AM" (pm = R_FALSE) or "PM" in the language: the keys Raven.AM / Raven.PM when the tables have them. Never NULL.
+const(char)* Rlocale_get_day_period(int pm);
+/// A time of the day (hour 0 to 23) as the locale writes it: "3:05 PM", "15:05", "오후 3:05".
+const(char)* Rlocale_format_time(int hour, int minute, int second, int show_seconds);
+/// The zone of the system ("Europe/Paris"): the TZ variable, the
+/// link /etc/localtime, else what the system says; "UTC" when it says
+/// nothing. Valid until the next call.
+const(char)* Rtimezone_get_system();
+/// The folder of the tz database (the files "Europe/Paris"...), or
+/// the packed tzdata file of Android, to read instead of the system's: for
+/// a database shipped with the application, or tests. It is then the only
+/// one read. NULL: the system's (or the TZDIR variable). Forgets the zones
+/// read so far.
+void Rtimezone_set_directory(const(char)* path);
+/// R_TRUE when the zone is known. Every function takes a name of
+/// the tz database, "UTC", a POSIX TZ rule ("EST5EDT,M3.2.0,M11.1.0"), or
+/// NULL / "" for the zone of the system.
+int Rtimezone_is_valid(const(char)* zone);
+/// The date and time an instant shows in a zone (month 1 to 12). R_FALSE for an unknown zone.
+int Rtimezone_to_local(const(char)* zone, double utc, int* year, int* month, int* day, int* hour, int* minute, int* second);
+/// The instant a date and time of a zone is. When the clocks go
+/// forward, the times they skip do not exist: such a time is moved forward
+/// by the length of the gap (02:30 becomes 03:30). When they go back, the
+/// times of the hour repeated happen twice: the first is taken (still in
+/// summer time). Rtimezone_count_local tells these cases apart.
+double Rtimezone_from_local(const(char)* zone, int year, int month, int day, int hour, int minute, int second);
+/// How many instants show this date and time in the zone: 1, 0 (skipped when the clocks went forward) or 2 (repeated when they went back).
+int Rtimezone_count_local(const(char)* zone, int year, int month, int day, int hour, int minute, int second);
+/// Seconds the zone is ahead of UTC at an instant (3600 in Paris in winter, -14400 in New York in summer).
+int Rtimezone_get_offset(const(char)* zone, double utc);
+/// R_TRUE when the zone is on summer (daylight saving) time at the instant.
+int Rtimezone_is_daylight_saving(const(char)* zone, double utc);
+/// The abbreviation of the zone at an instant ("CET", "EDT"; "+03" where the database has no name).
+const(char)* Rtimezone_get_abbreviation(const(char)* zone, double utc);
+/// The zone at an instant, to show: "CET, UTC+1", "EDT, UTC-4", "IST, UTC+5:30", "UTC+3" when it has no name.
+const(char)* Rtimezone_get_label(const(char)* zone, double utc);
 /// Size of every text, 1 = as designed (0.5 to 4). Controls grow with their text.
 void Raccessibility_set_text_scale(float scale);
 float Raccessibility_get_text_scale();
@@ -5271,7 +6448,151 @@ void Rhost_inject_mouse_leave(Rid window);
 void Rhost_inject_key(Rid window, RKey key, int pressed, uint modifiers, int repeat);
 /// One typed Unicode code point.
 void Rhost_inject_text(Rid window, uint codepoint);
+/// The input method of the application's system composes `text`
+/// (preedit), with its selection in bytes (see Rwindow_inject_composition).
+/// NULL or "" cancels it; the committed text then comes through
+/// Rhost_inject_text. Rwindow_get_text_input_rect tells where to put the
+/// candidate window.
+void Rhost_inject_composition(Rid window, const(char)* text, int selection_start, int selection_end);
 /// The window gained or lost the keyboard. Losing it closes popups and drops captures.
 void Rhost_inject_focus(Rid window, int focused);
 /// The user asked to close the window (its close callback decides).
 void Rhost_inject_close(Rid window);
+/// The user answered a permission_request (or the status changed
+/// by itself). The waiting Rpermission_request callbacks get it at the
+/// next frame. Any thread.
+void Rhost_permission_answer(RPermission permission, RPermissionStatus status);
+/// The end of a service_request: the files it gave (copied; paths
+/// Raven can read; size 0 is read from the file), at the next frame. Once
+/// per request. Any thread.
+void Rhost_service_complete(uint request, RDeviceResult result, const(RPickedFile)* files, int count);
+/// R_TRUE makes what is drawn depend only on what the test does:
+/// every frame advances the animations by 1/60 s (Rset_animation_time_step),
+/// and the carets of the text fields stay lit instead of blinking. R_FALSE
+/// gives the clock back (time step 0).
+void Rtest_set_deterministic(int enabled);
+int Rtest_is_deterministic();
+/// Returns: What the goldens of this run are made with, "OS-backend":
+/// "macos-metal", "linux-vulkan", "windows-vulkan", "web-webgl"... and
+/// "null" with the null backend.
+const(char)* Rtest_get_platform_tag();
+/// Finds a widget by name (Rwidget_set_name, Name="" in XML). The
+/// path may have several names separated by '/': "settings/ok" is the
+/// widget named "ok" inside the one named "settings". In a window, the
+/// open popups (menus, dialogs) are searched first, top first, then the
+/// content.
+/// scope A window or a widget.
+/// Returns: R_INVALID_ID when nothing has that name (no error is reported).
+Rid Rtest_find(Rid scope_, const(char)* path);
+/// Moves the mouse to the middle of the widget, presses and releases the left button.
+int Rtest_click(Rid widget);
+/// Two clicks in a row on the middle of the widget, seen as a double click.
+int Rtest_double_click(Rid widget);
+/// A click of the right button on the middle of the widget (a context menu).
+int Rtest_right_click(Rid widget);
+/// Clicks at a position of a widget or a window.
+/// clicks 1 for a click, 2 for a double click, 3 for a triple click.
+/// modifiers RModifier held during the clicks (R_MOD_SHIFT...).
+int Rtest_click_at(Rid target, float x, float y, RMouseButton button, int clicks, uint modifiers);
+/// Moves the mouse over the middle of the widget, without clicking.
+int Rtest_hover(Rid widget);
+/// Moves the mouse to a position of a widget or a window.
+int Rtest_hover_at(Rid target, float x, float y);
+/// Presses the left button on the middle of the widget, moves by
+/// (dx, dy) in several steps, and releases: a slider, a splitter, a
+/// window dragged by a widget.
+int Rtest_drag(Rid widget, float dx, float dy);
+/// Drags from the middle of one widget to the middle of another (drag and drop).
+int Rtest_drag_to(Rid from, Rid to);
+/// Turns the mouse wheel over the middle of the widget: `wheel_y`
+/// notches (positive: toward the top, as a wheel turned away from the
+/// user), `wheel_x` notches sideways.
+int Rtest_scroll(Rid widget, float wheel_x, float wheel_y);
+/// Presses and releases a key, with RModifier held. A widget
+/// target gets the keyboard focus first; a window sends the key to what
+/// has the focus.
+int Rtest_key(Rid target, RKey key, uint modifiers);
+/// Types UTF-8 text as a keyboard would. A widget target gets the
+/// keyboard focus first. '\n', '\t' and '\b' are sent as the keys Enter,
+/// Tab and Backspace.
+int Rtest_type_text(Rid target, const(char)* text);
+/// A finger touches the middle of the widget and leaves at once.
+int Rtest_tap(Rid widget);
+/// A finger put on the middle of the widget moves by (dx, dy) in
+/// `seconds`, and leaves: a fast swipe flicks a list, which then coasts
+/// (Rtest_settle lets it stop).
+int Rtest_swipe(Rid widget, float dx, float dy, double seconds);
+/// Produces `frames` frames (Rdraw_frame). Returns: R_FALSE once the application quits.
+int Rtest_pump(int frames);
+/// Returns: R_TRUE when nothing waits for a frame: no posted task, no layout
+/// to do, nothing to paint, no animation, no layout spring, no inertia.
+/// Windows that redraw all the time (Rwindow_set_continuous_redraw, a
+/// realtime viewport) and the timers are not counted.
+int Rtest_is_idle();
+/// Produces frames until Rtest_is_idle, each advancing the
+/// animations by the time step (1/60 s unless Rset_animation_time_step
+/// gives another), for at most `max_seconds` of that time.
+/// Returns: R_FALSE when it was still moving at the end.
+int Rtest_settle(double max_seconds);
+/// Returns: What the user reads in the widget: the text of a field, else
+/// its label (as screen readers say it: the text of a Label, a Button, a
+/// Checkbox...). "" when it has none. Valid until the next call.
+const(char)* Rtest_get_text(Rid widget);
+/// Returns: R_TRUE when the widget can be seen: in a window, Visible with
+/// all that holds it, on the page a Switcher or a TabView shows, and laid
+/// out with a size.
+int Rtest_is_shown(Rid widget);
+/// Returns: R_TRUE for a checked Checkbox, Switch, RadioButton, toggle Button or menu item.
+int Rtest_is_checked(Rid widget);
+/// Captures a window, or the rectangle of one widget, and compares
+/// it with the PNG file `golden_path` (see the top of this file).
+/// target A window or a widget.
+/// options NULL for the defaults.
+/// result Receives the details; may be NULL.
+/// Returns: R_TRUE when the capture matches (or the golden was written
+/// because RAVEN_UPDATE_GOLDENS=1).
+int Rtest_expect_golden(Rid target, const(char)* golden_path, const(RGoldenOptions)* options, RGoldenResult* result);
+/// Compares two RGBA8 images of the same size as Rtest_expect_golden
+/// does, without files.
+/// diff_rgba When not NULL, receives width * height * 4 bytes: the
+/// expected image faded, with the different pixels in red.
+/// Returns: The number of pixels farther apart than `channel_tolerance`;
+/// -1 when an image is missing.
+int Rtest_compare_pixels(const(ubyte)* actual, const(ubyte)* expected, int width, int height, int channel_tolerance, int* max_channel_difference, ubyte* diff_rgba);
+/// The widgets as JSON, what a test, a script or an agent reads of
+/// the interface. Each widget gives its "type" (its XML tag), "name" and
+/// "path" (for Rtest_find) when it has a name, its accessibility "role",
+/// its "text" (Rtest_get_text), "label" and "value" when they differ,
+/// "bounds" [x, y, width, height] in logical units of its window,
+/// "shown", "enabled", and when they apply "focused", "checked",
+/// "selected", "expanded", "number"/"minimum"/"maximum", the rows of a
+/// list ("items") and its "children", in the order of the layout.
+/// target A window or a widget; R_INVALID_ID for every window of
+/// the application: {"raven": version, "backend": tag, "windows": [...]},
+/// each with its "title", "size", "scale", "content", "popups".
+/// Returns: The JSON text, valid until the next call. "" on error.
+const(char)* Rtest_dump_tree(Rid target);
+/// Rtest_dump_tree written to a file ("-": the standard output).
+int Rtest_save_tree(Rid target, const(char)* path);
+/// Captures a window, or the rectangle of a widget, into a PNG
+/// file. The null backend draws nothing: its picture is the clear color.
+int Rtest_save_png(Rid target, const(char)* path);
+/// Runs a script of steps, one per line, as RAVEN_SCRIPT does (see
+/// "Driving any application headlessly" in README.md):
+///
+///     click form/user
+///     type "ada"
+///     key Enter
+///     expect status text "Welcome, ada"
+///     snap after-login
+///
+/// The frames are produced by the function (Rdraw_frame) until the script
+/// ends. A widget is named by its name or path, by "text:Sign in" (the
+/// first one shown that reads it), or a point of the window by "@x,y".
+/// script The text of the script.
+/// source_name The name its messages give it ("login.script"); may be NULL.
+/// Returns: R_TRUE when every step was done and every check was true;
+/// R_FALSE otherwise, with the reason in Rtest_get_script_error.
+int Rtest_run_script(const(char)* script, const(char)* source_name);
+/// Returns: Why the last Rtest_run_script failed ("login.script:4: expect: ..."), "" when it passed.
+const(char)* Rtest_get_script_error();

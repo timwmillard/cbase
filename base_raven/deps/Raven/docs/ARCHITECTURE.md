@@ -248,6 +248,11 @@ specific to Windows:
 - While the user moves or resizes a window, Windows runs its own message
   loop and the loop of the application is not running. A timer emits `RVN_PEVENT_MODAL_TICK`,
   on which the core produces a frame, so the content follows the resize.
+- Input methods go through IMM32 (`imm32.dll`, loaded at run time). The
+  composition is sent as `RVN_PEVENT_COMPOSITION` and drawn by the field;
+  the window of the input method is hidden (`ISC_SHOWUICOMPOSITIONWINDOW`),
+  its candidate window put at the caret, and its context removed from the
+  window while the focus takes no text.
 - Graphics drivers send messages to the window from the thread that creates
   or resizes a swapchain. If the UI thread were blocked on the render thread
   at that moment, both would wait forever. Whenever the UI thread waits for
@@ -263,7 +268,9 @@ specific to Windows:
   `RAVEN_DIRECT_MANIPULATION=0`) the touchpad stays the wheel.
 
 **X11.** Xlib only. Text input goes through an X input context (dead keys,
-compose). The scale comes from the `Xft.dpi` resource. A self-pipe wakes the
+compose); when the input method supports `XIMPreeditCallbacks` the
+composition comes through its callbacks (on the spot) and its candidates
+are put at the caret (`XNSpotLocation`). The scale comes from the `Xft.dpi` resource. A self-pipe wakes the
 event loop from other threads.
 
 **Wayland.** Compiled beside X11; `rvn_platform_select` connects to the
@@ -294,13 +301,36 @@ Things that differ from the other systems:
   wheel), `axis_stop` that they left, and the core keeps the content going.
   The pinch, the swipe and the hold of `zwp_pointer_gestures_v1` become the
   gestures of the trackpad (the hold stops what coasts).
+- *Input methods* (`zwp_text_input_v3`, when the compositor offers it): the
+  text input is enabled while the focus of the window it entered takes text,
+  and enabled again for each new field; the kind of field, the text around
+  the caret and the caret rectangle (logical units) follow it, each sent when
+  it changes, then committed. Its events change a pending state applied on
+  `done` (`platform/preedit.c`): the composition removed, the text around the
+  caret deleted, the commit typed, the new composition shown. A `done` whose
+  serial is behind our commits is applied but not answered. The keys the
+  input method takes never arrive as `wl_keyboard` keys, so xkb's compose
+  sequences only see the others.
 - *The clipboard* is read through a pipe from the other application; a
   selection of our own is answered without going through the compositor.
 
 `tests/test_wayland.c` runs a small compositor of its own (on
 `libwayland-server`) and checks the dialogue: configure, resize, scale,
-pointer, trackpad (scrolling, inertia, pinch, swipe, hold), keyboard,
-clipboard, drops, hide and show, close.
+pointer, trackpad (scrolling, inertia, pinch, swipe, hold), keyboard, input
+methods (text-input-v3), clipboard, drops, hide and show, close.
+
+**Input methods.** A platform sends the text an input method is composing
+as `RVN_PEVENT_COMPOSITION` (UTF-8, with the clause being converted) and the
+committed text as `RVN_PEVENT_TEXT`, which ends the composition; the keys the
+input method takes are sent as nothing. The window keeps the composition for
+its focus (`rvn_window_t::composition`, dropped when the focus moves) and the
+text widgets draw it at their caret, underlined, without putting it in their
+text. The platform places the candidate window from
+`Rwindow_get_text_input_rect`. macOS: the content view is an
+`NSTextInputClient` and keys go through `interpretKeyEvents` while the focus
+takes text (not with Command or Control); a click commits what was being
+composed. Windows: IMM32 (above). Wayland: `text-input-v3` (above). X11:
+XIM, on the spot when the input method can, its own window otherwise.
 
 **Fingers, pens and trackpads.** Every platform turns what it reads into
 `RVN_PEVENT_TOUCH`, `_PEN`, `_GESTURE` (a gesture the system recognized: the
@@ -351,6 +381,42 @@ A popup that closes leaves a *ghost*: the window keeps painting it, shrinking
 back into what opened it, until its spring is at rest. `Rset_animation_time_step`
 replaces the clock (tests, films); `Rset_animations_enabled(R_FALSE)` puts
 every spring on its target at once.
+
+`widget/testing.c` (`raven_testing.h`) drives windows for tests through the
+same functions as the injected input (`Rwindow_inject_*`, `Rwindow_inject_touch`),
+and knows when a window is at rest from what makes it want a frame
+(`rvn_window_is_settled`: layout to do, paint pending, `animating` set by a
+spring during the last paint, layout springs, touch inertia). Golden images
+are written by `render/image_encode.c`, a PNG encoder over the deflate of
+`core/deflate.c` (shared with the PDF writer).
+
+Animated GIF and APNG files (`render/anim_decode.c`) are opened once, when
+their texture is made: only the structure of the file is read (each frame's
+rectangle, delay, disposal and blend). The texture keeps that and holds the
+first frame. An `Image` showing it plays it with its own state and a
+texture of its own, into which it composes the frame due, on the UI thread
+(the widget paints there while it shows an animation: `rvn_widget_add_ui_paint`).
+Rather than asking for every frame of the screen, it asks for the frame at
+the time the next GIF frame is due (`rvn_paint_wake_after`, the
+`wake_request` / `wake_time` of the window, which `Rwait_events` sleeps
+until); with a fixed time step (tests, films) it asks for every frame.
+
+`widget/headless.c` drives any application from outside. `Rinit_ex` asks it
+first (`rvn_headless_configure`) whether the environment drives the run
+(`RAVEN_HEADLESS`, `RAVEN_SCRIPT`...): it then picks the null window system,
+the backend and the scale, and falls back to the null backend when the GPU
+backend cannot start. The script is read whole before the run, so a typo
+stops it at once. It runs inside the frames of the application:
+`rvn_update` calls `rvn_headless_frame` at its end, which runs steps until
+one needs frames (an input is followed by a frame; a check that is not true
+yet, or a widget not shown yet, is tried again at the next frame), and
+`Rwait_events` does not sleep while a run is going on. The index of a step is
+taken before it acts, so a step that opens a dialog that waits (its own
+frames, `rvn_dialog_wait`) is followed by the next steps from inside those
+frames. The tree is built from the widgets and from the accessibility module
+(`rvn_a11y_describe`: roles, texts, states, rows), the same view of the
+interface the screen readers have. `Rtest_run_script` is the same runner,
+pumped by `Rdraw_frame` from a test.
 
 ## Windows: header, dialogs, drag and drop
 
@@ -583,6 +649,8 @@ for the glass themes.
 | `test_tools` | color picker, timeline, node graph (links pulled with the mouse, widgets inside zoomed nodes), background blur, windows seen through, tags made by code, destroy callback, image decoding |
 | `test_render` | real frames through Vulkan, pixels compared (shapes, clipping, textures, text, glass, materials, curves, blur, node graph); skipped without a Vulkan driver |
 | `test_web` | `raven_web`: JSON and base64 always; with a browser of the Chromium family, pages, scripts, messages, input and history (skipped without one) |
+| `test_headless` | the tree as JSON, scripts that pass and scripts that fail (`Rtest_run_script`) |
+| `headless_cli_*`, `example_headless_hello` | an ordinary application driven from outside by the environment: the tree, a script, the exit codes, the pictures (with a GPU) |
 | `designer_script` | the designer adding, moving, wrapping, undoing, and checking its XML |
 | `bindings_up_to_date`, `binding_cpp`, `binding_python`, `binding_rust`, `binding_go` | the bindings match the headers; their examples run (the last three need the shared library and their tools) |
 

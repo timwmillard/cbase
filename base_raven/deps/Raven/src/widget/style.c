@@ -72,7 +72,14 @@ static const rvn_palette_entry_t g_dark_palette[] = {
 	{ R_COLOR_WARNING,          0xD29922, 255 },
 	{ R_COLOR_DANGER,           0xF85149, 255 },
 	{ R_COLOR_LINK,             0x6CB0FF, 255 },
-	{ R_COLOR_CODE,             0x141416, 255 }
+	{ R_COLOR_CODE,             0x141416, 255 },
+	{ R_COLOR_SEARCH_MATCH,     0xD8A62B, 80 },
+	{ R_COLOR_SEARCH_CURRENT,   0xF5B83D, 150 },
+	{ R_COLOR_SPELLING,         0xF85149, 255 },
+	{ R_COLOR_DIFF_ADDED,       0x2EA043, 46 },
+	{ R_COLOR_DIFF_REMOVED,     0xF85149, 46 },
+	{ R_COLOR_DIFF_ADDED_WORD,  0x2EA043, 110 },
+	{ R_COLOR_DIFF_REMOVED_WORD, 0xF85149, 110 }
 };
 
 /* High contrast: every pair of text and background above 7:1 (WCAG AAA). */
@@ -112,7 +119,14 @@ static const rvn_palette_entry_t g_hc_dark_palette[] = {
 	{ R_COLOR_WARNING,          0xFFFF00, 255 },
 	{ R_COLOR_DANGER,           0xFF6B6B, 255 },
 	{ R_COLOR_LINK,             0xFFFF00, 255 },
-	{ R_COLOR_CODE,             0x000000, 255 }
+	{ R_COLOR_CODE,             0x000000, 255 },
+	{ R_COLOR_SEARCH_MATCH,     0x00E5FF, 90 },
+	{ R_COLOR_SEARCH_CURRENT,   0x00E5FF, 170 },
+	{ R_COLOR_SPELLING,         0xFF6B6B, 255 },
+	{ R_COLOR_DIFF_ADDED,       0x00C853, 80 },
+	{ R_COLOR_DIFF_REMOVED,     0xFF5252, 80 },
+	{ R_COLOR_DIFF_ADDED_WORD,  0x00C853, 120 },
+	{ R_COLOR_DIFF_REMOVED_WORD, 0xFF5252, 120 }
 };
 
 static const rvn_palette_entry_t g_hc_light_palette[] = {
@@ -151,7 +165,14 @@ static const rvn_palette_entry_t g_hc_light_palette[] = {
 	{ R_COLOR_WARNING,          0x6B4A00, 255 },
 	{ R_COLOR_DANGER,           0xA30000, 255 },
 	{ R_COLOR_LINK,             0x00009F, 255 },
-	{ R_COLOR_CODE,             0xFFFFFF, 255 }
+	{ R_COLOR_CODE,             0xFFFFFF, 255 },
+	{ R_COLOR_SEARCH_MATCH,     0xFFC800, 150 },
+	{ R_COLOR_SEARCH_CURRENT,   0xFF8C00, 200 },
+	{ R_COLOR_SPELLING,         0xA30000, 255 },
+	{ R_COLOR_DIFF_ADDED,       0x007A33, 50 },
+	{ R_COLOR_DIFF_REMOVED,     0xC00000, 45 },
+	{ R_COLOR_DIFF_ADDED_WORD,  0x007A33, 90 },
+	{ R_COLOR_DIFF_REMOVED_WORD, 0xC00000, 80 }
 };
 
 static const rvn_palette_entry_t g_light_palette[] = {
@@ -190,7 +211,14 @@ static const rvn_palette_entry_t g_light_palette[] = {
 	{ R_COLOR_WARNING,          0x9A6700, 255 },
 	{ R_COLOR_DANGER,           0xCF222E, 255 },
 	{ R_COLOR_LINK,             0x0B62D6, 255 },
-	{ R_COLOR_CODE,             0xE6E6EB, 255 }
+	{ R_COLOR_CODE,             0xE6E6EB, 255 },
+	{ R_COLOR_SEARCH_MATCH,     0xF2C94C, 120 },
+	{ R_COLOR_SEARCH_CURRENT,   0xF59E0B, 170 },
+	{ R_COLOR_SPELLING,         0xCF222E, 255 },
+	{ R_COLOR_DIFF_ADDED,       0x1A7F37, 30 },
+	{ R_COLOR_DIFF_REMOVED,     0xCF222E, 26 },
+	{ R_COLOR_DIFF_ADDED_WORD,  0x1A7F37, 80 },
+	{ R_COLOR_DIFF_REMOVED_WORD, 0xCF222E, 70 }
 };
 
 /*
@@ -234,7 +262,14 @@ static const rvn_palette_entry_t g_glass_dark_palette[] = {
 	{ R_COLOR_WARNING,          0xFFD60A, 255 },
 	{ R_COLOR_DANGER,           0xFF453A, 255 },
 	{ R_COLOR_LINK,             0x6CB6FF, 255 },
-	{ R_COLOR_CODE,             0x1A1A1D, 110 }
+	{ R_COLOR_CODE,             0x1A1A1D, 110 },
+	{ R_COLOR_SEARCH_MATCH,     0xD8A62B, 80 },
+	{ R_COLOR_SEARCH_CURRENT,   0xF5B83D, 150 },
+	{ R_COLOR_SPELLING,         0xFF453A, 255 },
+	{ R_COLOR_DIFF_ADDED,       0x2EA043, 46 },
+	{ R_COLOR_DIFF_REMOVED,     0xF85149, 46 },
+	{ R_COLOR_DIFF_ADDED_WORD,  0x2EA043, 110 },
+	{ R_COLOR_DIFF_REMOVED_WORD, 0xF85149, 110 }
 };
 
 static const rvn_palette_entry_t g_glass_light_palette[] = {
@@ -273,7 +308,14 @@ static const rvn_palette_entry_t g_glass_light_palette[] = {
 	{ R_COLOR_WARNING,          0xB25000, 255 },
 	{ R_COLOR_DANGER,           0xD70015, 255 },
 	{ R_COLOR_LINK,             0x0066CC, 255 },
-	{ R_COLOR_CODE,             0x3C3C43, 24 }
+	{ R_COLOR_CODE,             0x3C3C43, 24 },
+	{ R_COLOR_SEARCH_MATCH,     0xF2C94C, 120 },
+	{ R_COLOR_SEARCH_CURRENT,   0xF59E0B, 170 },
+	{ R_COLOR_SPELLING,         0xD70015, 255 },
+	{ R_COLOR_DIFF_ADDED,       0x1A7F37, 30 },
+	{ R_COLOR_DIFF_REMOVED,     0xCF222E, 26 },
+	{ R_COLOR_DIFF_ADDED_WORD,  0x1A7F37, 80 },
+	{ R_COLOR_DIFF_REMOVED_WORD, 0xCF222E, 70 }
 };
 
 /*
@@ -318,7 +360,14 @@ static const rvn_palette_entry_t g_windows_light_palette[] = {
 	{ R_COLOR_WARNING,          0x9D5D00, 255 },
 	{ R_COLOR_DANGER,           0xC42B1C, 255 },
 	{ R_COLOR_LINK,             0x003E92, 255 },  /* AccentTextFillColorPrimary */
-	{ R_COLOR_CODE,             0x000000, 13 }
+	{ R_COLOR_CODE,             0x000000, 13 },
+	{ R_COLOR_SEARCH_MATCH,     0xF2C94C, 120 },
+	{ R_COLOR_SEARCH_CURRENT,   0xF59E0B, 170 },
+	{ R_COLOR_SPELLING,         0xC42B1C, 255 },
+	{ R_COLOR_DIFF_ADDED,       0x1A7F37, 30 },
+	{ R_COLOR_DIFF_REMOVED,     0xCF222E, 26 },
+	{ R_COLOR_DIFF_ADDED_WORD,  0x1A7F37, 80 },
+	{ R_COLOR_DIFF_REMOVED_WORD, 0xCF222E, 70 }
 };
 
 static const rvn_palette_entry_t g_windows_dark_palette[] = {
@@ -357,7 +406,14 @@ static const rvn_palette_entry_t g_windows_dark_palette[] = {
 	{ R_COLOR_WARNING,          0xFCE100, 255 },
 	{ R_COLOR_DANGER,           0xFF99A4, 255 },
 	{ R_COLOR_LINK,             0x99EBFF, 255 },
-	{ R_COLOR_CODE,             0xFFFFFF, 15 }
+	{ R_COLOR_CODE,             0xFFFFFF, 15 },
+	{ R_COLOR_SEARCH_MATCH,     0xD8A62B, 80 },
+	{ R_COLOR_SEARCH_CURRENT,   0xF5B83D, 150 },
+	{ R_COLOR_SPELLING,         0xFF99A4, 255 },
+	{ R_COLOR_DIFF_ADDED,       0x2EA043, 46 },
+	{ R_COLOR_DIFF_REMOVED,     0xF85149, 46 },
+	{ R_COLOR_DIFF_ADDED_WORD,  0x2EA043, 110 },
+	{ R_COLOR_DIFF_REMOVED_WORD, 0xF85149, 110 }
 };
 
 /*
@@ -400,7 +456,14 @@ static const rvn_palette_entry_t g_macos_light_palette[] = {
 	{ R_COLOR_WARNING,          0xFF9500, 255 },
 	{ R_COLOR_DANGER,           0xFF3B30, 255 },
 	{ R_COLOR_LINK,             0x0068DA, 255 },  /* linkColor */
-	{ R_COLOR_CODE,             0x000000, 13 }
+	{ R_COLOR_CODE,             0x000000, 13 },
+	{ R_COLOR_SEARCH_MATCH,     0xFFE066, 170 },
+	{ R_COLOR_SEARCH_CURRENT,   0xFFD60A, 255 },
+	{ R_COLOR_SPELLING,         0xFF3B30, 255 },
+	{ R_COLOR_DIFF_ADDED,       0x1A7F37, 30 },
+	{ R_COLOR_DIFF_REMOVED,     0xCF222E, 26 },
+	{ R_COLOR_DIFF_ADDED_WORD,  0x1A7F37, 80 },
+	{ R_COLOR_DIFF_REMOVED_WORD, 0xCF222E, 70 }
 };
 
 static const rvn_palette_entry_t g_macos_dark_palette[] = {
@@ -439,7 +502,14 @@ static const rvn_palette_entry_t g_macos_dark_palette[] = {
 	{ R_COLOR_WARNING,          0xFFD60A, 255 },
 	{ R_COLOR_DANGER,           0xFF453A, 255 },
 	{ R_COLOR_LINK,             0x419CFF, 255 },
-	{ R_COLOR_CODE,             0xFFFFFF, 20 }
+	{ R_COLOR_CODE,             0xFFFFFF, 20 },
+	{ R_COLOR_SEARCH_MATCH,     0xFFD60A, 70 },
+	{ R_COLOR_SEARCH_CURRENT,   0xFFD60A, 190 },
+	{ R_COLOR_SPELLING,         0xFF453A, 255 },
+	{ R_COLOR_DIFF_ADDED,       0x2EA043, 46 },
+	{ R_COLOR_DIFF_REMOVED,     0xF85149, 46 },
+	{ R_COLOR_DIFF_ADDED_WORD,  0x2EA043, 110 },
+	{ R_COLOR_DIFF_REMOVED_WORD, 0xF85149, 110 }
 };
 
 /*
@@ -483,7 +553,14 @@ static const rvn_palette_entry_t g_macos_glass_light_palette[] = {
 	{ R_COLOR_WARNING,          0xFF9500, 255 },
 	{ R_COLOR_DANGER,           0xFF3B30, 255 },
 	{ R_COLOR_LINK,             0x0068DA, 255 },  /* linkColor */
-	{ R_COLOR_CODE,             0x000000, 13 }
+	{ R_COLOR_CODE,             0x000000, 13 },
+	{ R_COLOR_SEARCH_MATCH,     0xFFE066, 170 },
+	{ R_COLOR_SEARCH_CURRENT,   0xFFD60A, 255 },
+	{ R_COLOR_SPELLING,         0xFF3B30, 255 },
+	{ R_COLOR_DIFF_ADDED,       0x1A7F37, 30 },
+	{ R_COLOR_DIFF_REMOVED,     0xCF222E, 26 },
+	{ R_COLOR_DIFF_ADDED_WORD,  0x1A7F37, 80 },
+	{ R_COLOR_DIFF_REMOVED_WORD, 0xCF222E, 70 }
 };
 
 static const rvn_palette_entry_t g_macos_glass_dark_palette[] = {
@@ -522,7 +599,14 @@ static const rvn_palette_entry_t g_macos_glass_dark_palette[] = {
 	{ R_COLOR_WARNING,          0xFFD60A, 255 },
 	{ R_COLOR_DANGER,           0xFF453A, 255 },
 	{ R_COLOR_LINK,             0x419CFF, 255 },
-	{ R_COLOR_CODE,             0xFFFFFF, 20 }
+	{ R_COLOR_CODE,             0xFFFFFF, 20 },
+	{ R_COLOR_SEARCH_MATCH,     0xFFD60A, 70 },
+	{ R_COLOR_SEARCH_CURRENT,   0xFFD60A, 190 },
+	{ R_COLOR_SPELLING,         0xFF453A, 255 },
+	{ R_COLOR_DIFF_ADDED,       0x2EA043, 46 },
+	{ R_COLOR_DIFF_REMOVED,     0xF85149, 46 },
+	{ R_COLOR_DIFF_ADDED_WORD,  0x2EA043, 110 },
+	{ R_COLOR_DIFF_REMOVED_WORD, 0xF85149, 110 }
 };
 
 /*
@@ -566,7 +650,14 @@ static const rvn_palette_entry_t g_gnome_light_palette[] = {
 	{ R_COLOR_WARNING,          0x9C6E03, 255 },
 	{ R_COLOR_DANGER,           0xE01B24, 255 },  /* destructive_bg_color */
 	{ R_COLOR_LINK,             0x1C71D8, 255 },  /* accent_color */
-	{ R_COLOR_CODE,             0x000006, 15 }
+	{ R_COLOR_CODE,             0x000006, 15 },
+	{ R_COLOR_SEARCH_MATCH,     0xF6D32D, 120 },
+	{ R_COLOR_SEARCH_CURRENT,   0xF5C211, 200 },
+	{ R_COLOR_SPELLING,         0xE01B24, 255 },
+	{ R_COLOR_DIFF_ADDED,       0x1A7F37, 30 },
+	{ R_COLOR_DIFF_REMOVED,     0xCF222E, 26 },
+	{ R_COLOR_DIFF_ADDED_WORD,  0x1A7F37, 80 },
+	{ R_COLOR_DIFF_REMOVED_WORD, 0xCF222E, 70 }
 };
 
 static const rvn_palette_entry_t g_gnome_dark_palette[] = {
@@ -605,7 +696,14 @@ static const rvn_palette_entry_t g_gnome_dark_palette[] = {
 	{ R_COLOR_WARNING,          0xF8E45C, 255 },
 	{ R_COLOR_DANGER,           0xFF7B63, 255 },
 	{ R_COLOR_LINK,             0x78AEED, 255 },
-	{ R_COLOR_CODE,             0xFFFFFF, 20 }
+	{ R_COLOR_CODE,             0xFFFFFF, 20 },
+	{ R_COLOR_SEARCH_MATCH,     0xF6D32D, 70 },
+	{ R_COLOR_SEARCH_CURRENT,   0xF5C211, 160 },
+	{ R_COLOR_SPELLING,         0xFF7B63, 255 },
+	{ R_COLOR_DIFF_ADDED,       0x2EA043, 46 },
+	{ R_COLOR_DIFF_REMOVED,     0xF85149, 46 },
+	{ R_COLOR_DIFF_ADDED_WORD,  0x2EA043, 110 },
+	{ R_COLOR_DIFF_REMOVED_WORD, 0xF85149, 110 }
 };
 
 /* Same order as RMetric. */

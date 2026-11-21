@@ -69,6 +69,8 @@ extern const rvn_widget_class_t rvn_class_pdf_view;
 extern const rvn_widget_class_t rvn_class_chart;
 extern const rvn_widget_class_t rvn_class_map_view;
 extern const rvn_widget_class_t rvn_class_carousel;
+extern const rvn_widget_class_t rvn_class_system_web_view;
+extern const rvn_widget_class_t rvn_class_diff_view;
 
 /** Internal class types, outside of the public enum. */
 #define RVN_WIDGET_INTERNAL_COMBO_LIST ((RWidgetType)((int)R_WIDGET_LAST_ + 1))
@@ -80,6 +82,8 @@ int  rvn_date_days_in_month(int year, int month);
 int  rvn_date_valid(int year, int month, int day);
 int  rvn_date_weekday(int year, int month, int day);
 void rvn_date_today(int* year, int* month, int* day);
+/** "YYYY-MM-DD"; R_FALSE when it is not a valid date. */
+int  rvn_date_parse(const char* text, int* year, int* month, int* day);
 /** The name of a month or of a day: the locale's (keys Raven.Month1.., Raven.Day0..) or English. */
 const char* rvn_date_month_name(int month);
 const char* rvn_date_day_name(int weekday);
@@ -283,6 +287,32 @@ void rvn_islands_shutdown(void);
 int  rvn_map_view_marker_info(const rvn_widget_t* widget, int index, const char** label, rvn_rect_t* rect);
 /** What a click on the marker at `index` does (its callback). */
 void rvn_map_view_press_marker(rvn_widget_t* widget, int index);
+/* ---- widgets/text_input.c: a TextInput held by another widget (the editor of a cell, the field of a combo box) ---- */
+/** Selects from `start` to `end` (bytes; the caret at `end`). */
+void rvn_text_input_set_selection(rvn_widget_t* input, int start, int end);
+/** Room kept free at the right of the text (the arrow of a combo box). */
+void rvn_text_input_set_inset(rvn_widget_t* input, float right);
+/* ---- widgets/combo_box.c: the list of a combo box as a screen reader sees it ---- */
+/** The combo box a list belongs to. */
+rvn_widget_t* rvn_combo_list_owner(const rvn_widget_t* list);
+/** The list of a combo box when it is open, else NULL. */
+rvn_widget_t* rvn_combo_box_open_list(const rvn_widget_t* combo);
+/** Rows shown (those that match what was typed); a row saying that nothing matches is not counted. */
+int  rvn_combo_list_row_count(const rvn_widget_t* list);
+/** The text of a row and the rectangle it has in the list; R_FALSE past the last row. */
+int  rvn_combo_list_row_info(const rvn_widget_t* list, int row, const char** text, rvn_rect_t* rect);
+/** The highlighted row (-1: none); the row of the selected item. */
+int  rvn_combo_list_hot(const rvn_widget_t* list);
+int  rvn_combo_list_selected_row(const rvn_widget_t* list);
+/** Chooses a row, as a click does (the list closes). */
+void rvn_combo_list_choose(rvn_widget_t* list, int row);
+
+/* ---- widgets/diff_view.c: the rows of a diff view, for screen readers ---- */
+int rvn_diff_view_row_at(rvn_widget_t* widget, float x, float y);
+rvn_rect_t rvn_diff_view_row_rect(rvn_widget_t* widget, int row);
+/** "added line 12: return 0;", "removed line 7: ...; added line 7: ...", "40 unchanged lines, folded". */
+void rvn_diff_view_describe_row(rvn_widget_t* widget, int row, rvn_text_t* out);
+int rvn_diff_view_row_is_fold(rvn_widget_t* widget, int row);
 /** Closes PDFium when a PdfView opened it (widgets/pdf_view.c). */
 void rvn_pdf_shutdown(void);
 /** Releases what the file dialogs remember (widgets/dialogs.c). */
@@ -464,6 +494,54 @@ int   rvn_scrollbar_event(rvn_scrollbar_t* bar, rvn_widget_t* widget, const REve
 	rvn_rect_t track, int vertical, int* changed);
 
 /* ---------------------------------------------------------------------------
+ *  Spell checking of TextInput and TextEditor (widgets/spelling.c)
+ * ------------------------------------------------------------------------- */
+
+/** The misspelled words of a line of text, for the text and the results they were found for. */
+typedef struct rvn_spell_line_t {
+	uint32_t hash;
+	uint32_t generation;
+	int checked;
+	int count;
+	/** count pairs of byte offsets [start, end). */
+	int* ranges;
+} rvn_spell_line_t;
+
+/** The spell checking of a widget. */
+typedef struct rvn_spelling_t {
+	int enabled;
+	/** Language asked for (NULL: the default of Rspell_set_language, else the locale). */
+	char* language;
+	/** No corrections offered (the text cannot be changed). */
+	int read_only;
+	/** The menu of corrections (created on first use) and the word it is about. */
+	rvn_widget_t* menu;
+	rvn_widget_t* owner;
+	char* word;
+	int line, from, to;
+	/** Replaces the word at (line, from, to) by `text`, if `word` is still there. */
+	void (*replace)(rvn_widget_t* widget, int line, int from, int to, const char* word, const char* text);
+} rvn_spelling_t;
+
+/** R_TRUE when the widget checks its spelling and the system has a checker. */
+int  rvn_spelling_active(const rvn_spelling_t* spelling);
+/** Changes the language; R_FALSE when it is the same. */
+int  rvn_spelling_set_language(rvn_spelling_t* spelling, const char* language);
+void rvn_spelling_free(rvn_spelling_t* spelling);
+/** Checks a line again when its text or the results changed. R_TRUE when it did (it costs a call to the checker). */
+int  rvn_spell_line_update(rvn_spell_line_t* line, const rvn_spelling_t* spelling, const char* text, int length);
+/** R_TRUE when the results of the line are those of this text. */
+int  rvn_spell_line_current(const rvn_spell_line_t* line, const char* text, int length);
+/** The misspelled word that touches `offset`. */
+int  rvn_spell_line_hit(const rvn_spell_line_t* line, int offset, int* from, int* to);
+void rvn_spell_line_free(rvn_spell_line_t* line);
+/** The wavy line under a misspelled word, from x0 to x1, its bottom at `bottom`. */
+void rvn_paint_spelling(RPainter* painter, float x0, float x1, float bottom, rvn_color_t color);
+/** Opens the menu of corrections of text[from..to) of a line at the pointer. */
+int  rvn_spelling_open_menu(rvn_spelling_t* spelling, rvn_widget_t* owner, const char* text, int line, int from, int to);
+void rvn_spell_shutdown(void);
+
+/* ---------------------------------------------------------------------------
  *  Single-line text editing (widgets/textedit.c), used by TextInput and SpinBox
  * ------------------------------------------------------------------------- */
 
@@ -485,6 +563,8 @@ typedef struct rvn_textedit_t {
 	int mouse_selecting;
 	Rid blink_timer;
 	double blink_start;
+	/** The misspelled words to underline (TextInput with spell checking), or NULL. */
+	const rvn_spell_line_t* spelling;
 } rvn_textedit_t;
 
 void rvn_textedit_init(rvn_textedit_t* edit);
@@ -505,8 +585,15 @@ int  rvn_textedit_input(rvn_textedit_t* edit, uint32_t codepoint);
 void rvn_textedit_mouse_down(rvn_textedit_t* edit, const rvn_widget_t* widget, Rid font, float size,
 	float x, int clicks, int extend);
 void rvn_textedit_mouse_drag(rvn_textedit_t* edit, const rvn_widget_t* widget, Rid font, float size, float x);
+/** The byte offset of the text at a horizontal position relative to the left of the text area. */
+int  rvn_textedit_offset_at(const rvn_textedit_t* edit, const rvn_widget_t* widget, Rid font, float size, float x);
 /** Draws selection, text and caret inside `area` (widget coordinates). */
 void rvn_text_input_rect(const rvn_widget_t* widget, const RPainter* painter, rvn_rect_t caret);
+/** The composition of an input method when the widget has the focus (Rwindow_inject_composition), else NULL. */
+const char* rvn_widget_composition(const rvn_widget_t* widget, int* start, int* end);
+/** Underlines a composition from x0 to x1, thicker from target_x0 to target_x1, at `baseline`. */
+void rvn_paint_composition_underline(RPainter* painter, float x0, float x1, float target_x0, float target_x1,
+	float baseline, rvn_color_t color);
 void rvn_textedit_paint(rvn_textedit_t* edit, const rvn_widget_t* widget, RPainter* painter,
 	rvn_rect_t area, Rid font, float size, rvn_color_t color, int focused);
 

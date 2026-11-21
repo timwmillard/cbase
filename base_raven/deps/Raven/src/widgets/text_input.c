@@ -16,19 +16,29 @@ typedef struct rvn_text_input_t {
 	void* committed_user;
 	RTextInputType input_type;
 	RReturnKey return_key;
+	/** Room kept free at the right of the text (rvn_text_input_set_inset). */
+	float inset;
+	/** Spell checking (off by default) and the misspelled words of the text. */
+	rvn_spelling_t spelling;
+	rvn_spell_line_t spell_line;
 } rvn_text_input_t;
+
+static void rvn_text_input_spell_replace(rvn_widget_t* widget, int line, int from, int to, const char* word, const char* text);
 
 static void rvn_text_input_init(rvn_widget_t* widget) {
 	rvn_textedit_init(&((rvn_text_input_t*)widget)->edit);
 	((rvn_text_input_t*)widget)->input_type = R_TEXT_INPUT_TYPE_TEXT;
 	((rvn_text_input_t*)widget)->return_key = R_RETURN_KEY_DEFAULT;
 	widget->cursor = R_CURSOR_IBEAM;
+	((rvn_text_input_t*)widget)->spelling.replace = rvn_text_input_spell_replace;
 }
 
 static void rvn_text_input_destroy(rvn_widget_t* widget) {
 	rvn_text_input_t* input = (rvn_text_input_t*)widget;
 	rvn_textedit_free(&input->edit);
 	rvn_free(input->placeholder);
+	rvn_spelling_free(&input->spelling);
+	rvn_spell_line_free(&input->spell_line);
 }
 
 static rvn_rect_t rvn_text_input_area(const rvn_widget_t* widget) {
@@ -36,7 +46,8 @@ static rvn_rect_t rvn_text_input_area(const rvn_widget_t* widget) {
 	float px = rvn_widget_family(widget) == RVN_FAMILY_WINDOWS ? rvn_widget_metric(widget, R_METRIC_PADDING_X) - 1.0f :
 		rvn_widget_family(widget) == RVN_FAMILY_MACOS ? 5.0f : rvn_widget_family(widget) == RVN_FAMILY_GNOME ? 9.0f :
 		rvn_widget_metric(widget, R_METRIC_PADDING_X) * 0.7f;
-	return rvn_rect(px, 0.0f, rvn_maxf(0.0f, widget->rect.w - px * 2.0f), widget->rect.h);
+	float inset = ((const rvn_text_input_t*)widget)->inset;
+	return rvn_rect(px, 0.0f, rvn_maxf(0.0f, widget->rect.w - px * 2.0f - inset), widget->rect.h);
 }
 
 static rvn_vec2_t rvn_text_input_measure(rvn_widget_t* widget) {
@@ -92,13 +103,20 @@ static void rvn_text_input_paint(rvn_widget_t* widget, RPainter* painter) {
 				rvn_color_fade(rvn_widget_color(widget, R_COLOR_FOCUS), lit * (1.0f - lit) * 2.0f));
 		}
 	}
-	if (input->edit.length == 0 && input->placeholder && (!focused || rvn_widget_family(widget) != RVN_FAMILY_RAVEN)) {
+	if (input->edit.length == 0 && input->placeholder && (!focused || rvn_widget_family(widget) != RVN_FAMILY_RAVEN) &&
+		!(focused && rvn_widget_composition(widget, NULL, NULL))) {
 		rvn_paint_push_clip(painter, area);
 		rvn_paint_text_in(painter, R_INVALID_ID, rvn_widget_font_size(widget, 0.0f), area, 0.0f, input->placeholder, -1,
 			rvn_widget_color(widget, R_COLOR_TEXT_PLACEHOLDER));
 		rvn_paint_pop_clip(painter);
 		/* (Windows keeps the placeholder while the caret blinks in the empty field) */
 		if (!focused) return;
+	}
+	/* (a line of a field is short: it is checked again whenever it changed) */
+	input->edit.spelling = NULL;
+	if (rvn_spelling_active(&input->spelling) && !input->edit.password) {
+		rvn_spell_line_update(&input->spell_line, &input->spelling, input->edit.text, input->edit.length);
+		input->edit.spelling = &input->spell_line;
 	}
 	rvn_textedit_paint(&input->edit, widget, painter, area, R_INVALID_ID, 0.0f,
 		rvn_widget_text_color(widget, painter), focused);
@@ -116,6 +134,31 @@ static void rvn_text_input_notify(rvn_widget_t* widget, int flags) {
 		if (rvn_widget_alive(widget)) rvn_widget_fire_action(widget);
 	}
 	rvn_free(text);
+}
+
+/* A right click on a misspelled word: the menu of its corrections. */
+static int rvn_text_input_spell_menu(rvn_widget_t* widget, float x) {
+	rvn_text_input_t* input = (rvn_text_input_t*)widget;
+	int from, to;
+	if (!rvn_spelling_active(&input->spelling) || input->edit.password) return R_FALSE;
+	rvn_spell_line_update(&input->spell_line, &input->spelling, input->edit.text, input->edit.length);
+	if (!rvn_spell_line_hit(&input->spell_line, rvn_textedit_offset_at(&input->edit, widget, R_INVALID_ID, 0.0f, x), &from, &to)) {
+		return R_FALSE;
+	}
+	input->spelling.read_only = input->edit.read_only;
+	return rvn_spelling_open_menu(&input->spelling, widget, input->edit.text, 0, from, to);
+}
+
+static void rvn_text_input_spell_replace(rvn_widget_t* widget, int line, int from, int to, const char* word, const char* text) {
+	rvn_text_input_t* input = (rvn_text_input_t*)widget;
+	RVN_UNUSED(line);
+	/* (only if the word is still where the menu was opened) */
+	if (input->edit.read_only || to > input->edit.length || (int)strlen(word) != to - from ||
+		memcmp(input->edit.text + from, word, (size_t)(to - from)) != 0) {
+		return;
+	}
+	rvn_widget_invalidate_paint(widget);
+	if (rvn_textedit_replace(&input->edit, from, to, text)) rvn_text_input_notify(widget, RVN_TEXTEDIT_CHANGED);
 }
 
 static int rvn_text_input_event(rvn_widget_t* widget, const REvent* event) {
@@ -145,6 +188,7 @@ static int rvn_text_input_event(rvn_widget_t* widget, const REvent* event) {
 			rvn_widget_invalidate_paint(widget);
 			return R_TRUE;
 		case R_EVENT_MOUSE_UP:
+			if (event->button == R_MOUSE_RIGHT) return rvn_text_input_spell_menu(widget, event->local_x - area.x);
 			if (event->button != R_MOUSE_LEFT) return R_FALSE;
 			input->edit.mouse_selecting = R_FALSE;
 			rvn_widget_release_mouse(widget);
@@ -207,6 +251,10 @@ static int rvn_text_input_set_attribute(rvn_widget_t* widget, const char* name, 
 		if (!rvn_parse_return_key(value, &input->return_key)) return R_FALSE;
 	} else if (RVN_ATTR("MaxLength")) {
 		if (!rvn_parse_int(value, &input->edit.max_chars)) return R_FALSE;
+	} else if (RVN_ATTR("SpellCheck")) {
+		if (!rvn_parse_bool(value, &input->spelling.enabled)) return R_FALSE;
+	} else if (RVN_ATTR("SpellLanguage")) {
+		rvn_spelling_set_language(&input->spelling, value);
 	} else {
 		return R_FALSE;
 	}
@@ -275,6 +323,22 @@ void Rtext_input_select_all(Rid id) {
 	rvn_widget_invalidate_paint(widget);
 }
 
+void Rtext_input_set_spell_check(Rid id, int enabled) {
+	RVN_WIDGET_VOID(widget, id, R_WIDGET_TEXT_INPUT);
+	((rvn_text_input_t*)widget)->spelling.enabled = enabled != 0;
+	rvn_widget_invalidate_paint(widget);
+}
+
+int Rtext_input_get_spell_check(Rid id) {
+	RVN_WIDGET(widget, id, R_WIDGET_TEXT_INPUT, R_FALSE);
+	return ((rvn_text_input_t*)widget)->spelling.enabled != 0;
+}
+
+void Rtext_input_set_spell_language(Rid id, const char* language) {
+	RVN_WIDGET_VOID(widget, id, R_WIDGET_TEXT_INPUT);
+	if (rvn_spelling_set_language(&((rvn_text_input_t*)widget)->spelling, language)) rvn_widget_invalidate_paint(widget);
+}
+
 void Rtext_input_set_changed_callback(Rid id, RTextChangedCallback callback, void* user_data) {
 	RVN_WIDGET_VOID(widget, id, R_WIDGET_TEXT_INPUT);
 	((rvn_text_input_t*)widget)->changed = callback;
@@ -313,6 +377,16 @@ void Rtext_input_set_return_key(Rid id, RReturnKey key) {
 RReturnKey Rtext_input_get_return_key(Rid id) {
 	RVN_WIDGET(widget, id, R_WIDGET_TEXT_INPUT, R_RETURN_KEY_DEFAULT);
 	return ((rvn_text_input_t*)widget)->return_key;
+}
+
+void rvn_text_input_set_selection(rvn_widget_t* widget, int start, int end) {
+	rvn_textedit_set_selection(&((rvn_text_input_t*)widget)->edit, start, end);
+	rvn_widget_invalidate_paint(widget);
+}
+
+void rvn_text_input_set_inset(rvn_widget_t* widget, float right) {
+	((rvn_text_input_t*)widget)->inset = rvn_maxf(0.0f, right);
+	rvn_widget_invalidate_paint(widget);
 }
 
 /* ---------------------------------------------------------------------------

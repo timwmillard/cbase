@@ -75,6 +75,8 @@ type
   REventType* = cint
   RDropPhase* = cint
     ## Moments of a drag coming from another application (files from the file manager, text...).
+  RDragOperation* = cint
+    ## What the application that takes a drag does with it (Rdrag_begin_external): a bitmask of what is allowed, or the one done.
   RTouchMode* = cint
     ## What a finger does on a widget (Rwidget_set_touch_mode).
   RTouchPhase* = cint
@@ -162,11 +164,19 @@ type
     ## Where the legend of a Plot is.
   RChartKind* = cint
     ## What a Chart draws.
+  RSystemWebViewEvent* = cint
+    ## What happens in a SystemWebView (Rsystem_web_view_set_event_callback).
+  RTableSelectionMode* = cint
+    ## How the rows of a Table are selected (Rtable_set_selection_mode).
+  RTableColumnKind* = cint
+    ## What the cells of a column show (Rtable_set_column_kind).
   RSyntax* = cint
     ## Shorthands of Rtext_editor_set_language for two languages.
   RLanguageFlags* = cint
   RToken* = cint
     ## What a part of the text is, for the language of the editor (Rtext_editor_get_token).
+  RSearchFlags* = cint
+    ## Options of a search (Rtext_editor_set_search), a bitmask.
   RMarkerKind* = cint
     ## What a marker says about the text it underlines.
   RHeaderButtons* = cint
@@ -181,12 +191,29 @@ type
     ## What an item of a timeline is.
   RBlockShape* = cint
   RBlockPlace* = cint
+  RDiffViewMode* = cint
+  RDiffSide* = cint
+  RDiffRowKind* = cint
+  RDiffFlags* = cint
+    ## How lines are compared (Rdiff_view_set_flags, Rdiff_unified).
   RNotificationUrgency* = cint
     ## How much a notification of the system asks for attention (Rnotification_show).
+  RNotificationEvent* = cint
+    ## What happened to a notification (Rnotification_set_callback).
+  RNotificationFeature* = cint
+    ## What the notifications of the system can do here (Rnotification_supports).
   RFileDialogFlags* = cint
   RFileBrowserMode* = cint
   RMessageButtons* = cint
   RMessageResult* = cint
+  RPermission* = cint
+    ## What the application may be allowed to use (Rpermission_request).
+  RPermissionStatus* = cint
+    ## What the user answered, or would be asked (Rpermission_get_status).
+  RDeviceResult* = cint
+    ## How a request of a picker, the camera or a share sheet ended.
+  RHaptic* = cint
+    ## A short vibration that answers a touch (Rhaptic_play).
   RMotion* = cint
     ## How a spring moves. Animations in Raven are springs, as on iOS: a value is
     ## pulled toward its target and may run past it before settling, which is what
@@ -197,8 +224,13 @@ type
     ## Flags of Rshader_create.
   RXmlValueType* = cint
     ## The kind of value an attribute takes.
+  RClock* = cint
+    ## How the hours of a time are shown.
   RColorFilter* = cint
   RAccessibleRole* = cint
+  RHostService* = cint
+    ## What a request of a service of the device asks the application for (RHostServiceRequest).
+  RGoldenStatus* = cint
   RFrameCallback* = proc (delta_seconds: cdouble, user_data: pointer) {.cdecl.}
     ## Registers a function called once per frame, before the layout.
     ## The body of your loop does the same job; the callback is also called
@@ -249,6 +281,10 @@ type
     ## handle). Return R_TRUE to accept: while the pointer is over the target this
     ## shows the "can drop here" cursor and highlights the target; for
     ## R_DROP_DROPPED it tells the source that the data was taken.
+  RDragFinishedCallback* = proc (source: Rid, operation: RDragOperation, user_data: pointer) {.cdecl.}
+    ## The end of a drag out of the window (Rdrag_begin_external):
+    ## `operation` is what the target did, R_DRAG_OPERATION_NONE when nothing
+    ## took it. Called once per drag, whatever ended it.
   RBackCallback* = proc (window: Rid, user_data: pointer): cint {.cdecl.}
     ## Called on Back when no popup or dialog of Raven is open. Return
     ## R_TRUE when the application went back, R_FALSE when it had nowhere to
@@ -294,9 +330,13 @@ type
   RButtonClickedCallback* = proc (button: Rid, user_data: pointer) {.cdecl.}
   RCheckboxChangedCallback* = proc (checkbox: Rid, checked: cint, user_data: pointer) {.cdecl.}
   RSliderChangedCallback* = proc (slider: Rid, value: cfloat, user_data: pointer) {.cdecl.}
+  RImageFinishedCallback* = proc (image: Rid, user_data: pointer) {.cdecl.}
+    ## Called when the animation stops after its last play (at the next frame), before the action of the image.
   RTextChangedCallback* = proc (text_input: Rid, text: cstring, user_data: pointer) {.cdecl.}
   RSpinBoxChangedCallback* = proc (spin_box: Rid, value: cdouble, user_data: pointer) {.cdecl.}
   RComboBoxChangedCallback* = proc (combo_box: Rid, index: cint, user_data: pointer) {.cdecl.}
+  RComboBoxTextCallback* = proc (combo_box: Rid, text: cstring, user_data: pointer) {.cdecl.}
+    ## Called each time the user changes the text of an editable or searchable combo box.
   RListItemTextCallback* = proc (list_view: Rid, index: cint, user_data: pointer): cstring {.cdecl.}
     ## Virtual mode, for large or computed data: the list stores nothing and
     ## asks for the text of the rows it draws. The returned string must stay
@@ -339,6 +379,15 @@ type
   RTableEventCallback* = proc (table: Rid, row: cint, user_data: pointer) {.cdecl.}
   RTableSortCallback* = proc (table: Rid, column: cint, descending: cint, user_data: pointer) {.cdecl.}
     ## Called when the user clicks a header; `column` -1: not sorted.
+  RTableCellEditedCallback* = proc (table: Rid, row: cint, column: cint, text: cstring, user_data: pointer): cint {.cdecl.}
+    ## Called when the user keeps the text typed in a cell (Enter, Tab,
+    ## a click elsewhere). Return R_TRUE to accept it: a stored table then
+    ## keeps the text in the cell, unless the callback set the cell itself
+    ## (Rtable_set_cell, to keep "12.50" for "12.5"). A virtual table stores
+    ## nothing: the application keeps the text in its data. Return R_FALSE to
+    ## refuse it: after Enter or Tab the field stays open on the text, so the
+    ## user can correct it; after a click elsewhere the edit is dropped.
+    ## Without a callback, a stored table keeps every text.
   RDateChangedCallback* = proc (date_picker: Rid, year: cint, month: cint, day: cint, user_data: pointer) {.cdecl.}
     ## Called when the user chooses a date. This also fires the action of the widget.
   RTimeChangedCallback* = proc (time_picker: Rid, hour: cint, minute: cint, second: cint, user_data: pointer) {.cdecl.}
@@ -375,6 +424,13 @@ type
     ## Called when the user moves or zooms the map (during a drag, at the
     ## end of an animated zoom), with its new center and zoom. This also fires
     ## the action of the widget.
+  RSystemWebViewResultCallback* = proc (view: Rid, result_value: cstring, error: cstring, user_data: pointer) {.cdecl.}
+    ## Receives the result of a script: `result` is its value written
+    ## as JSON ("42", "\"text\"", "{\"a\":1}", "null"), or NULL when the
+    ## script failed, `error` then telling why.
+  RSystemWebViewMessageCallback* = proc (view: Rid, message: cstring, user_data: pointer) {.cdecl.}
+    ## Receives what the page sends with `window.raven.postMessage(value)`.
+  RSystemWebViewEventCallback* = proc (view: Rid, event: RSystemWebViewEvent, user_data: pointer) {.cdecl.}
   RTextEditorZoomCallback* = proc (editor: Rid, zoom: cfloat, user_data: pointer) {.cdecl.}
     ## Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
   RCompletionCallback* = proc (editor: Rid, prefix: cstring, user_data: pointer) {.cdecl.}
@@ -436,6 +492,11 @@ type
     ## A block changed (0: several, or one was deleted), or a script was clicked (its top block).
   RBlockEditorContextCallback* = proc (editor: Rid, `block`: cint, x: cfloat, y: cfloat, user_data: pointer) {.cdecl.}
     ## Right click: on a block (0 on the canvas), at x, y in the widget.
+  RDiffViewLineCallback* = proc (diff_view: Rid, side: RDiffSide, line: cint, in_gutter: cint, user_data: pointer) {.cdecl.}
+    ## A line, or its number in the gutter, was clicked. `side` is the side
+    ## of the line clicked (in unified mode: the left side for a removed line
+    ## and for the left column of numbers, else the right side), `line` its
+    ## number on that side, from 1.
   RDialogClosedCallback* = proc (content: Rid, result_value: cint, user_data: pointer) {.cdecl.}
     ## Called when a dialog closes. `result` is the value given to Rdialog_close, 0 when dismissed.
   RFileBrowserCallback* = proc (browser: Rid, path: cstring, user_data: pointer) {.cdecl.}
@@ -445,6 +506,17 @@ type
     ## widget (OnActivated in XML) fires at the same time.
   RNotificationFallback* = proc (title: cstring, body: cstring, urgency: RNotificationUrgency, user_data: pointer) {.cdecl.}
   RNotificationClickedCallback* = proc (user_data: pointer) {.cdecl.}
+  RNotificationCallback* = proc (tag: cstring, event: RNotificationEvent, action: cstring, user_data: pointer) {.cdecl.}
+    ## Called on the UI thread when the user clicks a notification or
+    ## one of its buttons, or dismisses it. `tag` names the notification,
+    ## `action` is the id of the button for R_NOTIFICATION_ACTION_INVOKED, else NULL.
+    ## NULL: none.
+  RPermissionCallback* = proc (permission: RPermission, status: RPermissionStatus, user_data: pointer) {.cdecl.}
+    ## The answer to Rpermission_request.
+  RDeviceCallback* = proc (result_value: RDeviceResult, files: ptr RPickedFile, count: cint, user_data: pointer) {.cdecl.}
+    ## The end of a request of a picker, the camera, a save or a share
+    ## sheet. `files` (count of them) are what it gave: none unless `result` is
+    ## R_DEVICE_DONE. Called on the UI thread, once.
   RViewportDrawCallback* = proc (info: ptr RViewportDrawInfo, user_data: pointer) {.cdecl.}
     ## Called on the render thread each time the window is rendered.
     ## State you bind (pipeline, descriptor sets, viewport, scissor) does not
@@ -530,6 +602,33 @@ type
       ## Glass: times the frame was copied and blurred to be seen through (0 without glass).
     paint_job_count*: uint32
     frame_index*: uint64
+  RDataItem* {.bycopy.} = object
+    ## One format of something given to the other applications: put on
+    ## the clipboard (Rclipboard_set_data) or dragged out of a window
+    ## (Rdrag_begin_external). The program that receives it takes the format
+    ## it prefers.
+    ##
+    ## `mime` names the format. Raven gives these their native names on each
+    ## system (and converts them), so that every program understands them:
+    ##
+    ##   text/plain      UTF-8 text
+    ##   text/html       HTML (UTF-8)
+    ##   image/png       a PNG file (Rimage_encode_png); on Windows it is also
+    ##                   given as a bitmap (CF_DIBV5), on macOS also as TIFF
+    ##   text/uri-list   files, as file:// URLs, one per line: the file
+    ##                   manager copies or moves them, the other programs
+    ##                   open them
+    ##   text/rtf, image/jpeg, image/tiff, image/gif, application/pdf,
+    ##   application/json, text/csv, image/svg+xml
+    ##
+    ## Any other name is a format of the application ("application/x-myapp-node"):
+    ## passed as it is, and read back by the programs that know it (other
+    ## instances of the application).
+    mime*: cstring
+      ## The format: a MIME type.
+    data*: pointer
+      ## The bytes (copied by the function they are given to). Text is not followed by a '\0'.
+    size*: csize_t
   RInsets* {.bycopy.} = object
     ## Distances from the edges of a window, in logical units.
     top*: cfloat
@@ -766,7 +865,7 @@ type
     badge*: cstring
       ## Small text at the top right of the tile, or NULL.
     icon*: Rid
-      ## Icon texture (R_INVALID_ID: none), the region of it and its tint (white by default).
+      ## Icon texture (R_INVALID_ID: none), the region of it and its tint (white by default; an SVG in currentColor is also tinted with the color of the name).
     uv*: array[4, cfloat]
     tint*: array[4, cfloat]
     icon_radius*: cfloat
@@ -826,6 +925,35 @@ type
       ## The command line given to the application when it is chosen: it is started again with these arguments.
     description*: cstring
       ## The tooltip; NULL: none.
+  RNotificationAction* {.bycopy.} = object
+    ## A button of a notification.
+    id*: cstring
+      ## Given back to the callback ("reply", "snooze"); not empty, and not "default".
+    label*: cstring
+      ## Shown to the user ("Reply").
+  RNotificationDesc* {.bycopy.} = object
+    ## A notification for Rnotification_show_desc. `size` must be
+    ## sizeof(RNotificationDesc): the fields that later versions of Raven add
+    ## come after the others, and a smaller size tells Raven they were not
+    ## given. The other fields may be left to zero.
+    size*: uint32
+      ## sizeof(RNotificationDesc).
+    tag*: cstring
+      ## Names the notification: shown again with the same tag, it replaces the
+      ## one still shown instead of adding another; Rnotification_close takes it
+      ## away; the callback is given it. NULL or "": a tag of its own
+      ## ("raven.1", "raven.2"...).
+    title*: cstring
+    body*: cstring
+    urgency*: RNotificationUrgency
+      ## 0: R_NOTIFICATION_NORMAL.
+    icon*: cstring
+      ## An image file shown beside the text (PNG, JPEG, SVG...: what Raven reads), or NULL.
+    actions*: ptr RNotificationAction
+      ## Up to 3 buttons, or NULL.
+    action_count*: cint
+    window*: Rid
+      ## The window brought back when the notification is clicked. R_INVALID_ID: the main window (the first one opened).
   RFileFilter* {.bycopy.} = object
     ## A kind of file in a file dialog.
     name*: cstring
@@ -848,6 +976,35 @@ type
       ## Save dialogs: added to a name typed without extension ("xml").
     flags*: uint32
       ## Bitmask of RFileDialogFlags.
+  RPickedFile* {.bycopy.} = object
+    ## A file given by a service of the device. Valid during the callback only: copy what you keep.
+    path*: cstring
+      ## A path Raven and the C library can read (Rfile_read, textures, fonts,
+      ## fopen). On iOS and Android a copy in the cache of the application.
+      ## NULL for Rfile_save_async on iOS and Android: the file went where the
+      ## user chose, which the application cannot write to again.
+    name*: cstring
+      ## The name the user saw ("IMG_0042.JPG"), to show.
+    mime_type*: cstring
+      ## The MIME type when the system tells ("image/jpeg"), or NULL.
+    size*: uint64
+      ## Bytes.
+    width*: cint
+      ## Pixels of a photo (Rcamera_take_photo, Rphoto_pick) when known, else 0.
+    height*: cint
+      ## Pixels of a photo (Rcamera_take_photo, Rphoto_pick) when known, else 0.
+  RShareDesc* {.bycopy.} = object
+    ## What a share sheet offers to the other applications (Rshare_show). Every field may be left to zero, but not all of them.
+    text*: cstring
+      ## Text, or a link ("https://..."). May be NULL.
+    path*: cstring
+      ## A file to send (a path Raven can read), or NULL.
+    mime_type*: cstring
+      ## Its MIME type ("image/png"); NULL: guessed from its extension.
+    title*: cstring
+      ## The title of the sheet, where the system shows one (Android's chooser). May be NULL.
+    anchor*: Rid
+      ## The widget the sheet points at on a tablet (the button that shares). 0 or R_INVALID_ID: the middle of the window.
   RViewportDrawInfo* {.bycopy.} = object
     ## Passed to the draw callback of a viewport. Sizes are in pixels.
     backend*: RBackend
@@ -935,6 +1092,35 @@ type
     reduce_motion*: cint
     screen_reader*: cint
       ## R_TRUE when a screen reader is running.
+  RHostServiceRequest* {.bycopy.} = object
+    ## A request of a service of the device, valid during the call only. Fields that do not concern the service are zero.
+    id*: uint32
+      ## Given back to Rhost_service_complete.
+    service*: RHostService
+    window*: Rid
+      ## The window it is for (R_INVALID_ID: none).
+    anchor_x*: cfloat
+      ## What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window.
+    anchor_y*: cfloat
+      ## What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window.
+    anchor_width*: cfloat
+      ## What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window.
+    anchor_height*: cfloat
+      ## What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window.
+    title*: cstring
+    filters*: ptr RFileFilter
+    filter_count*: cint
+    flags*: uint32
+      ## Bitmask of RFileDialogFlags.
+    file_name*: cstring
+    default_extension*: cstring
+    data*: pointer
+    size*: csize_t
+    path*: cstring
+    max_count*: cint
+    text*: cstring
+    mime_type*: cstring
+    share_title*: cstring
   RHostPlatformDesc* {.bycopy.} = object
     set_cursor*: pointer
       ## The pointer over `window` should look like `cursor`. May be NULL.
@@ -945,6 +1131,47 @@ type
     wake*: pointer
       ## Raven has work to do (a timer, a posted task, a redraw): produce a frame soon. Thread-safe. May be NULL.
     user_data*: pointer
+    permission_status*: pointer
+      ## An RPermissionStatus, without asking. NULL: as on desktops (notifications granted, the rest unsupported).
+    permission_request*: pointer
+      ## Ask the user (the status is not asked or denied); answer with Rhost_permission_answer.
+    service_request*: pointer
+      ## A picker, the camera, a save or a share sheet; answer with Rhost_service_complete. NULL: the file dialogs of Raven, nothing else.
+    has_camera*: cint
+      ## R_TRUE: there is a camera (Rcamera_is_available) for R_HOST_SERVICE_TAKE_PHOTO.
+    open_url*: pointer
+      ## Ropen_url. Returns R_FALSE when it could not. NULL: as on desktops (`open`, `xdg-open`...).
+    haptic*: pointer
+      ## Rhaptic_play: an RHaptic. Returns R_TRUE when played.
+    download*: pointer
+      ## Downloads an http(s) URL (images from a URL): returns its content in a
+      ## buffer from Rmemory_alloc and its size, or NULL. Called on worker
+      ## threads, several at a time, and may block. NULL: as on desktops.
+  RGoldenOptions* {.bycopy.} = object
+    ## How Rtest_expect_golden compares. NULL options: a tolerance of 2 per channel and no different pixel.
+    channel_tolerance*: cint
+      ## Largest difference on one channel (0..255) for which two pixels are still the same.
+    max_diff_ratio*: cfloat
+      ## Share of the pixels (0..1) that may differ while the images still match.
+    per_platform*: cint
+      ## R_TRUE: the golden of this OS and backend, "button.png" read as "button.macos-metal.png" (Rtest_get_platform_tag).
+    output_directory*: cstring
+      ## Folder of the .actual.png and .diff.png written on a mismatch. NULL: beside the golden.
+  RGoldenResult* {.bycopy.} = object
+    ## What Rtest_expect_golden found.
+    status*: RGoldenStatus
+    width*: cint
+      ## Size of the capture, in pixels.
+    height*: cint
+      ## Size of the capture, in pixels.
+    differing_pixels*: cint
+      ## Pixels farther from the golden than the tolerance.
+    max_channel_difference*: cint
+      ## Largest difference found on one channel (0..255).
+    golden_path*: cstring
+      ## The golden that was read or written (with the platform tag). Valid until the next call.
+    message*: cstring
+      ## One line that says what happened, for the log of the test. Valid until the next call.
 
 const
   RAVEN_VERSION_MAJOR*: cint = 0
@@ -1249,6 +1476,16 @@ const
   R_DROP_DROPPED*: RDropPhase = 0x00E3
     ## The user dropped: `paths` and `text` hold what was dropped.
 
+  # RDragOperation
+  R_DRAG_OPERATION_NONE*: RDragOperation = 0
+    ## Nothing was taken: dropped where nothing accepted it, or cancelled.
+  R_DRAG_OPERATION_COPY*: RDragOperation = 1
+    ## The target made a copy: the source keeps its data.
+  R_DRAG_OPERATION_MOVE*: RDragOperation = 2
+    ## The target took the data: the source removes it (a file the file manager moved...).
+  R_DRAG_OPERATION_LINK*: RDragOperation = 4
+    ## The target made a link, an alias or a shortcut to it.
+
   # RTouchMode
   R_TOUCH_MODE_AUTO*: RTouchMode = 0x0480
     ## The finger scrolls what scrolls under it, and is a mouse elsewhere (default).
@@ -1434,6 +1671,18 @@ const
     ## Links of formatted text.
   R_COLOR_CODE*: RColorRole = 0x0123
     ## Background of code in formatted text.
+  R_COLOR_SEARCH_MATCH*: RColorRole = 0x0124
+    ## The matches of a search in a text editor (usually see-through).
+  R_COLOR_SEARCH_CURRENT*: RColorRole = 0x0125
+    ## The selected match of a search in a text editor.
+  R_COLOR_SPELLING*: RColorRole = 0x0126
+    ## Wavy underline of the misspelled words of a TextInput or a TextEditor (spell checking).
+  R_COLOR_DIFF_ADDED*: RColorRole = 0x0127
+    ## Diff view: the background of an added line and of a removed line (see-through: the background shows).
+  R_COLOR_DIFF_REMOVED*: RColorRole = 0x0128
+  R_COLOR_DIFF_ADDED_WORD*: RColorRole = 0x0129
+    ## Diff view: the words that changed inside an added line and inside a removed line, over the color of the line.
+  R_COLOR_DIFF_REMOVED_WORD*: RColorRole = 0x012A
 
   # RMetric
   R_METRIC_FONT_SIZE*: RMetric = 0x0140
@@ -1580,6 +1829,10 @@ const
     ## A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers.
   R_WIDGET_CAROUSEL*: RWidgetType = 0x0236
     ## Pages shown one at a time and swiped (a page view), with dots and arrows.
+  R_WIDGET_SYSTEM_WEB_VIEW*: RWidgetType = 0x0237
+    ## A web page shown by the engine of the system (WKWebView) in a view kept over the widget.
+  R_WIDGET_DIFF_VIEW*: RWidgetType = 0x0238
+    ## The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h).
 
   # RHAlign
   R_HALIGN_FILL*: RHAlign = 0x0240
@@ -1808,6 +2061,36 @@ const
   R_CHART_SPARKLINE*: RChartKind = 0x0594
     ## A small line of values without axes, to sit in a tile or a cell of a table.
 
+  # RSystemWebViewEvent
+  R_SYSTEM_WEB_VIEW_NAVIGATED*: RSystemWebViewEvent = 0x0B90
+    ## The view shows another address (Rsystem_web_view_get_url).
+  R_SYSTEM_WEB_VIEW_TITLE*: RSystemWebViewEvent = 0x0B91
+    ## The title of the page changed (Rsystem_web_view_get_title).
+  R_SYSTEM_WEB_VIEW_LOADING*: RSystemWebViewEvent = 0x0B92
+    ## A page starts loading.
+  R_SYSTEM_WEB_VIEW_LOADED*: RSystemWebViewEvent = 0x0B93
+    ## The page and what it refers to are loaded.
+  R_SYSTEM_WEB_VIEW_FAILED*: RSystemWebViewEvent = 0x0B94
+    ## The page could not be loaded, or the engine showing it stopped (Rsystem_web_view_get_error).
+
+  # RTableSelectionMode
+  R_TABLE_SELECTION_SINGLE*: RTableSelectionMode = 0x0BC0
+    ## One row at a time (the default).
+  R_TABLE_SELECTION_MULTIPLE*: RTableSelectionMode = 0x0BC1
+    ## Any number of rows: Ctrl/Cmd+click, Shift+click, Shift+arrows, Space, Ctrl/Cmd+A.
+  R_TABLE_SELECTION_NONE*: RTableSelectionMode = 0x0BC2
+    ## The user selects nothing (the rows are only shown; cells may still be edited and checked).
+
+  # RTableColumnKind
+  R_TABLE_COLUMN_TEXT*: RTableColumnKind = 0x0BD0
+    ## Their text (the default).
+  R_TABLE_COLUMN_CHECK*: RTableColumnKind = 0x0BD1
+    ## A check box, checked when the text is "1", "true" or "yes". The user
+    ## toggles it with a click or Space unless the column is made not
+    ## editable; the cell edited callback is then called with "1" or "0".
+  R_TABLE_COLUMN_PROGRESS*: RTableColumnKind = 0x0BD2
+    ## A progress bar, from a number 0..1 or a percentage ("45%"); an empty cell shows nothing.
+
   # RSyntax
   R_SYNTAX_NONE*: RSyntax = 0x0340
   R_SYNTAX_XML*: RSyntax = 0x0341
@@ -1856,6 +2139,14 @@ const
   R_TOKEN_STRONG*: RToken = 0x03AC
   R_TOKEN_EMPHASIS*: RToken = 0x03AD
   R_TOKEN_LINK*: RToken = 0x03AE
+
+  # RSearchFlags
+  R_SEARCH_MATCH_CASE*: RSearchFlags = 1
+    ## Upper and lower case differ. Without it the case is ignored, for the
+    ## letters of ASCII, Latin-1, the Latin letters of Unicode, Greek,
+    ## Cyrillic and Armenian.
+  R_SEARCH_WHOLE_WORD*: RSearchFlags = 2
+    ## A match is a whole word: "for" does not find the start of "format".
 
   # RMarkerKind
   R_MARKER_ERROR*: RMarkerKind = 0x0350
@@ -1928,12 +2219,72 @@ const
   R_BLOCK_BODY*: RBlockPlace = 0x0711
   R_BLOCK_INPUT*: RBlockPlace = 0x0712
 
+  # RDiffViewMode
+  R_DIFF_VIEW_UNIFIED*: RDiffViewMode = 0x0C50
+    ## One column: the removed lines, then the added lines, between the lines kept.
+  R_DIFF_VIEW_SPLIT*: RDiffViewMode = 0x0C51
+    ## Two columns: the left text and the right text side by side, aligned.
+
+  # RDiffSide
+  R_DIFF_LEFT*: RDiffSide = 0x0C54
+    ## The text before (the old one, "a/", the lines removed).
+  R_DIFF_RIGHT*: RDiffSide = 0x0C55
+    ## The text after (the new one, "b/", the lines added).
+
+  # RDiffRowKind
+  R_DIFF_ROW_SAME*: RDiffRowKind = 0x0C58
+    ## A line that is on both sides.
+  R_DIFF_ROW_REMOVED*: RDiffRowKind = 0x0C59
+    ## A line of the left text only.
+  R_DIFF_ROW_ADDED*: RDiffRowKind = 0x0C5A
+    ## A line of the right text only.
+  R_DIFF_ROW_CHANGED*: RDiffRowKind = 0x0C5B
+    ## Split mode: a removed line facing the added line that replaces it.
+  R_DIFF_ROW_FOLD*: RDiffRowKind = 0x0C5C
+    ## Unchanged lines folded away ("12 unchanged lines"); Rdiff_view_expand shows them.
+  R_DIFF_ROW_HUNK*: RDiffRowKind = 0x0C5D
+    ## A patch: the header of a hunk ("@@ -12,7 +12,8 @@ main").
+  R_DIFF_ROW_FILE*: RDiffRowKind = 0x0C5E
+    ## A patch: the names of a file.
+  R_DIFF_ROW_NOTE*: RDiffRowKind = 0x0C5F
+    ## A note attached to the line above it (Rdiff_view_add_annotation).
+
+  # RDiffFlags
+  R_DIFF_IGNORE_TRAILING_SPACE*: RDiffFlags = 1
+    ## Spaces and tabs at the end of a line (and a carriage return) do not count.
+  R_DIFF_IGNORE_SPACE*: RDiffFlags = 2
+    ## No space or tab counts, wherever it is.
+  R_DIFF_IGNORE_CASE*: RDiffFlags = 4
+    ## Upper and lower case letters are the same (A to Z).
+
   # RNotificationUrgency
   R_NOTIFICATION_LOW*: RNotificationUrgency = 0x04F0
     ## No sound; may only go to the list of notifications.
   R_NOTIFICATION_NORMAL*: RNotificationUrgency = 0x04F1
   R_NOTIFICATION_CRITICAL*: RNotificationUrgency = 0x04F2
     ## Stays until the user dismisses it, where the system allows it.
+
+  # RNotificationEvent
+  R_NOTIFICATION_ACTIVATED*: RNotificationEvent = 0x0C20
+    ## The user clicked the notification itself (not one of its buttons).
+  R_NOTIFICATION_ACTION_INVOKED*: RNotificationEvent = 0x0C21
+    ## The user clicked one of its buttons: `action` is the id of that button.
+  R_NOTIFICATION_DISMISSED*: RNotificationEvent = 0x0C22
+    ## It went away without being clicked: closed by the user, or its time ran out (where the system tells).
+
+  # RNotificationFeature
+  R_NOTIFICATION_FEATURE_ACTIONS*: RNotificationFeature = 1
+    ## Buttons (RNotificationDesc::actions).
+  R_NOTIFICATION_FEATURE_REPLACE*: RNotificationFeature = 2
+    ## A notification shown again with the same tag replaces the first one.
+  R_NOTIFICATION_FEATURE_CLOSE*: RNotificationFeature = 4
+    ## Rnotification_close takes a notification away.
+  R_NOTIFICATION_FEATURE_ICON*: RNotificationFeature = 8
+    ## An image beside the text (RNotificationDesc::icon).
+  R_NOTIFICATION_FEATURE_ACTIVATED*: RNotificationFeature = 0x0010
+    ## A click on the notification is reported (R_NOTIFICATION_ACTIVATED).
+  R_NOTIFICATION_FEATURE_DISMISSED*: RNotificationFeature = 0x0020
+    ## Its dismissal is reported (R_NOTIFICATION_DISMISSED).
 
   # RFileDialogFlags
   R_FILE_DIALOG_MULTIPLE*: RFileDialogFlags = 1
@@ -1962,6 +2313,61 @@ const
   R_MESSAGE_RESULT_OK*: RMessageResult = 1
   R_MESSAGE_RESULT_YES*: RMessageResult = 2
   R_MESSAGE_RESULT_NO*: RMessageResult = 3
+
+  # RPermission
+  R_PERMISSION_CAMERA*: RPermission = 0x0C00
+  R_PERMISSION_NOTIFICATIONS*: RPermission = 0x0C01
+    ## Notifications of the system (Rnotification_show).
+  R_PERMISSION_PHOTOS*: RPermission = 0x0C02
+    ## Reading the whole photo library. Rphoto_pick needs none: the system's picker gives only what the user chose.
+  R_PERMISSION_MICROPHONE*: RPermission = 0x0C03
+  R_PERMISSION_LOCATION*: RPermission = 0x0C04
+    ## The location of the device while the application is in use.
+
+  # RPermissionStatus
+  R_PERMISSION_UNSUPPORTED*: RPermissionStatus = 0x0C10
+    ## There is nothing to ask for here: the platform has no such permission,
+    ## or Raven cannot ask for it on this platform. Whether the service itself
+    ## exists is told by its own function (Rcamera_is_available,
+    ## Rnotification_is_supported).
+  R_PERMISSION_NOT_ASKED*: RPermissionStatus = 0x0C11
+    ## Not asked yet: Rpermission_request shows the question of the system.
+  R_PERMISSION_GRANTED*: RPermissionStatus = 0x0C12
+    ## Allowed (also where the system asks nothing: notifications on Windows and Linux).
+  R_PERMISSION_LIMITED*: RPermissionStatus = 0x0C13
+    ## Allowed in part: some photos only (iOS, Android 14), quiet notifications (iOS provisional), the approximate location only.
+  R_PERMISSION_DENIED*: RPermissionStatus = 0x0C14
+    ## Refused, and the system may ask again (Android, after a first refusal).
+  R_PERMISSION_BLOCKED*: RPermissionStatus = 0x0C15
+    ## Refused for good, or not the user's to give (parental controls, a
+    ## profile of the company): the system shows no question any more, only
+    ## its Settings can change it (Rpermission_open_settings).
+
+  # RDeviceResult
+  R_DEVICE_DONE*: RDeviceResult = 0x0C20
+    ## Done: the files were chosen, the photo taken, the file saved, the sheet shown.
+  R_DEVICE_CANCELLED*: RDeviceResult = 0x0C21
+    ## The user closed the screen of the system without choosing.
+  R_DEVICE_DENIED*: RDeviceResult = 0x0C22
+    ## A permission it needs was refused (Rcamera_take_photo: the camera).
+  R_DEVICE_UNSUPPORTED*: RDeviceResult = 0x0C23
+    ## The platform does not have this service.
+  R_DEVICE_BUSY*: RDeviceResult = 0x0C24
+    ## Another screen of the system is still open: one at a time.
+  R_DEVICE_FAILED*: RDeviceResult = 0x0C25
+    ## The system reported an error (also reported as an R_ERROR_PLATFORM warning).
+
+  # RHaptic
+  R_HAPTIC_LIGHT*: RHaptic = 0x0C30
+    ## Impacts: something touched, snapped, landed.
+  R_HAPTIC_MEDIUM*: RHaptic = 0x0C31
+  R_HAPTIC_HEAVY*: RHaptic = 0x0C32
+  R_HAPTIC_SELECTION*: RHaptic = 0x0C33
+    ## The selection moved (a picker wheel, a switch, a segmented control).
+  R_HAPTIC_SUCCESS*: RHaptic = 0x0C34
+    ## The outcome of an action.
+  R_HAPTIC_WARNING*: RHaptic = 0x0C35
+  R_HAPTIC_ERROR*: RHaptic = 0x0C36
 
   # RMotion
   R_MOTION_SNAPPY*: RMotion = 0x0320
@@ -2014,6 +2420,14 @@ const
     ## Several numbers separated by commas: "8,4", "0,0,1,1".
   R_XML_LIST*: RXmlValueType = 0x03C8
     ## Texts separated by '\|': "One\|Two\|Three".
+
+  # RClock
+  R_CLOCK_AUTO*: RClock = 0x0C30
+    ## As the locale does (Rlocale_uses_12_hour_clock).
+  R_CLOCK_12_HOUR*: RClock = 0x0C31
+    ## 1 to 12, with AM and PM.
+  R_CLOCK_24_HOUR*: RClock = 0x0C32
+    ## 0 to 23.
 
   # RColorFilter
   R_COLOR_FILTER_NONE*: RColorFilter = 0x0740
@@ -2069,6 +2483,34 @@ const
   R_ROLE_SEPARATOR*: RAccessibleRole = 0x0781
   R_ROLE_SCROLL_BAR*: RAccessibleRole = 0x0782
   R_ROLE_PANE*: RAccessibleRole = 0x0783
+
+  # RHostService
+  R_HOST_SERVICE_OPEN_FILES*: RHostService = 0x0C40
+    ## Files to read (Rfile_open_async): `filters`, `flags` (R_FILE_DIALOG_MULTIPLE).
+  R_HOST_SERVICE_SAVE_FILE*: RHostService = 0x0C41
+    ## Save `data` / `size`, or the file `path` when data is NULL, as `file_name` (Rfile_save_async, Rfile_export_async).
+  R_HOST_SERVICE_SELECT_FOLDER*: RHostService = 0x0C42
+    ## A folder (Rfile_select_folder_async).
+  R_HOST_SERVICE_TAKE_PHOTO*: RHostService = 0x0C43
+    ## A photo from the camera (Rcamera_take_photo); camera permission already asked.
+  R_HOST_SERVICE_PICK_PHOTOS*: RHostService = 0x0C44
+    ## Up to `max_count` photos (0: no limit) from the library (Rphoto_pick).
+  R_HOST_SERVICE_SHARE*: RHostService = 0x0C45
+    ## The share sheet: `text` and / or the file `path` (`mime_type`), pointing at `anchor_*` (Rshare_show).
+
+  # RGoldenStatus
+  R_GOLDEN_MATCH*: RGoldenStatus = 0x0BA0
+    ## The capture matches the golden.
+  R_GOLDEN_UPDATED*: RGoldenStatus = 0x0BA1
+    ## RAVEN_UPDATE_GOLDENS=1: the capture was written as the golden.
+  R_GOLDEN_MISMATCH*: RGoldenStatus = 0x0BA2
+    ## Too many pixels differ: NAME.actual.png and NAME.diff.png were written.
+  R_GOLDEN_SIZE_MISMATCH*: RGoldenStatus = 0x0BA3
+    ## The capture and the golden do not have the same size: NAME.actual.png was written.
+  R_GOLDEN_MISSING*: RGoldenStatus = 0x0BA4
+    ## There is no golden yet: NAME.actual.png was written (run with RAVEN_UPDATE_GOLDENS=1 to keep it).
+  R_GOLDEN_FAILED*: RGoldenStatus = 0x0BA5
+    ## The window could not be captured, or a file could not be read or written.
 
 proc Rinit*(backend: RBackend): cint {.rapi.}
   ## Starts the library with default settings on the given backend.
@@ -2245,7 +2687,9 @@ proc Raction_is_builtin*(name: cstring): cint {.rapi.}
 proc Ropen_url*(url: cstring): cint {.rapi.}
   ## Opens an address with the program the user has for it: a web
   ## page in the browser, a mailto: in the mail program, a file in its
-  ## application. Returns at once.
+  ## application. Returns at once. On iOS and Android the system opens it
+  ## (a web page, a tel:, a mailto:; not a file: share it with Rshare_show),
+  ## and Raven must be initialized and this be called on the UI thread.
   ## Returns: R_FALSE when the OS could not be asked (nothing tells whether
   ## a program then really opened it).
 proc Rclipboard_set_text*(text: cstring) {.rapi.}
@@ -2253,10 +2697,44 @@ proc Rclipboard_set_html*(text: cstring, html: cstring) {.rapi.}
   ## Copies one content in two formats: `html` for the programs that
   ## paste formatting (word processors, chat, mail) and `text` for the
   ## others (editors, terminals). Each program takes the format it prefers.
-  ## Where the window system has no clipboard formats (Win32 and macOS for
-  ## now), or `html` is NULL, it is Rclipboard_set_text(text).
+  ## Where the window system has no clipboard formats, or `html` is NULL,
+  ## it is Rclipboard_set_text(text).
 proc Rclipboard_get_text*(): cstring {.rapi.}
   ## Returns: The clipboard text, or "" when empty. Valid until the next call.
+  ## On iOS a read that does not follow a paste of the user (the Paste of a
+  ## menu, a button, Command-V) shows the system's question "Allow Paste?",
+  ## and on Android 12+ the system says that the application pasted: read it
+  ## when the user pastes, not to look at it. Android lets only the
+  ## application in front read it.
+proc Rclipboard_has_text*(): cint {.rapi.}
+  ## Returns: R_TRUE when the clipboard holds text, without reading it (no
+  ## question of the system on iOS): to enable a Paste button.
+proc Rclipboard_set_data*(items: ptr RDataItem, count: cint): cint {.rapi.}
+  ## Replaces what the clipboard holds with one content in several
+  ## formats (RDataItem): each program pastes the one it prefers.
+  ## Returns: R_TRUE when every format was put on the clipboard; R_FALSE when
+  ## some could not be (a window system that only takes text: X11 and
+  ## Wayland for now, where the text/plain item, if any, still is).
+proc Rclipboard_has_data*(mime: cstring): cint {.rapi.}
+  ## Returns: R_TRUE when the clipboard holds this format (Rclipboard_set_data), or one Raven converts to it.
+proc Rclipboard_get_data*(mime: cstring, size: ptr csize_t): cstring {.rapi.}
+  ## What the clipboard holds in one format, converted from the
+  ## native one when needed (a bitmap given as image/png...).
+  ## Returns: The bytes, followed by a '\0' that `size` does not count, to
+  ## release with Rmemory_free; NULL when the clipboard does not hold it.
+proc Rclipboard_set_image*(rgba: ptr uint8, width: cint, height: cint, stride: cint): cint {.rapi.}
+  ## Copies a picture: RGBA8 pixels, straight alpha, rows `stride`
+  ## bytes apart (0: width * 4). It goes on the clipboard as image/png
+  ## (and as the bitmaps of the system), so that image editors, documents
+  ## and mail paste it.
+  ## Returns: R_FALSE when it could not be put there.
+proc Rclipboard_has_image*(): cint {.rapi.}
+  ## Returns: R_TRUE when the clipboard holds a picture Rclipboard_get_image can read.
+proc Rclipboard_get_image*(width: ptr cint, height: ptr cint): ptr uint8 {.rapi.}
+  ## The picture on the clipboard (copied from any program: PNG,
+  ## TIFF, a bitmap...), as tightly packed RGBA8 pixels, straight alpha.
+  ## Returns: The pixels, to release with Rpixels_free; NULL when there is
+  ## none (or no decoder: RAVEN_WITH_STB_IMAGE off).
 proc Rerror_get_last*(detail: ptr cstring, severity: ptr RSeverity): RError {.rapi.}
   ## Retrieves and clears the last recorded error.
   ## detail   Optional output: human-readable description.
@@ -2464,12 +2942,28 @@ proc Rwindow_inject_mouse_button*(window: Rid, button: RMouseButton, pressed: ci
 proc Rwindow_inject_mouse_wheel*(window: Rid, wheel_x: cfloat, wheel_y: cfloat) {.rapi.}
 proc Rwindow_inject_key*(window: Rid, key: RKey, pressed: cint, modifiers: uint32) {.rapi.}
 proc Rwindow_inject_text*(window: Rid, text: cstring) {.rapi.}
+proc Rwindow_inject_composition*(window: Rid, text: cstring, selection_start: cint, selection_end: cint) {.rapi.}
+  ## The text an input method is composing (preedit: Chinese,
+  ## Japanese, Korean, dead keys), as the platforms send it. The focused
+  ## TextInput, SpinBox or TextEditor shows it at its caret, underlined, in
+  ## place of its selection, but it is not in its text and no changed
+  ## callback runs. [selection_start, selection_end) are bytes of `text`:
+  ## the part the input method works on (underlined thicker), or the caret
+  ## when they are equal; -1 is the end of `text`. NULL or "" ends the
+  ## composition without typing anything (cancel). The committed text comes
+  ## through Rwindow_inject_text, which ends the composition too, and so
+  ## does a change of focus. Ignored when the focus takes no text.
 proc Rwindow_inject_drag*(window: Rid, x: cfloat, y: cfloat, inside: cint): cint {.rapi.}
   ## A drag from another application moves over the window
   ## (`inside` R_TRUE) or leaves it.
   ## Returns: R_TRUE when a drop at this position would be accepted.
 proc Rwindow_inject_drop*(window: Rid, x: cfloat, y: cfloat, paths: cstringArray, path_count: cint, text: cstring): cint {.rapi.}
   ## Drops files and / or text at a position. Returns R_TRUE when a target took them.
+proc Rwindow_inject_drag_end*(window: Rid, operation: RDragOperation): cint {.rapi.}
+  ## The end of the drag out of the window that the window system
+  ## holds (Rdrag_begin_external), as it reports it: `operation` is what the
+  ## target did (an RDragOperation). Returns R_FALSE when no such drag is in
+  ## progress.
 proc Rwindow_inject_back*(window: Rid): cint {.rapi.}
   ## Back, as the system sends it (Rwindow_set_back_callback). Returns R_TRUE when something took it.
 proc Rwindow_is_key_down*(window: Rid, key: RKey): cint {.rapi.}
@@ -2494,13 +2988,19 @@ proc Rwindow_replace_text_input*(window: Rid, start: cint, `end`: cint, text: cs
   ## Replaces bytes [start, end) of it with `text` and puts the caret
   ## after it, as typing would (the changed callback runs; MaxLength
   ## applies). R_FALSE when there is none or it is read-only.
+proc Rwindow_get_text_composition*(window: Rid, selection_start: ptr cint, selection_end: ptr cint): cstring {.rapi.}
+  ## The composition of the input method in progress (UTF-8, valid
+  ## until it changes) and its selection in bytes; NULL when there is none.
+  ## Any output pointer may be NULL.
 proc Rwindow_has_popup*(window: Rid): cint {.rapi.}
   ## R_TRUE while a menu, list or dialog is open over the window.
 proc Rwindow_get_text_input_rect*(window: Rid, x: ptr cint, y: ptr cint, width: ptr cint, height: ptr cint): cint {.rapi.}
   ## Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
   ## Call after Rdraw_frame. Independent of the blink phase. Returns R_FALSE and zeros the
   ## outputs when there is no visible editable caret, the window is inactive, or focus changed
-  ## since painting. Any output pointer may be NULL.
+  ## since painting. Any output pointer may be NULL. While an input method
+  ## composes, it is the caret inside the composition: where its candidate
+  ## window goes.
 proc Rwindow_get_popup_count*(window: Rid): cint {.rapi.}
   ## Returns: Number of open in-window popups (menus, combo lists, pickers), bottom to top.
 proc Rwindow_get_popup*(window: Rid, index: cint): Rid {.rapi.}
@@ -2525,6 +3025,42 @@ proc Rdrag_get_data*(window: Rid): cstring {.rapi.}
   ## Data of the drag in progress, or NULL.
 proc Rdrag_cancel*(window: Rid) {.rapi.}
   ## Ends the drag in progress without dropping (the target receives R_DROP_LEAVE).
+proc Rdrag_begin_external*(source: Rid, items: ptr RDataItem, count: cint, operations: uint32, callback: RDragFinishedCallback, user_data: pointer): cint {.rapi.}
+  ## Lets the user drag data out of the window, to another
+  ## application: a picture into a document, files into the file manager,
+  ## text into an editor. `items` is one content in several formats
+  ## (RDataItem, copied): the target takes the one it prefers.
+  ## `operations` is a bitmask of RDragOperation the target may do (0:
+  ## R_DRAG_OPERATION_COPY).
+  ##
+  ## Call it as Rdrag_begin, while the mouse button is held (from a mouse
+  ## move once the pointer has moved a few units). The window system then
+  ## takes the drag at the next move of the pointer: it shows the picture
+  ## that follows the pointer (Rdrag_set_image) and the cursor that tells
+  ## what a drop there does; the button released, `callback` (may be NULL)
+  ## is told what the target did.
+  ##
+  ## Called while a drag inside the application (Rdrag_begin) is in progress
+  ## in the window of `source`, it gives that drag the data for outside:
+  ## the drag stays inside the window, to its drop targets, and becomes a
+  ## drag of the window system only when the pointer leaves the window.
+  ## Brought back over a window of the application, it still comes to the
+  ## drop targets with the type and data given to Rdrag_begin.
+  ##
+  ## Implemented on macOS and Windows; elsewhere it returns R_FALSE
+  ## (Rdrag_external_supported).
+  ## Returns: R_FALSE when the widget is not in a window or the window
+  ## system cannot drag out of its windows.
+proc Rdrag_set_image*(rgba: ptr uint8, width: cint, height: cint) {.rapi.}
+  ## The picture that follows the pointer during the drag given by
+  ## Rdrag_begin_external (RGBA8 pixels, straight alpha, tightly packed,
+  ## copied), held by the pointer at its center. Call it right after
+  ## Rdrag_begin_external. Without it the system chooses: the picture
+  ## dragged, the icons of the files, or a generic one.
+proc Rdrag_external_supported*(): cint {.rapi.}
+  ## R_TRUE when the window system lets Raven drag data out of its windows (Rdrag_begin_external).
+proc Rdrag_external_is_active*(): cint {.rapi.}
+  ## R_TRUE from Rdrag_begin_external until its callback was called.
 proc Rwindow_register_shortcut*(window: Rid, key: RKey, modifiers: uint32, action: cstring) {.rapi.}
 proc Rwindow_unregister_shortcut*(window: Rid, key: RKey, modifiers: uint32) {.rapi.}
 proc Rtouch_get_settings*(settings: ptr RTouchSettings) {.rapi.}
@@ -2708,7 +3244,8 @@ proc Rfont_measure_text*(font: Rid, size: cfloat, text: cstring, width: ptr cflo
   ## size Font size; 0 uses R_METRIC_FONT_SIZE.
 proc Rtexture_create*(data: cstring, data_size: csize_t): Rid {.rapi.}
   ## Creates a texture from the content of an image file (PNG, JPEG,
-  ## BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread.
+  ## BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread. An
+  ## animated GIF or APNG keeps its frames: an Image showing it plays them.
   ## Returns: R_INVALID_ID on failure.
 proc Rtexture_create_async*(data: cstring, data_size: csize_t): Rid {.rapi.}
   ## Same as Rtexture_create, decoded on a worker thread. The handle
@@ -2729,11 +3266,33 @@ proc Rtexture_create_from_svg*(svg: cstring, svg_size: csize_t, scale: cfloat): 
   ## does not. Rtexture_create, Rtexture_create_from_file and the asynchronous
   ## ones read SVG files this way. Paths, fills, strokes and gradients are
   ## drawn; text, filters and masks are not.
+  ##
+  ## currentColor: an SVG painted only in currentColor (fill="currentColor",
+  ## stroke="currentColor") is drawn in white, keeping its shape and its
+  ## opacity, and the widgets that show it (Image, the icons of menu items,
+  ## tabs, tree items, dock panels, tiles, nodes) tint it with the color of
+  ## their text at draw time: it follows the theme, hover, pressed and
+  ## disabled without being drawn again. Rdraw_image draws it in its tint
+  ## color. In an SVG that also uses other colors, currentColor is black.
+  ## See Rtexture_uses_current_color.
+proc Rtexture_uses_current_color*(texture: Rid): cint {.rapi.}
+  ## R_TRUE when the texture is an SVG painted only in currentColor:
+  ## white where it is painted, tinted with the color of the text by the
+  ## widgets that show it (see Rtexture_create_from_svg).
 proc Rtexture_get_density*(texture: Rid): cfloat {.rapi.}
   ## Pixels of the texture per logical unit: the scale of an SVG, 1 otherwise.
 proc Rtexture_create_from_file*(path: cstring): Rid {.rapi.}
 proc Rtexture_create_from_file_async*(path: cstring): Rid {.rapi.}
   ## Reads and decodes the file on a worker thread.
+proc Rtexture_create_from_url_async*(url: cstring): Rid {.rapi.}
+  ## Downloads an http:// or https:// image and decodes it on a worker
+  ## thread, as an Image whose Source is a URL does. The handle is usable at
+  ## once: widgets showing it draw nothing until it is ready (Rtexture_is_ready;
+  ## a texture that could not be downloaded is ready with a size of 0, and the
+  ## failure is reported as a warning). Desktops download with WinHTTP or
+  ## `curl`; iOS and Android through their platform. Android needs the INTERNET
+  ## permission in the manifest; iOS refuses http:// unless Info.plist allows
+  ## it (App Transport Security). Up to 32 MiB.
 proc Rtexture_create_from_pixels*(rgba: ptr uint8, width: cint, height: cint): Rid {.rapi.}
   ## Creates a texture from tightly packed RGBA8 pixels (straight alpha). Its filter is R_FILTER_LINEAR.
 proc Rtexture_update*(texture: Rid, rgba: ptr uint8, width: cint, height: cint) {.rapi.}
@@ -2746,8 +3305,30 @@ proc Rimage_decode*(data: pointer, data_size: csize_t, width: ptr cint, height: 
   ## so that the decoding can be done away from the UI thread.
   ## Returns: The pixels, to release with Rpixels_free; NULL when the data
   ## is not an image Raven can read.
+proc Rimage_decode_info*(data: pointer, data_size: csize_t, width: ptr cint, height: ptr cint, frame_count: ptr cint, loop_count: ptr cint): cint {.rapi.}
+  ## Reads what an image file in memory holds without keeping its
+  ## pixels: its size, its frames (1 for a still image, more for an animated
+  ## GIF or APNG) and how many times it plays (0: forever). Thread-safe.
+  ## Each pointer may be NULL.
+  ## Returns: R_FALSE when the data is not an image Raven can read.
+proc Rimage_decode_frame*(data: pointer, data_size: csize_t, frame: cint, width: ptr cint, height: ptr cint, delay: ptr cdouble): ptr uint8 {.rapi.}
+  ## Decodes one frame of an animated GIF or APNG into tightly packed
+  ## RGBA8 pixels, composed as it is shown (the frames before it drawn and
+  ## disposed of). Frame 0 of a still image is the image. Thread-safe.
+  ## delay Receives the seconds the frame is shown (0 for a still image); may be NULL.
+  ## Returns: The pixels, to release with Rpixels_free; NULL when the frame does not exist.
 proc Rpixels_free*(pixels: ptr uint8) {.rapi.}
   ## Releases pixels returned by Raven (Rimage_decode, Rwindow_capture). Thread-safe.
+proc Rimage_encode_png*(rgba: ptr uint8, width: cint, height: cint, size: ptr csize_t): ptr uint8 {.rapi.}
+  ## Encodes tightly packed RGBA8 pixels (what Rwindow_capture
+  ## returns) as a PNG file in memory. Thread-safe.
+  ## size Receives the number of bytes.
+  ## Returns: The bytes of the file, to release with Rpixels_free; NULL when
+  ## there are no pixels.
+proc Rimage_save_png*(path: cstring, rgba: ptr uint8, width: cint, height: cint): cint {.rapi.}
+  ## Writes tightly packed RGBA8 pixels to a PNG file: a screenshot
+  ## of Rwindow_capture, a picture made by the application. Thread-safe.
+  ## Returns: R_FALSE when the file cannot be written.
 proc Rtexture_is_ready*(texture: Rid): cint {.rapi.}
   ## Returns: R_TRUE once an asynchronous texture is decoded (or failed).
 proc Rtexture_wait*(texture: Rid) {.rapi.}
@@ -2759,6 +3340,21 @@ proc Rtexture_set_filter*(texture: Rid, filter: RFilterType) {.rapi.}
   ## How the texture is smoothed when it is scaled. The textures made
   ## from image files start with R_FILTER_MIPMAP, the others with
   ## R_FILTER_LINEAR.
+proc Ricon_get*(name: cstring): Rid {.rapi.}
+  ## An icon shipped with Raven, by its name: "search", "settings",
+  ## "close"... (Ricon_get_name lists them; "raven:search" works too, as in
+  ## XML: Source="raven:search"). The icons are the ones of Lucide (ISC
+  ## License), 24 x 24 logical units, drawn with lines in currentColor: the
+  ## widgets that show them tint them with the color of their text, so they
+  ## follow the theme and the states (Rtexture_create_from_svg). Drawn at
+  ## the density they are shown with, sharp on every screen.
+  ## Returns: A texture owned by Raven, made on first use and then shared
+  ## (do not destroy it; if it was, the next call makes it again);
+  ## R_INVALID_ID, with an error, when there is no icon of that name.
+proc Ricon_get_count*(): cint {.rapi.}
+  ## Returns: The number of icons shipped with Raven.
+proc Ricon_get_name*(index: cint): cstring {.rapi.}
+  ## Returns: The name of an icon, from 0 to Ricon_get_count() - 1, in alphabetical order; NULL out of range.
 proc Rwidget_create*(`type`: RWidgetType): Rid {.rapi.}
   ## Creates a widget. It is not shown until it is added to a parent
   ## that belongs to a window (Rwidget_add_child, Rwindow_set_content).
@@ -3037,7 +3633,7 @@ proc Rtab_view_find_tab*(tab_view: Rid, content: Rid): cint {.rapi.}
   ## Index of the tab of a page, -1 if none.
 proc Rtab_view_set_tab_title*(tab_view: Rid, content: Rid, title: cstring) {.rapi.}
 proc Rtab_view_set_tab_icon*(tab_view: Rid, content: Rid, texture: Rid, u0: cfloat, v0: cfloat, u1: cfloat, v1: cfloat, tint: cint) {.rapi.}
-  ## Icon before the title (documents). R_INVALID_ID removes it; tint: a mask in the text color.
+  ## Icon before the title (documents). R_INVALID_ID removes it; tint: a mask in the text color (always, for an SVG in currentColor). XML: Slot.Icon.
 proc Rtab_view_set_tab_closable*(tab_view: Rid, content: Rid, closable: cint) {.rapi.}
   ## R_FALSE: no close button (documents ; the level tab). Tabs can be closed by default.
 proc Rtab_view_show_tab*(tab_view: Rid, content: Rid) {.rapi.}
@@ -3134,12 +3730,42 @@ proc Rprogress_bar_set_value*(progress_bar: Rid, value: cfloat) {.rapi.}
 proc Rprogress_bar_get_value*(progress_bar: Rid): cfloat {.rapi.}
 proc Rimage_set_texture*(image: Rid, texture: Rid) {.rapi.}
 proc Rimage_set_tint_color*(image: Rid, r: cfloat, g: cfloat, b: cfloat, a: cfloat) {.rapi.}
+  ## Color the image is multiplied by (white by default). An SVG in
+  ## currentColor (Ricon_get, Rtexture_create_from_svg) is drawn in the color of
+  ## the text around it until a tint is given; then in the tint. XML: Tint.
 proc Rimage_set_tint_text*(image: Rid, enabled: cint) {.rapi.}
   ## R_TRUE: the image is tinted with the text color around it (white icons that follow the theme). XML: TintText.
 proc Rimage_set_stretch*(image: Rid, stretch: RStretch) {.rapi.}
 proc Rimage_set_region*(image: Rid, min_u: cfloat, min_v: cfloat, max_u: cfloat, max_v: cfloat) {.rapi.}
   ## Part of the texture to show, in UV coordinates. Default: 0, 0, 1, 1.
 proc Rimage_set_corner_radius*(image: Rid, radius: cfloat) {.rapi.}
+proc Rimage_is_animated*(image: Rid): cint {.rapi.}
+  ## R_TRUE when the texture of the image is an animated GIF or APNG (two frames or more).
+proc Rimage_get_frame_count*(image: Rid): cint {.rapi.}
+  ## Returns: The frames of its animation; 1 for a still image, 0 without a texture.
+proc Rimage_get_duration*(image: Rid): cdouble {.rapi.}
+  ## Returns: The seconds one play of its animation lasts (0 for a still image).
+proc Rimage_get_frame_delay*(image: Rid, frame: cint): cdouble {.rapi.}
+  ## Returns: The seconds a frame of its animation is shown (0 for a frame that does not exist).
+proc Rimage_play*(image: Rid) {.rapi.}
+  ## Plays the animation from the frame it is on (from the first
+  ## again when it had finished). An Image plays as soon as it is given an
+  ## animated texture, unless XML says Animate="false".
+proc Rimage_pause*(image: Rid) {.rapi.}
+  ## Stops the animation on the frame it is on.
+proc Rimage_stop*(image: Rid) {.rapi.}
+  ## Stops the animation and shows its first frame.
+proc Rimage_is_playing*(image: Rid): cint {.rapi.}
+proc Rimage_set_frame*(image: Rid, frame: cint) {.rapi.}
+  ## Shows a frame (from 0), playing on from it if it plays.
+proc Rimage_get_frame*(image: Rid): cint {.rapi.}
+proc Rimage_set_loop_count*(image: Rid, count: cint) {.rapi.}
+  ## How many times the animation plays before it stops on its last
+  ## frame: 0 forever, -1 what the file says (the default). XML: Loop
+  ## (a number; also Forever, Once).
+proc Rimage_get_loop_count*(image: Rid): cint {.rapi.}
+  ## Returns: The plays of the animation (0: forever), the file's unless it was set.
+proc Rimage_set_finished_callback*(image: Rid, callback: RImageFinishedCallback, user_data: pointer) {.rapi.}
 proc Rtext_input_set_text*(text_input: Rid, text: cstring) {.rapi.}
 proc Rtext_input_get_text*(text_input: Rid): cstring {.rapi.}
 proc Rtext_input_set_placeholder*(text_input: Rid, text: cstring) {.rapi.}
@@ -3161,6 +3787,38 @@ proc Rtext_input_set_changed_callback*(text_input: Rid, callback: RTextChangedCa
   ## Called on every edit.
 proc Rtext_input_set_committed_callback*(text_input: Rid, callback: RTextChangedCallback, user_data: pointer) {.rapi.}
   ## Called when Enter is pressed. This also fires the action of the widget.
+proc Rtext_input_set_spell_check*(text_input: Rid, enabled: cint) {.rapi.}
+  ## Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+  ## a right click on one offers corrections (see SPELL CHECKING). Off by
+  ## default. A password is never checked.
+proc Rtext_input_get_spell_check*(text_input: Rid): cint {.rapi.}
+proc Rtext_input_set_spell_language*(text_input: Rid, language: cstring) {.rapi.}
+  ## Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language).
+proc Rspell_is_supported*(): cint {.rapi.}
+  ## R_TRUE when the system has a spell checker that Raven can use.
+proc Rspell_get_language_count*(): cint {.rapi.}
+  ## The languages the checker has dictionaries for.
+proc Rspell_get_language_at*(index: cint): cstring {.rapi.}
+proc Rspell_set_language*(language: cstring): cint {.rapi.}
+  ## The language used when a widget or a call gives none. NULL
+  ## follows the locale again.
+  ## Returns: R_FALSE when the checker has no dictionary for it (the default
+  ## of the system is then used).
+proc Rspell_get_language*(): cstring {.rapi.}
+  ## The code of the language used by default, as the checker names it; "" when there is no checker.
+proc Rspell_check*(text: cstring, language: cstring): cint {.rapi.}
+  ## Checks a text. `language` NULL: the default.
+  ## Returns: The number of misspelled words, read with Rspell_get_misspelling.
+proc Rspell_get_misspelling*(index: cint, start: ptr cint, `end`: ptr cint): cint {.rapi.}
+  ## A misspelled word found by the last Rspell_check: bytes [start, end) of its text.
+proc Rspell_suggest*(word: cstring, language: cstring): cint {.rapi.}
+  ## Returns: The number of corrections for a word (best first), read with Rspell_get_suggestion.
+proc Rspell_get_suggestion*(index: cint): cstring {.rapi.}
+  ## A correction found by the last Rspell_suggest; valid until the next call.
+proc Rspell_learn*(word: cstring, language: cstring) {.rapi.}
+  ## Adds a word to the dictionary of the user, which the system keeps (with Hunspell alone: for the session).
+proc Rspell_ignore*(word: cstring) {.rapi.}
+  ## The word is no longer a misspelling, in every language, until the application quits.
 proc Rspin_box_set_range*(spin_box: Rid, minimum: cdouble, maximum: cdouble) {.rapi.}
 proc Rspin_box_set_value*(spin_box: Rid, value: cdouble) {.rapi.}
 proc Rspin_box_get_value*(spin_box: Rid): cdouble {.rapi.}
@@ -3186,6 +3844,28 @@ proc Rcombo_box_set_selected*(combo_box: Rid, index: cint) {.rapi.}
   ## Selects an item. -1 selects nothing.
 proc Rcombo_box_get_selected*(combo_box: Rid): cint {.rapi.}
 proc Rcombo_box_set_changed_callback*(combo_box: Rid, callback: RComboBoxChangedCallback, user_data: pointer) {.rapi.}
+proc Rcombo_box_set_editable*(combo_box: Rid, editable: cint) {.rapi.}
+  ## R_TRUE: the combo box is a text field with its list: the user
+  ## may type a text that is not one of the items (Editable="true"). The text
+  ## is Rcombo_box_get_text; choosing an item puts its text there. A typed
+  ## text equal to an item selects it, any other selects nothing (-1).
+proc Rcombo_box_is_editable*(combo_box: Rid): cint {.rapi.}
+proc Rcombo_box_set_searchable*(combo_box: Rid, searchable: cint) {.rapi.}
+  ## R_TRUE: typing in the combo box filters its list (Searchable="true"):
+  ## the items that contain what was typed, without regard to case or
+  ## accents ("zoe" finds "Zoë", "sao" finds "São Paulo"), or a row saying that nothing
+  ## matches. Up and Down move in the list, Enter chooses, Escape closes it.
+  ## A searchable combo box that is not editable comes back to the item
+  ## chosen when nothing is.
+proc Rcombo_box_is_searchable*(combo_box: Rid): cint {.rapi.}
+proc Rcombo_box_get_text*(combo_box: Rid): cstring {.rapi.}
+  ## The text shown: what was typed in an editable combo box, else the text of the selected item ("" for none).
+proc Rcombo_box_set_text*(combo_box: Rid, text: cstring) {.rapi.}
+  ## Editable combo box: sets the text of the field (the item equal to it is selected); otherwise selects the item with this text.
+proc Rcombo_box_set_text_changed_callback*(combo_box: Rid, callback: RComboBoxTextCallback, user_data: pointer) {.rapi.}
+proc Rcombo_box_set_open*(combo_box: Rid, open: cint) {.rapi.}
+  ## Opens (R_TRUE) or closes the list.
+proc Rcombo_box_is_open*(combo_box: Rid): cint {.rapi.}
 proc Rseparator_set_orientation*(separator: Rid, orientation: ROrientation) {.rapi.}
   ## R_HORIZONTAL draws a horizontal line (default).
 proc Rlist_view_add_item*(list_view: Rid, text: cstring): cint {.rapi.}
@@ -3233,6 +3913,7 @@ proc Rtree_view_set_activated_callback*(tree_view: Rid, callback: RTreeEventCall
   ## Called on double click or Enter. This also fires the action of the widget.
 proc Rtree_item_set_icon*(item: Rid, texture: Rid, u0: cfloat, v0: cfloat, u1: cfloat, v1: cfloat) {.rapi.}
   ## Icon drawn before the text of the item (a region u0,v0,u1,v1 of the texture). R_INVALID_ID removes it.
+  ## An SVG in currentColor (Ricon_get) takes the color of the text. XML: Icon on an Item.
 proc Rtree_item_set_text_color*(item: Rid, r: cfloat, g: cfloat, b: cfloat, a: cfloat) {.rapi.}
   ## Color of the text of the item; alpha 0 goes back to the theme.
 proc Rtree_view_set_multi_select*(tree_view: Rid, enabled: cint) {.rapi.}
@@ -3291,6 +3972,7 @@ proc Rmenu_item_set_icon*(item: Rid, texture: Rid, u0: cfloat, v0: cfloat, u1: c
   ## Icon drawn before the text of a menu item (after the check mark column).
   ## texture R_INVALID_ID removes it. u0, v0, u1, v1 : region of the texture.
   ## tint    R_TRUE: the texture is a mask drawn in the text color (monochrome icons).
+  ##                An SVG in currentColor (Ricon_get) always is. XML: Icon.
 proc Rmenu_item_is_checked*(item: Rid): cint {.rapi.}
 proc Rmenu_item_set_clicked_callback*(item: Rid, callback: RMenuItemClickedCallback, user_data: pointer) {.rapi.}
 proc Rmenu_open*(menu: Rid, window: Rid, x: cfloat, y: cfloat) {.rapi.}
@@ -3338,6 +4020,14 @@ proc Rtile_view_set_drag_type*(tile_view: Rid, `type`: cstring) {.rapi.}
   ## Tiles can be dragged: the selected tiles are given to Rdrag_begin
   ## with this type and, as data, their indices separated by spaces.
 proc Rtile_view_set_drag_data_callback*(tile_view: Rid, callback: RTileDragDataCallback, user_data: pointer) {.rapi.}
+proc Rtile_view_set_drag_out_callback*(tile_view: Rid, callback: RTileEventCallback, user_data: pointer) {.rapi.}
+  ## Tiles can be dragged out of the window, to other applications:
+  ## when the user starts dragging the selected tiles (`index` is the one
+  ## under the pointer), the callback gives their data by calling
+  ## Rdrag_begin_external (the pictures, the files they stand for...), and
+  ## Rdrag_set_image. With a drag type too (Rtile_view_set_drag_type), the
+  ## drag first goes to the drop targets of the window and only leaves it
+  ## with the pointer. NULL: the tiles stay in the application (default).
 proc Rtile_view_set_selection_changed_callback*(tile_view: Rid, callback: RTileEventCallback, user_data: pointer) {.rapi.}
 proc Rtile_view_set_activated_callback*(tile_view: Rid, callback: RTileEventCallback, user_data: pointer) {.rapi.}
 proc Rtile_view_set_context_callback*(tile_view: Rid, callback: RTileContextCallback, user_data: pointer) {.rapi.}
@@ -3375,16 +4065,39 @@ proc Rtable_set_cell_text_color*(table: Rid, row: cint, column: cint, r: cfloat,
   ## Stored rows: a fixed text color; column -1 colors the row; cells override it.
   ## Alpha 0 restores the inherited/theme color. A color from the cell color callback wins over it.
 proc Rtable_set_multi_select*(table: Rid, enabled: cint) {.rapi.}
-  ## Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default.
+  ## Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default. Same as Rtable_set_selection_mode(MULTIPLE or SINGLE).
+proc Rtable_set_selection_mode*(table: Rid, mode: RTableSelectionMode) {.rapi.}
+  ## Single (default), multiple or no selection (SelectionMode="Multiple" in XML).
+  ## Going to single keeps the selected row, going to none clears the selection.
+proc Rtable_get_selection_mode*(table: Rid): RTableSelectionMode {.rapi.}
 proc Rtable_set_row_selected*(table: Rid, row: cint, selected: cint) {.rapi.}
 proc Rtable_is_row_selected*(table: Rid, row: cint): cint {.rapi.}
+proc Rtable_select_range*(table: Rid, first: cint, last: cint, selected: cint) {.rapi.}
+  ## Selects (`selected` R_TRUE) or deselects the rows first..last, both
+  ## included, keeping the others: multiple selection only (in single
+  ## selection, selecting a range selects `last`).
+proc Rtable_select_all*(table: Rid) {.rapi.}
+  ## Multiple selection: selects every row (Ctrl/Cmd+A). Nothing in the other modes.
 proc Rtable_clear_selection*(table: Rid) {.rapi.}
 proc Rtable_get_selection_count*(table: Rid): cint {.rapi.}
 proc Rtable_get_selection*(table: Rid, index: cint): cint {.rapi.}
   ## Selected row at index, top to bottom; -1 outside the selection.
+proc Rtable_get_selection_range_count*(table: Rid): cint {.rapi.}
+  ## The selection as runs of consecutive rows, top to bottom: the
+  ## fast way to go through a large selection (select all of a million rows
+  ## is one range).
+proc Rtable_get_selection_range*(table: Rid, index: cint, first: ptr cint, last: ptr cint): cint {.rapi.}
+  ## The rows first..last (both included) of a range of the selection. Returns: R_FALSE outside the ranges.
 proc Rtable_set_selected*(table: Rid, row: cint) {.rapi.}
   ## Replaces the selection with one row. -1 selects nothing, including in multi-select mode.
 proc Rtable_get_selected*(table: Rid): cint {.rapi.}
+  ## The selected row (-1: none). In multiple selection, the one
+  ## selected last, or else the first one; the selection changed callback
+  ## receives it.
+proc Rtable_get_current_row*(table: Rid): cint {.rapi.}
+  ## The row the keyboard is on: the selected row in single
+  ## selection; in multiple selection the row last clicked or reached with
+  ## the arrows, which Space toggles (it may be unselected). -1: none.
 proc Rtable_scroll_to_row*(table: Rid, row: cint) {.rapi.}
 proc Rtable_sort*(table: Rid, column: cint, descending: cint) {.rapi.}
   ## Sorts by a column (stored rows are moved); -1 shows no sorted column.
@@ -3398,6 +4111,35 @@ proc Rtable_set_selection_changed_callback*(table: Rid, callback: RTableEventCal
 proc Rtable_set_activated_callback*(table: Rid, callback: RTableEventCallback, user_data: pointer) {.rapi.}
   ## Called on double click or Enter. This also fires the action of the widget.
 proc Rtable_set_sort_callback*(table: Rid, callback: RTableSortCallback, user_data: pointer) {.rapi.}
+proc Rtable_set_column_editable*(table: Rid, column: cint, editable: cint) {.rapi.}
+  ## R_TRUE: the cells of the column are edited in place by the user (default R_FALSE).
+proc Rtable_is_column_editable*(table: Rid, column: cint): cint {.rapi.}
+proc Rtable_set_cell_edited_callback*(table: Rid, callback: RTableCellEditedCallback, user_data: pointer) {.rapi.}
+proc Rtable_edit_cell*(table: Rid, row: cint, column: cint): cint {.rapi.}
+  ## Opens the editor on a cell, its text selected, as F2 does (the
+  ## row is selected and scrolled into view). Any column can be edited this
+  ## way, editable or not. Returns: R_TRUE when the editor is open.
+proc Rtable_is_editing*(table: Rid): cint {.rapi.}
+proc Rtable_end_edit*(table: Rid, commit: cint): cint {.rapi.}
+  ## Closes the editor: `commit` R_TRUE keeps the text (through the
+  ## cell edited callback), R_FALSE forgets it. Returns: R_FALSE when the text
+  ## was refused (the editor then stays open), R_TRUE otherwise.
+proc Rtable_set_frozen_columns*(table: Rid, count: cint) {.rapi.}
+  ## The first `count` columns stay in place when the table scrolls
+  ## sideways; a thin shadow marks where the others pass under them. 0 (the
+  ## default): every column scrolls.
+proc Rtable_get_frozen_columns*(table: Rid): cint {.rapi.}
+proc Rtable_set_column_kind*(table: Rid, column: cint, kind: RTableColumnKind) {.rapi.}
+  ## Text (default), check box or progress bar: how the cells of the
+  ## column are drawn from their texts. A check column is made editable (the
+  ## user toggles it; Rtable_set_column_editable(R_FALSE) after this shows it
+  ## only) and centered. For anything else, a cell color callback and the
+  ## texts are what the table offers: it draws no other widget in its cells.
+proc Rtable_get_column_kind*(table: Rid, column: cint): RTableColumnKind {.rapi.}
+proc Rtable_is_cell_checked*(table: Rid, row: cint, column: cint): cint {.rapi.}
+  ## A cell of a check column: R_TRUE when its text is "1", "true" or "yes". Any cell can be asked.
+proc Rtable_set_cell_checked*(table: Rid, row: cint, column: cint, checked: cint) {.rapi.}
+  ## Stored rows: writes "1" or "0" in the cell (no callback is called).
 proc Rdate_picker_set_date*(date_picker: Rid, year: cint, month: cint, day: cint) {.rapi.}
   ## Sets the date (today when the picker is created). An invalid date is refused.
 proc Rdate_picker_get_date*(date_picker: Rid, year: ptr cint, month: ptr cint, day: ptr cint) {.rapi.}
@@ -3415,12 +4157,41 @@ proc Rdate_picker_set_open*(date_picker: Rid, open: cint) {.rapi.}
   ## Opens or closes the calendar.
 proc Rdate_picker_is_open*(date_picker: Rid): cint {.rapi.}
 proc Rdate_picker_set_changed_callback*(date_picker: Rid, callback: RDateChangedCallback, user_data: pointer) {.rapi.}
+proc Rdate_picker_set_time_zone*(date_picker: Rid, zone: cstring) {.rapi.}
+  ## The time zone of the date, for the instants below; NULL or "" (default): the zone of the system. TimeZone="..." in XML.
+proc Rdate_picker_get_time_zone*(date_picker: Rid): cstring {.rapi.}
+proc Rdate_picker_set_instant*(date_picker: Rid, utc: cdouble) {.rapi.}
+  ## Shows the date an instant (seconds since 1970, UTC) has in the zone of the picker.
+proc Rdate_picker_get_instant*(date_picker: Rid): cdouble {.rapi.}
+  ## The first instant of the date in the zone: its midnight (or, where the clocks skip midnight, the time they go to).
 proc Rtime_picker_set_time*(time_picker: Rid, hour: cint, minute: cint, second: cint) {.rapi.}
 proc Rtime_picker_get_time*(time_picker: Rid, hour: ptr cint, minute: ptr cint, second: ptr cint) {.rapi.}
 proc Rtime_picker_set_seconds_visible*(time_picker: Rid, visible: cint) {.rapi.}
 proc Rtime_picker_set_minute_step*(time_picker: Rid, step: cint) {.rapi.}
   ## Step of the minutes for the arrows and the wheel (default 1).
 proc Rtime_picker_set_changed_callback*(time_picker: Rid, callback: RTimeChangedCallback, user_data: pointer) {.rapi.}
+proc Rtime_picker_set_clock*(time_picker: Rid, clock: RClock) {.rapi.}
+  ## 12 or 24 hours for this picker; R_CLOCK_AUTO (default): the clock of the locale. Clock="Auto\|12\|24" in XML.
+proc Rtime_picker_get_clock*(time_picker: Rid): RClock {.rapi.}
+proc Rtime_picker_get_text*(time_picker: Rid): cstring {.rapi.}
+  ## The time as the field shows it: "3:05 PM", "15:05", with the zone when it is shown (valid until the next call).
+proc Rtime_picker_set_time_zone*(time_picker: Rid, zone: cstring) {.rapi.}
+  ## The time zone of the time ("America/New_York", see
+  ## Rtimezone_is_valid); NULL or "" (default): the zone of the system. An
+  ## unknown zone is refused. TimeZone="..." in XML.
+proc Rtime_picker_get_time_zone*(time_picker: Rid): cstring {.rapi.}
+  ## The zone set, "" for none.
+proc Rtime_picker_set_time_zone_visible*(time_picker: Rid, visible: cint) {.rapi.}
+  ## Writes the zone after the time ("EST", "CET", "UTC+3"). ShowTimeZone="true" in XML.
+proc Rtime_picker_set_date*(time_picker: Rid, year: cint, month: cint, day: cint) {.rapi.}
+  ## The day of the time, for its zone (month 1 to 12); year 0: today (default). Date="YYYY-MM-DD" in XML.
+proc Rtime_picker_get_date*(time_picker: Rid, year: ptr cint, month: ptr cint, day: ptr cint) {.rapi.}
+proc Rtime_picker_set_instant*(time_picker: Rid, utc: cdouble) {.rapi.}
+  ## Shows an instant (seconds since 1970, UTC) in the zone of the picker: its day and its time.
+proc Rtime_picker_get_instant*(time_picker: Rid): cdouble {.rapi.}
+  ## The instant the day and the time are in the zone. A time the
+  ## clocks skipped is moved forward, a time they repeated is the first
+  ## (see Rtimezone_from_local).
 proc Rtoast_show*(toast: Rid, text: cstring, seconds: cdouble) {.rapi.}
   ## Shows a message for `seconds` (0 or less: until Rtoast_hide), with the kind and button set now.
 proc Rtoast_show_kind*(toast: Rid, text: cstring, kind: RToastKind, seconds: cdouble) {.rapi.}
@@ -3776,6 +4547,43 @@ proc Rmap_view_set_attribution*(map: Rid, text: cstring) {.rapi.}
   ## A line written in the bottom right corner: the credit most tile
   ## licences ask for, such as "(c) OpenStreetMap contributors". NULL or "": none.
 proc Rmap_view_get_attribution*(map: Rid): cstring {.rapi.}
+proc Rsystem_web_view_is_supported*(): cint {.rapi.}
+  ## Returns: R_TRUE when web views show pages here (the system has an engine Raven can embed, and Raven runs with a window system).
+proc Rsystem_web_view_create*(): Rid {.rapi.}
+proc Rsystem_web_view_load_url*(view: Rid, url: cstring) {.rapi.}
+  ## Goes to an address ("https://...", "file:///...", "about:blank"). A file: address may read the files of its folder.
+proc Rsystem_web_view_load_file*(view: Rid, path: cstring) {.rapi.}
+  ## Shows a file of the computer (an .html file, and what it refers to in its folder).
+proc Rsystem_web_view_load_html*(view: Rid, html: cstring, base_url: cstring) {.rapi.}
+  ## Shows HTML given as text.
+  ## base_url Where the relative addresses of the text are looked
+  ## for ("file:///Users/me/app/pages/", "https://example.org/"), or NULL.
+proc Rsystem_web_view_reload*(view: Rid) {.rapi.}
+proc Rsystem_web_view_stop*(view: Rid) {.rapi.}
+proc Rsystem_web_view_go_back*(view: Rid) {.rapi.}
+proc Rsystem_web_view_go_forward*(view: Rid) {.rapi.}
+proc Rsystem_web_view_can_go_back*(view: Rid): cint {.rapi.}
+proc Rsystem_web_view_can_go_forward*(view: Rid): cint {.rapi.}
+proc Rsystem_web_view_get_url*(view: Rid): cstring {.rapi.}
+  ## Returns: The address of the page shown (the one asked for, where unsupported). Valid until it changes.
+proc Rsystem_web_view_get_title*(view: Rid): cstring {.rapi.}
+  ## Returns: The title of the page, "" when it has none. Valid until it changes.
+proc Rsystem_web_view_is_loading*(view: Rid): cint {.rapi.}
+proc Rsystem_web_view_get_error*(view: Rid): cstring {.rapi.}
+  ## Returns: Why the last page could not be shown, or "" when all is well.
+proc Rsystem_web_view_run_javascript*(view: Rid, script: cstring, callback: RSystemWebViewResultCallback, user_data: pointer) {.rapi.}
+  ## Runs JavaScript in the page; the value of its last statement is
+  ## the result. If it is a promise, the result is what the promise
+  ## resolves to. The callback (may be NULL) always comes later, never
+  ## during this call.
+proc Rsystem_web_view_set_message_callback*(view: Rid, callback: RSystemWebViewMessageCallback, user_data: pointer) {.rapi.}
+proc Rsystem_web_view_set_event_callback*(view: Rid, callback: RSystemWebViewEventCallback, user_data: pointer) {.rapi.}
+  ## Called when something happens in the page. The action of the
+  ## widget (Rwidget_set_action, OnChanged in XML) is fired as well each
+  ## time the address changes.
+proc Rsystem_web_view_get_native_handle*(view: Rid): pointer {.rapi.}
+  ## The view of the system, to go further than these functions:
+  ## a WKWebView* on macOS and iOS. NULL where unsupported.
 proc Rpdf_document_create*(): Rid {.rapi.}
 proc Rpdf_document_delete*(document: Rid) {.rapi.}
 proc Rpdf_document_set_title*(document: Rid, title: cstring) {.rapi.}
@@ -3847,7 +4655,8 @@ proc Rtext_editor_get_line*(editor: Rid, line: cint): cstring {.rapi.}
   ## Returns: One line, without its line break. Valid until the next edit. NULL when `line` is out of range.
 proc Rtext_editor_insert_text*(editor: Rid, text: cstring) {.rapi.}
   ## Types a text at the cursor, replacing the selection, as the user
-  ## would: it can be undone and the changed callback is called.
+  ## would (at every cursor when there are several): it can be undone and
+  ## the changed callback is called.
 proc Rtext_editor_set_cursor*(editor: Rid, line: cint, column: cint) {.rapi.}
 proc Rtext_editor_get_cursor*(editor: Rid, line: ptr cint, column: ptr cint) {.rapi.}
 proc Rtext_editor_select*(editor: Rid, from_line: cint, from_column: cint, to_line: cint, to_column: cint) {.rapi.}
@@ -3859,6 +4668,57 @@ proc Rtext_editor_get_selected_text*(editor: Rid): cstring {.rapi.}
   ## Returns: The selected text, "" when there is none. Valid until the next call or the next edit.
 proc Rtext_editor_scroll_to_line*(editor: Rid, line: cint) {.rapi.}
   ## Scrolls so that a line is visible.
+proc Rtext_editor_add_cursor*(editor: Rid, line: cint, column: cint) {.rapi.}
+  ## Adds a cursor (a caret) to the editor; the main cursor stays
+  ## the main one. A cursor over another one, or at the place of another
+  ## caret, becomes one with it. Rtext_editor_set_cursor,
+  ## Rtext_editor_select and Rtext_editor_set_text go back to one cursor.
+proc Rtext_editor_add_selection*(editor: Rid, from_line: cint, from_column: cint, to_line: cint, to_column: cint) {.rapi.}
+  ## Adds a cursor that selects from one position to another (its caret on the second).
+proc Rtext_editor_get_cursor_count*(editor: Rid): cint {.rapi.}
+  ## Returns: The number of cursors, the main one included (1 at least).
+proc Rtext_editor_get_cursor_at*(editor: Rid, index: cint, line: ptr cint, column: ptr cint, anchor_line: ptr cint, anchor_column: ptr cint): cint {.rapi.}
+  ## A cursor by its index, in the order of the text (0 for the
+  ## first): its caret and the anchor of its selection (the same position
+  ## when nothing is selected). Returns R_FALSE when `index` is out of range.
+proc Rtext_editor_get_main_cursor*(editor: Rid): cint {.rapi.}
+  ## Returns: The index of the main cursor, in the order of Rtext_editor_get_cursor_at.
+proc Rtext_editor_clear_cursors*(editor: Rid) {.rapi.}
+  ## Back to the main cursor alone, as Escape does.
+proc Rtext_editor_add_next_occurrence*(editor: Rid): cint {.rapi.}
+  ## What Ctrl+D does: with nothing selected, selects the word at
+  ## each caret; else adds a cursor on the next occurrence of the main
+  ## selection (with its case, a whole word when it was selected so) that no
+  ## cursor selects, going on from the start of the text. Returns R_FALSE
+  ## when there is none.
+proc Rtext_editor_select_all_occurrences*(editor: Rid): cint {.rapi.}
+  ## What Ctrl+Shift+L does: a cursor on every occurrence of the main selection (or of the word at the caret). Returns their number.
+proc Rtext_editor_fold*(editor: Rid, line: cint): cint {.rapi.}
+  ## Folds the region that starts at a line: the lines after it, up
+  ## to the one before the bracket that closes it (or to the last one more
+  ## indented), are hidden. When the line starts none, or it is folded
+  ## already, the nearest region around the line is folded. Cursors in it
+  ## go to the end of its first line. Returns R_FALSE when there is none.
+  ## Line numbers stay those of the text. Folds follow the lines when text
+  ## is added or removed elsewhere; editing a hidden line (or the line break
+  ## of the first line) unfolds its region, and so does a match of the
+  ## search or a cursor that goes into it.
+proc Rtext_editor_unfold*(editor: Rid, line: cint): cint {.rapi.}
+  ## Unfolds the region that starts at a line, or what hides it. Returns R_FALSE when nothing was folded there.
+proc Rtext_editor_fold_all*(editor: Rid) {.rapi.}
+  ## Folds every region, those inside others too.
+proc Rtext_editor_unfold_all*(editor: Rid) {.rapi.}
+proc Rtext_editor_is_folded*(editor: Rid, line: cint): cint {.rapi.}
+  ## Returns: R_TRUE when a folded region starts at this line.
+proc Rtext_editor_is_line_hidden*(editor: Rid, line: cint): cint {.rapi.}
+  ## Returns: R_TRUE when the line is hidden in a folded region.
+proc Rtext_editor_get_fold_end*(editor: Rid, line: cint): cint {.rapi.}
+  ## Returns: The last line of the region that starts at a line (folded or not), -1 when it starts none.
+proc Rtext_editor_set_folding*(editor: Rid, enabled: cint) {.rapi.}
+  ## R_FALSE unfolds everything and stops folding: no markers, and
+  ## Ctrl+Shift+[ / ] go to the shortcuts of the window. On by default.
+  ## XML: Folding="false".
+proc Rtext_editor_get_folding*(editor: Rid): cint {.rapi.}
 proc Rtext_editor_undo*(editor: Rid) {.rapi.}
 proc Rtext_editor_redo*(editor: Rid) {.rapi.}
 proc Rtext_editor_can_undo*(editor: Rid): cint {.rapi.}
@@ -3916,6 +4776,14 @@ proc Rtext_editor_set_markdown*(editor: Rid, enabled: cint) {.rapi.}
   ## their colors. A label with Rlabel_set_markdown shows the same text
   ## formatted. R_FALSE removes the language.
 proc Rtext_editor_get_markdown*(editor: Rid): cint {.rapi.}
+proc Rtext_editor_set_spell_check*(editor: Rid, enabled: cint) {.rapi.}
+  ## Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+  ## a right click on one offers corrections (see SPELL CHECKING in
+  ## raven_controls.h). Only the lines shown are checked, again when they
+  ## change. Off by default: it is meant for prose, not for code.
+proc Rtext_editor_get_spell_check*(editor: Rid): cint {.rapi.}
+proc Rtext_editor_set_spell_language*(editor: Rid, language: cstring) {.rapi.}
+  ## Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language).
 proc Rtext_editor_get_token*(editor: Rid, line: cint, column: cint): RToken {.rapi.}
   ## What the language of the editor makes of the character at a
   ## position: the colors come from it. R_TOKEN_TEXT without a language.
@@ -3951,6 +4819,58 @@ proc Rtext_editor_add_marker*(editor: Rid, line: cint, from_column: cint, to_col
 proc Rtext_editor_clear_markers*(editor: Rid) {.rapi.}
 proc Rtext_editor_get_marker_count*(editor: Rid): cint {.rapi.}
 proc Rtext_editor_set_hover_callback*(editor: Rid, callback: RTextEditorHoverCallback, user_data: pointer) {.rapi.}
+proc Rtext_editor_set_search*(editor: Rid, query: cstring, flags: uint32) {.rapi.}
+  ## Sets what is searched for, with RSearchFlags, and shows every
+  ## match of the visible text (theme colors R_COLOR_SEARCH_MATCH and
+  ## R_COLOR_SEARCH_CURRENT). A match lies on one line: a query with a line
+  ## break finds nothing. NULL or "" clears the search. The selection does
+  ## not move; Rtext_editor_find_next goes to a match.
+proc Rtext_editor_get_search*(editor: Rid): cstring {.rapi.}
+  ## Returns: The text searched for, "" when there is none.
+proc Rtext_editor_get_search_flags*(editor: Rid): uint32 {.rapi.}
+  ## Returns: The RSearchFlags of the search.
+proc Rtext_editor_find_next*(editor: Rid): cint {.rapi.}
+  ## Selects the next match after the selection (or the cursor),
+  ## going on from the start of the text after its end, and scrolls to it.
+  ## Returns R_FALSE when the text has no match.
+proc Rtext_editor_find_previous*(editor: Rid): cint {.rapi.}
+  ## The same, toward the start: the match before the selection, from the end of the text after its start.
+proc Rtext_editor_get_match_count*(editor: Rid): cint {.rapi.}
+  ## Returns: The number of matches in the whole text. Counted once per change of the text or of the search.
+proc Rtext_editor_get_match_index*(editor: Rid): cint {.rapi.}
+  ## Returns: The index of the selected match (0 for the first in the text), -1 when the selection is not a match.
+proc Rtext_editor_get_match*(editor: Rid, index: cint, line: ptr cint, from_column: ptr cint, to_column: ptr cint): cint {.rapi.}
+  ## Where a match is: its line and the columns of its first byte and
+  ## of the byte after it. Returns R_FALSE when `index` is out of range.
+proc Rtext_editor_select_match*(editor: Rid, index: cint): cint {.rapi.}
+  ## Selects a match by its index and scrolls to it. Returns R_FALSE when `index` is out of range.
+proc Rtext_editor_replace*(editor: Rid, replacement: cstring): cint {.rapi.}
+  ## Replaces the selected match by `replacement`, as one step of
+  ## the history, then selects the next match. When the selection is not a
+  ## match, only selects the next one (the user sees what will be replaced).
+  ## Returns R_TRUE when something was replaced. As with
+  ## Rtext_editor_insert_text, the changed callback is called.
+proc Rtext_editor_replace_all*(editor: Rid, replacement: cstring): cint {.rapi.}
+  ## Replaces every match by `replacement`, as a single step of the
+  ## history (one undo puts them all back). Returns the number of matches
+  ## replaced.
+proc Rtext_editor_show_find*(editor: Rid, replace: cint) {.rapi.}
+  ## Opens the find bar of the editor (Ctrl+F), with the row to
+  ## replace when `replace` is R_TRUE (Ctrl+H), and gives it the keyboard.
+  ## Text selected on one line becomes the text searched for.
+  ## Its texts are English unless the locale has the keys Raven.Find,
+  ## Raven.Replace, Raven.ReplaceAll, Raven.FindNoResults, Raven.FindCount
+  ## ("{0} of {1}"), Raven.FindMatchCase, Raven.FindWholeWord,
+  ## Raven.FindPrevious, Raven.FindNext, Raven.FindClose and
+  ## Raven.FindToggleReplace.
+proc Rtext_editor_hide_find*(editor: Rid) {.rapi.}
+  ## Closes the find bar; the matches are no longer shown, F3 still goes to the next one.
+proc Rtext_editor_is_find_shown*(editor: Rid): cint {.rapi.}
+proc Rtext_editor_set_find_bar*(editor: Rid, enabled: cint) {.rapi.}
+  ## R_FALSE removes the find bar and its keys (Ctrl+F, Ctrl+H, F3,
+  ## Cmd+G), which then go to the shortcuts of the window: for an
+  ## application with its own search, built on Rtext_editor_set_search. On
+  ## by default. XML: FindBar="false".
 proc Rtheme_set_token_color*(token: RToken, r: cfloat, g: cfloat, b: cfloat, a: cfloat) {.rapi.}
   ## Color of a kind of token in the theme in use, instead of the
   ## one Raven picks for dark and for light themes. Theme files set them
@@ -4534,6 +5454,84 @@ proc Rblock_editor_select*(editor: Rid, `block`: cint, add: cint) {.rapi.}
 proc Rblock_editor_get_view*(editor: Rid, x: ptr cfloat, y: ptr cfloat, zoom: ptr cfloat) {.rapi.}
   ## Pan (canvas units at the top left) and zoom.
 proc Rblock_editor_set_view*(editor: Rid, x: cfloat, y: cfloat, zoom: cfloat) {.rapi.}
+proc Rdiff_unified*(left: cstring, right: cstring, left_name: cstring, right_name: cstring, context: cint, flags: uint32, size: ptr csize_t): cstring {.rapi.}
+  ## The differences between two texts as a unified diff (the format
+  ## of `diff -u` and `git diff`), with `context` unchanged lines around each
+  ## change (3 is usual). `left_name` and `right_name` follow `---` and `+++`
+  ## (NULL: "a" and "b"). `flags`: RDiffFlags. It touches nothing else of
+  ## the library: it may be called from any thread.
+  ## Returns: The patch followed by a '\0' (an empty text when the texts are
+  ## the same), to release with Rmemory_free; NULL when a text is NULL.
+  ## `size` receives its length in bytes, and may be NULL.
+proc Rdiff_count_changes*(left: cstring, right: cstring, flags: uint32): cint {.rapi.}
+  ## The number of changes (runs of lines removed and / or added) between two texts. Any thread.
+proc Rdiff_view_create*(): Rid {.rapi.}
+proc Rdiff_view_set_texts*(diff_view: Rid, left: cstring, right: cstring) {.rapi.}
+  ## The two texts to compare (NULL: empty). Lines end with "\n" or "\r\n".
+proc Rdiff_view_set_names*(diff_view: Rid, left_name: cstring, right_name: cstring) {.rapi.}
+  ## Names shown over the two sides (file names, "Before" / "After"); NULL: none. Their extension chooses the colors of the code.
+proc Rdiff_view_load_files*(diff_view: Rid, left_path: cstring, right_path: cstring): cint {.rapi.}
+  ## Compares two files. Their paths become the names unless names
+  ## were given. Returns: R_FALSE when a file cannot be read (it is compared
+  ## as empty).
+proc Rdiff_view_set_patch*(diff_view: Rid, patch: cstring): cint {.rapi.}
+  ## Shows a patch (unified diff: the output of `git diff`, `diff -u`)
+  ## instead of two texts: each file with its name, each hunk with its header.
+  ## Returns: R_FALSE when the text holds no hunk (nothing is shown).
+proc Rdiff_view_set_mode*(diff_view: Rid, mode: RDiffViewMode) {.rapi.}
+proc Rdiff_view_get_mode*(diff_view: Rid): RDiffViewMode {.rapi.}
+proc Rdiff_view_set_context*(diff_view: Rid, lines: cint) {.rapi.}
+  ## Unchanged lines shown around each change (3 by default); the
+  ## others are folded. A negative number shows every line.
+proc Rdiff_view_get_context*(diff_view: Rid): cint {.rapi.}
+proc Rdiff_view_set_flags*(diff_view: Rid, flags: uint32) {.rapi.}
+  ## How lines are compared: RDiffFlags (0 by default). Not used by a patch.
+proc Rdiff_view_get_flags*(diff_view: Rid): uint32 {.rapi.}
+proc Rdiff_view_set_word_diff*(diff_view: Rid, enabled: cint) {.rapi.}
+  ## Marks the words that changed inside a changed line (default R_TRUE).
+proc Rdiff_view_set_line_numbers*(diff_view: Rid, visible: cint) {.rapi.}
+  ## Shows the numbers of the lines (default R_TRUE).
+proc Rdiff_view_set_language*(diff_view: Rid, language: cstring) {.rapi.}
+  ## Colors the code as the text editor does: a language name of
+  ## Rlanguage_register ("C", "Python", "JSON"...), "None" for plain text,
+  ## NULL (default) to guess it from the extension of the names.
+proc Rdiff_view_get_change_count*(diff_view: Rid): cint {.rapi.}
+  ## The number of changes: runs of lines removed and / or added.
+proc Rdiff_view_get_change*(diff_view: Rid, change: cint, left_line: ptr cint, left_count: ptr cint, right_line: ptr cint, right_count: ptr cint): cint {.rapi.}
+  ## Where a change is: its first line and its number of lines on
+  ## each side (a count of 0: nothing on that side; the line is then the one
+  ## after which the other side's lines go). Returns: R_FALSE when there is
+  ## no such change.
+proc Rdiff_view_go_to_change*(diff_view: Rid, change: cint) {.rapi.}
+  ## Scrolls to a change (from 0) and marks it as the current one.
+proc Rdiff_view_get_current_change*(diff_view: Rid): cint {.rapi.}
+  ## The current change, -1 before the first one is gone to.
+proc Rdiff_view_next_change*(diff_view: Rid): cint {.rapi.}
+  ## Goes to the next / previous change. Returns: Its index, -1 when there is none.
+proc Rdiff_view_prev_change*(diff_view: Rid): cint {.rapi.}
+proc Rdiff_view_get_row_count*(diff_view: Rid): cint {.rapi.}
+  ## The rows shown, folds, hunk headers and notes included.
+proc Rdiff_view_get_row*(diff_view: Rid, row: cint, left_line: ptr cint, right_line: ptr cint): RDiffRowKind {.rapi.}
+  ## What a row shows, and the numbers of its lines (0 for a side it
+  ## has no line of). A fold gives the first line it hides on each side.
+proc Rdiff_view_get_row_text*(diff_view: Rid, row: cint, side: RDiffSide): cstring {.rapi.}
+  ## The text of a row on one side (in unified mode the side does not
+  ## matter for a line); a fold, a hunk, a file or a note give their label.
+  ## Valid until the next call. "" when there is none.
+proc Rdiff_view_expand*(diff_view: Rid, row: cint): cint {.rapi.}
+  ## Shows the lines of a fold. Returns: R_FALSE when the row is not a fold.
+proc Rdiff_view_get_first_visible_row*(diff_view: Rid): cint {.rapi.}
+  ## The first row at the top of the view; Rdiff_view_scroll_to_row brings one there.
+proc Rdiff_view_scroll_to_row*(diff_view: Rid, row: cint) {.rapi.}
+proc Rdiff_view_add_annotation*(diff_view: Rid, side: RDiffSide, line: cint, text: cstring) {.rapi.}
+  ## Attaches a short note to a line (a review comment, an error): a
+  ## mark in the gutter and the text in a row under the line, which is never
+  ## folded away. Several notes may go to one line.
+proc Rdiff_view_clear_annotations*(diff_view: Rid) {.rapi.}
+proc Rdiff_view_get_selected_text*(diff_view: Rid): cstring {.rapi.}
+  ## The text selected by the user ("" when none), one line after another.
+proc Rdiff_view_set_line_clicked_callback*(diff_view: Rid, callback: RDiffViewLineCallback, user_data: pointer) {.rapi.}
+  ## Called when a line or its number is clicked (the action of the widget is fired too).
 proc Rdialog_open*(window: Rid, content: Rid, closed: RDialogClosedCallback, user_data: pointer) {.rapi.}
   ## Shows a widget as a dialog of a window. The window takes
   ## ownership of `content`: it is deleted when the dialog closes, so read
@@ -4630,15 +5628,85 @@ proc Rfile_browser_set_selection_changed_callback*(browser: Rid, callback: RFile
 proc Rnotification_show*(title: cstring, body: cstring, urgency: RNotificationUrgency): cint {.rapi.}
   ## Returns: R_TRUE when the system took the notification.
 proc Rnotification_is_supported*(): cint {.rapi.}
-  ## R_FALSE when the platform has no notifications (Rnotification_show then always uses the fallback).
+  ## R_FALSE when the system shows no notifications here (Rnotification_show then always uses
+  ## the fallback): the null platform, no notification server on Linux, an executable outside of a
+  ## bundle on macOS.
 proc Rnotification_set_fallback*(callback: RNotificationFallback, user_data: pointer) {.rapi.}
   ## Called with the notifications the system could not show; NULL: none.
 proc Rnotification_set_clicked_callback*(callback: RNotificationClickedCallback, user_data: pointer) {.rapi.}
   ## Called when the user clicks a notification of Rnotification_show
-  ## (on the UI thread; the application may then bring its window to the
-  ## front: the system lets it). It is the last one shown that was clicked:
-  ## the application remembers what it was about. NULL: none.
-  ## Windows and macOS (elsewhere it is never called).
+  ## (on the UI thread), as R_NOTIFICATION_ACTIVATED of
+  ## Rnotification_set_callback, which also tells which one. NULL: none.
+proc Rnotification_show_desc*(desc: ptr RNotificationDesc): cint {.rapi.}
+  ## Shows a notification described by `desc` (see RNotificationDesc).
+  ## Returns: R_TRUE when the system took it; R_FALSE when it went to the fallback (or nowhere).
+proc Rnotification_close*(tag: cstring) {.rapi.}
+  ## Takes away the notification of that tag, shown by the system or by the fallback toast. The callback is not called.
+proc Rnotification_set_callback*(callback: RNotificationCallback, user_data: pointer) {.rapi.}
+proc Rnotification_set_bring_to_front*(enabled: cint) {.rapi.}
+  ## R_TRUE (the default): a click on a notification (not on one of
+  ## its buttons) brings its window back before the callback is called:
+  ## shown again if it was hidden or minimized, in front, with the keyboard.
+  ## R_FALSE: the application does what it wants in the callback.
+proc Rnotification_set_fallback_toast*(toast: Rid) {.rapi.}
+  ## A Toast that shows the notifications the system could not show,
+  ## with their title, icon and buttons; a click on one, or on a button, is
+  ## reported to Rnotification_set_callback as for the system's. Put it in
+  ## an Overlay (Queue="Stack" shows several at once). It takes the place
+  ## of the fallback callback (Rnotification_set_fallback). R_INVALID_ID: none.
+proc Rnotification_supports*(feature: RNotificationFeature): cint {.rapi.}
+  ## Whether the notifications of the system have that feature here (R_FALSE where there are none).
+proc Rpermission_get_status*(permission: RPermission): RPermissionStatus {.rapi.}
+  ## What the user answered, without asking. Cheap: the platform
+  ## remembers it. On iOS the status of notifications is known shortly after
+  ## the start (R_PERMISSION_NOT_ASKED until then).
+proc Rpermission_request*(permission: RPermission, callback: RPermissionCallback, user_data: pointer) {.rapi.}
+  ## Asks the user, with the question of the system, when the status
+  ## is R_PERMISSION_NOT_ASKED or R_PERMISSION_DENIED; otherwise only answers
+  ## with the status. Several requests for the same permission share one
+  ## question. `callback` may be NULL.
+proc Rpermission_open_settings*(): cint {.rapi.}
+  ## Opens the page of the application in the Settings of the system,
+  ## where the user changes what was refused for good (R_PERMISSION_BLOCKED).
+  ## Returns: R_FALSE when the platform has no such page.
+proc Rpermission_to_string*(permission: RPermission): cstring {.rapi.}
+  ## Returns: The name of a permission or a status ("camera", "granted"...), for logs.
+proc Rpermission_status_to_string*(status: RPermissionStatus): cstring {.rapi.}
+proc Rfile_open_async*(desc: ptr RFileDialogDesc, callback: RDeviceCallback, user_data: pointer) {.rapi.}
+  ## Asks for one file to read (several with R_FILE_DIALOG_MULTIPLE). `desc` may be NULL.
+proc Rfile_save_async*(desc: ptr RFileDialogDesc, data: pointer, size: csize_t, callback: RDeviceCallback, user_data: pointer) {.rapi.}
+  ## Saves `size` bytes (copied: `data` may be freed at once) as a
+  ## file where the user chooses, proposed under `desc->file_name`. The
+  ## callback gives the file as saved: its name, and its path on desktops.
+proc Rfile_export_async*(desc: ptr RFileDialogDesc, path: cstring, callback: RDeviceCallback, user_data: pointer) {.rapi.}
+  ## Same as Rfile_save_async, for a file that already exists (a path Raven can read), copied where the user chooses.
+proc Rfile_select_folder_async*(desc: ptr RFileDialogDesc, callback: RDeviceCallback, user_data: pointer) {.rapi.}
+  ## Asks for a folder: desktops only for now (R_DEVICE_UNSUPPORTED on iOS and Android).
+proc Rcamera_is_available*(): cint {.rapi.}
+  ## Returns: R_TRUE when Rcamera_take_photo can show a camera (none on desktops, nor in the iOS Simulator).
+proc Rcamera_take_photo*(callback: RDeviceCallback, user_data: pointer) {.rapi.}
+  ## Shows the camera of the system to take one photo. It asks for
+  ## R_PERMISSION_CAMERA first when needed (R_DEVICE_DENIED when refused).
+  ## The photo is a JPEG file in the cache of the application, with its
+  ## size in pixels, upright.
+proc Rphoto_pick*(max_count: cint, callback: RDeviceCallback, user_data: pointer) {.rapi.}
+  ## Shows the photo picker of the system (desktops: a file dialog for
+  ## images). No permission is needed: the application only sees what the
+  ## user picks. Each photo is a file Raven can load (iOS: converted to JPEG
+  ## when it is HEIC).
+  ## max_count How many photos may be picked; 0: no limit.
+proc Rhaptic_is_supported*(): cint {.rapi.}
+  ## Returns: R_TRUE when the device can play haptics (a phone; never a desktop).
+proc Rhaptic_play*(haptic: RHaptic): cint {.rapi.}
+  ## A short vibration, as the controls of the system play when
+  ## touched. Nothing happens where there are none, or when the user turned
+  ## them off. Returns: R_TRUE when it was handed to the system.
+proc Rshare_show*(desc: ptr RShareDesc, callback: RDeviceCallback, user_data: pointer) {.rapi.}
+  ## Shows the share sheet of the system with a text and / or a file,
+  ## to send them to another application (mail, chat, Files...). The
+  ## callback says R_DEVICE_DONE once something was chosen (Android: once the
+  ## sheet was shown; it does not tell more), R_DEVICE_CANCELLED when it was
+  ## closed. R_DEVICE_UNSUPPORTED on desktops.
 proc Rviewport_set_texture*(viewport: Rid, texture: Rid) {.rapi.}
   ## Shows a texture. R_INVALID_ID shows nothing.
 proc Rviewport_set_stretch*(viewport: Rid, stretch: RStretch) {.rapi.}
@@ -4754,9 +5822,10 @@ proc Rxml_set_auto_load*(enabled: cint) {.rapi.}
   ## the places where paths are looked for stay the same.
 proc Rxml_get_auto_load*(): cint {.rapi.}
 proc Rxml_set_live_reload*(enabled: cint) {.rapi.}
-  ## Turns live reload on or off. It is on by default; the
-  ## environment variable RAVEN_LIVE_RELOAD=0 turns it off without
-  ## rebuilding. When off, files are never looked at again.
+  ## Turns live reload on or off. It is on by default, except in
+  ## the browser (Emscripten), where watching files would keep the page
+  ## drawing; the environment variable RAVEN_LIVE_RELOAD=0 or 1 changes the
+  ## default without rebuilding. When off, files are never looked at again.
 proc Rxml_get_live_reload*(): cint {.rapi.}
 proc Rxml_set_reload_callback*(callback: RXmlReloadCallback, user_data: pointer) {.rapi.}
 proc Rxml_check_files*(): cint {.rapi.}
@@ -4964,6 +6033,54 @@ proc Rwidget_set_text_key*(widget: Rid, attribute: cstring, key: cstring) {.rapi
   ## Same as Rwidget_set_attribute(widget, attribute, "@key").
 proc Rlocale_format_number*(value: cdouble, decimals: cint): cstring {.rapi.}
   ## A number written in the conventions of the language: decimal separator and digit grouping ("1 234,5" in French).
+proc Rlocale_set_clock*(clock: RClock) {.rapi.}
+  ## Forces the clock of every time shown (a setting of the
+  ## application): R_CLOCK_12_HOUR, R_CLOCK_24_HOUR, or R_CLOCK_AUTO (default)
+  ## to follow the locale. A TimePicker can still choose its own (Clock="24").
+proc Rlocale_get_clock*(): RClock {.rapi.}
+proc Rlocale_uses_12_hour_clock*(): cint {.rapi.}
+  ## R_TRUE when times are shown on 12 hours with AM and PM. With
+  ## Rlocale_set_clock, what it forces; else, when the application chose a
+  ## language (Rlocale_set_language), the usage of that language (from CLDR:
+  ## en-US, en-CA, en-AU, en-IN, hi, ar, ko, zh-TW, fil... use 12 hours, most
+  ## others 24); else the setting of the user on the system (Windows, macOS,
+  ## the LC_TIME of Linux), or the usage of the language of the system.
+proc Rlocale_get_day_period*(pm: cint): cstring {.rapi.}
+  ## "AM" (pm = R_FALSE) or "PM" in the language: the keys Raven.AM / Raven.PM when the tables have them. Never NULL.
+proc Rlocale_format_time*(hour: cint, minute: cint, second: cint, show_seconds: cint): cstring {.rapi.}
+  ## A time of the day (hour 0 to 23) as the locale writes it: "3:05 PM", "15:05", "오후 3:05".
+proc Rtimezone_get_system*(): cstring {.rapi.}
+  ## The zone of the system ("Europe/Paris"): the TZ variable, the
+  ## link /etc/localtime, else what the system says; "UTC" when it says
+  ## nothing. Valid until the next call.
+proc Rtimezone_set_directory*(path: cstring) {.rapi.}
+  ## The folder of the tz database (the files "Europe/Paris"...), or
+  ## the packed tzdata file of Android, to read instead of the system's: for
+  ## a database shipped with the application, or tests. It is then the only
+  ## one read. NULL: the system's (or the TZDIR variable). Forgets the zones
+  ## read so far.
+proc Rtimezone_is_valid*(zone: cstring): cint {.rapi.}
+  ## R_TRUE when the zone is known. Every function takes a name of
+  ## the tz database, "UTC", a POSIX TZ rule ("EST5EDT,M3.2.0,M11.1.0"), or
+  ## NULL / "" for the zone of the system.
+proc Rtimezone_to_local*(zone: cstring, utc: cdouble, year: ptr cint, month: ptr cint, day: ptr cint, hour: ptr cint, minute: ptr cint, second: ptr cint): cint {.rapi.}
+  ## The date and time an instant shows in a zone (month 1 to 12). R_FALSE for an unknown zone.
+proc Rtimezone_from_local*(zone: cstring, year: cint, month: cint, day: cint, hour: cint, minute: cint, second: cint): cdouble {.rapi.}
+  ## The instant a date and time of a zone is. When the clocks go
+  ## forward, the times they skip do not exist: such a time is moved forward
+  ## by the length of the gap (02:30 becomes 03:30). When they go back, the
+  ## times of the hour repeated happen twice: the first is taken (still in
+  ## summer time). Rtimezone_count_local tells these cases apart.
+proc Rtimezone_count_local*(zone: cstring, year: cint, month: cint, day: cint, hour: cint, minute: cint, second: cint): cint {.rapi.}
+  ## How many instants show this date and time in the zone: 1, 0 (skipped when the clocks went forward) or 2 (repeated when they went back).
+proc Rtimezone_get_offset*(zone: cstring, utc: cdouble): cint {.rapi.}
+  ## Seconds the zone is ahead of UTC at an instant (3600 in Paris in winter, -14400 in New York in summer).
+proc Rtimezone_is_daylight_saving*(zone: cstring, utc: cdouble): cint {.rapi.}
+  ## R_TRUE when the zone is on summer (daylight saving) time at the instant.
+proc Rtimezone_get_abbreviation*(zone: cstring, utc: cdouble): cstring {.rapi.}
+  ## The abbreviation of the zone at an instant ("CET", "EDT"; "+03" where the database has no name).
+proc Rtimezone_get_label*(zone: cstring, utc: cdouble): cstring {.rapi.}
+  ## The zone at an instant, to show: "CET, UTC+1", "EDT, UTC-4", "IST, UTC+5:30", "UTC+3" when it has no name.
 proc Raccessibility_set_text_scale*(scale: cfloat) {.rapi.}
   ## Size of every text, 1 = as designed (0.5 to 4). Controls grow with their text.
 proc Raccessibility_get_text_scale*(): cfloat {.rapi.}
@@ -5036,7 +6153,151 @@ proc Rhost_inject_key*(window: Rid, key: RKey, pressed: cint, modifiers: uint32,
   ## repeat R_TRUE for a key held down (auto-repeat).
 proc Rhost_inject_text*(window: Rid, codepoint: uint32) {.rapi.}
   ## One typed Unicode code point.
+proc Rhost_inject_composition*(window: Rid, text: cstring, selection_start: cint, selection_end: cint) {.rapi.}
+  ## The input method of the application's system composes `text`
+  ## (preedit), with its selection in bytes (see Rwindow_inject_composition).
+  ## NULL or "" cancels it; the committed text then comes through
+  ## Rhost_inject_text. Rwindow_get_text_input_rect tells where to put the
+  ## candidate window.
 proc Rhost_inject_focus*(window: Rid, focused: cint) {.rapi.}
   ## The window gained or lost the keyboard. Losing it closes popups and drops captures.
 proc Rhost_inject_close*(window: Rid) {.rapi.}
   ## The user asked to close the window (its close callback decides).
+proc Rhost_permission_answer*(permission: RPermission, status: RPermissionStatus) {.rapi.}
+  ## The user answered a permission_request (or the status changed
+  ## by itself). The waiting Rpermission_request callbacks get it at the
+  ## next frame. Any thread.
+proc Rhost_service_complete*(request: uint32, result_value: RDeviceResult, files: ptr RPickedFile, count: cint) {.rapi.}
+  ## The end of a service_request: the files it gave (copied; paths
+  ## Raven can read; size 0 is read from the file), at the next frame. Once
+  ## per request. Any thread.
+proc Rtest_set_deterministic*(enabled: cint) {.rapi.}
+  ## R_TRUE makes what is drawn depend only on what the test does:
+  ## every frame advances the animations by 1/60 s (Rset_animation_time_step),
+  ## and the carets of the text fields stay lit instead of blinking. R_FALSE
+  ## gives the clock back (time step 0).
+proc Rtest_is_deterministic*(): cint {.rapi.}
+proc Rtest_get_platform_tag*(): cstring {.rapi.}
+  ## Returns: What the goldens of this run are made with, "OS-backend":
+  ## "macos-metal", "linux-vulkan", "windows-vulkan", "web-webgl"... and
+  ## "null" with the null backend.
+proc Rtest_find*(scope: Rid, path: cstring): Rid {.rapi.}
+  ## Finds a widget by name (Rwidget_set_name, Name="" in XML). The
+  ## path may have several names separated by '/': "settings/ok" is the
+  ## widget named "ok" inside the one named "settings". In a window, the
+  ## open popups (menus, dialogs) are searched first, top first, then the
+  ## content.
+  ## scope A window or a widget.
+  ## Returns: R_INVALID_ID when nothing has that name (no error is reported).
+proc Rtest_click*(widget: Rid): cint {.rapi.}
+  ## Moves the mouse to the middle of the widget, presses and releases the left button.
+proc Rtest_double_click*(widget: Rid): cint {.rapi.}
+  ## Two clicks in a row on the middle of the widget, seen as a double click.
+proc Rtest_right_click*(widget: Rid): cint {.rapi.}
+  ## A click of the right button on the middle of the widget (a context menu).
+proc Rtest_click_at*(target: Rid, x: cfloat, y: cfloat, button: RMouseButton, clicks: cint, modifiers: uint32): cint {.rapi.}
+  ## Clicks at a position of a widget or a window.
+  ## clicks 1 for a click, 2 for a double click, 3 for a triple click.
+  ## modifiers RModifier held during the clicks (R_MOD_SHIFT...).
+proc Rtest_hover*(widget: Rid): cint {.rapi.}
+  ## Moves the mouse over the middle of the widget, without clicking.
+proc Rtest_hover_at*(target: Rid, x: cfloat, y: cfloat): cint {.rapi.}
+  ## Moves the mouse to a position of a widget or a window.
+proc Rtest_drag*(widget: Rid, dx: cfloat, dy: cfloat): cint {.rapi.}
+  ## Presses the left button on the middle of the widget, moves by
+  ## (dx, dy) in several steps, and releases: a slider, a splitter, a
+  ## window dragged by a widget.
+proc Rtest_drag_to*(`from`: Rid, to: Rid): cint {.rapi.}
+  ## Drags from the middle of one widget to the middle of another (drag and drop).
+proc Rtest_scroll*(widget: Rid, wheel_x: cfloat, wheel_y: cfloat): cint {.rapi.}
+  ## Turns the mouse wheel over the middle of the widget: `wheel_y`
+  ## notches (positive: toward the top, as a wheel turned away from the
+  ## user), `wheel_x` notches sideways.
+proc Rtest_key*(target: Rid, key: RKey, modifiers: uint32): cint {.rapi.}
+  ## Presses and releases a key, with RModifier held. A widget
+  ## target gets the keyboard focus first; a window sends the key to what
+  ## has the focus.
+proc Rtest_type_text*(target: Rid, text: cstring): cint {.rapi.}
+  ## Types UTF-8 text as a keyboard would. A widget target gets the
+  ## keyboard focus first. '\n', '\t' and '\b' are sent as the keys Enter,
+  ## Tab and Backspace.
+proc Rtest_tap*(widget: Rid): cint {.rapi.}
+  ## A finger touches the middle of the widget and leaves at once.
+proc Rtest_swipe*(widget: Rid, dx: cfloat, dy: cfloat, seconds: cdouble): cint {.rapi.}
+  ## A finger put on the middle of the widget moves by (dx, dy) in
+  ## `seconds`, and leaves: a fast swipe flicks a list, which then coasts
+  ## (Rtest_settle lets it stop).
+proc Rtest_pump*(frames: cint): cint {.rapi.}
+  ## Produces `frames` frames (Rdraw_frame). Returns: R_FALSE once the application quits.
+proc Rtest_is_idle*(): cint {.rapi.}
+  ## Returns: R_TRUE when nothing waits for a frame: no posted task, no layout
+  ## to do, nothing to paint, no animation, no layout spring, no inertia.
+  ## Windows that redraw all the time (Rwindow_set_continuous_redraw, a
+  ## realtime viewport) and the timers are not counted.
+proc Rtest_settle*(max_seconds: cdouble): cint {.rapi.}
+  ## Produces frames until Rtest_is_idle, each advancing the
+  ## animations by the time step (1/60 s unless Rset_animation_time_step
+  ## gives another), for at most `max_seconds` of that time.
+  ## Returns: R_FALSE when it was still moving at the end.
+proc Rtest_get_text*(widget: Rid): cstring {.rapi.}
+  ## Returns: What the user reads in the widget: the text of a field, else
+  ## its label (as screen readers say it: the text of a Label, a Button, a
+  ## Checkbox...). "" when it has none. Valid until the next call.
+proc Rtest_is_shown*(widget: Rid): cint {.rapi.}
+  ## Returns: R_TRUE when the widget can be seen: in a window, Visible with
+  ## all that holds it, on the page a Switcher or a TabView shows, and laid
+  ## out with a size.
+proc Rtest_is_checked*(widget: Rid): cint {.rapi.}
+  ## Returns: R_TRUE for a checked Checkbox, Switch, RadioButton, toggle Button or menu item.
+proc Rtest_expect_golden*(target: Rid, golden_path: cstring, options: ptr RGoldenOptions, result_value: ptr RGoldenResult): cint {.rapi.}
+  ## Captures a window, or the rectangle of one widget, and compares
+  ## it with the PNG file `golden_path` (see the top of this file).
+  ## target A window or a widget.
+  ## options NULL for the defaults.
+  ## result Receives the details; may be NULL.
+  ## Returns: R_TRUE when the capture matches (or the golden was written
+  ## because RAVEN_UPDATE_GOLDENS=1).
+proc Rtest_compare_pixels*(actual: ptr uint8, expected: ptr uint8, width: cint, height: cint, channel_tolerance: cint, max_channel_difference: ptr cint, diff_rgba: ptr uint8): cint {.rapi.}
+  ## Compares two RGBA8 images of the same size as Rtest_expect_golden
+  ## does, without files.
+  ## diff_rgba When not NULL, receives width * height * 4 bytes: the
+  ## expected image faded, with the different pixels in red.
+  ## Returns: The number of pixels farther apart than `channel_tolerance`;
+  ## -1 when an image is missing.
+proc Rtest_dump_tree*(target: Rid): cstring {.rapi.}
+  ## The widgets as JSON, what a test, a script or an agent reads of
+  ## the interface. Each widget gives its "type" (its XML tag), "name" and
+  ## "path" (for Rtest_find) when it has a name, its accessibility "role",
+  ## its "text" (Rtest_get_text), "label" and "value" when they differ,
+  ## "bounds" [x, y, width, height] in logical units of its window,
+  ## "shown", "enabled", and when they apply "focused", "checked",
+  ## "selected", "expanded", "number"/"minimum"/"maximum", the rows of a
+  ## list ("items") and its "children", in the order of the layout.
+  ## target A window or a widget; R_INVALID_ID for every window of
+  ## the application: {"raven": version, "backend": tag, "windows": [...]},
+  ## each with its "title", "size", "scale", "content", "popups".
+  ## Returns: The JSON text, valid until the next call. "" on error.
+proc Rtest_save_tree*(target: Rid, path: cstring): cint {.rapi.}
+  ## Rtest_dump_tree written to a file ("-": the standard output).
+proc Rtest_save_png*(target: Rid, path: cstring): cint {.rapi.}
+  ## Captures a window, or the rectangle of a widget, into a PNG
+  ## file. The null backend draws nothing: its picture is the clear color.
+proc Rtest_run_script*(script: cstring, source_name: cstring): cint {.rapi.}
+  ## Runs a script of steps, one per line, as RAVEN_SCRIPT does (see
+  ## "Driving any application headlessly" in README.md):
+  ##
+  ##     click form/user
+  ##     type "ada"
+  ##     key Enter
+  ##     expect status text "Welcome, ada"
+  ##     snap after-login
+  ##
+  ## The frames are produced by the function (Rdraw_frame) until the script
+  ## ends. A widget is named by its name or path, by "text:Sign in" (the
+  ## first one shown that reads it), or a point of the window by "@x,y".
+  ## script The text of the script.
+  ## source_name The name its messages give it ("login.script"); may be NULL.
+  ## Returns: R_TRUE when every step was done and every check was true;
+  ## R_FALSE otherwise, with the reason in Rtest_get_script_error.
+proc Rtest_get_script_error*(): cstring {.rapi.}
+  ## Returns: Why the last Rtest_run_script failed ("login.script:4: expect: ..."), "" when it passed.

@@ -282,9 +282,12 @@ static RAccessibleRole rvn_a11y_default_role(const rvn_widget_t* widget) {
 		case R_WIDGET_TEXT_INPUT: return R_ROLE_TEXT_FIELD;
 		case R_WIDGET_SPIN_BOX: return R_ROLE_SPIN_BUTTON;
 		case R_WIDGET_COMBO_BOX: return R_ROLE_COMBO_BOX;
+		/* the list of a combo box, while it is open (what matches the search) */
+		case RVN_WIDGET_INTERNAL_COMBO_LIST: return R_ROLE_LIST;
 		case R_WIDGET_SEPARATOR: return R_ROLE_SEPARATOR;
 		case R_WIDGET_LIST_VIEW: return R_ROLE_LIST;
 		case R_WIDGET_TABLE: return R_ROLE_TABLE;
+		case R_WIDGET_DIFF_VIEW: return R_ROLE_LIST;
 		case R_WIDGET_DATE_PICKER: return R_ROLE_COMBO_BOX;
 		case R_WIDGET_TIME_PICKER: return R_ROLE_SPIN_BUTTON;
 		case R_WIDGET_TOAST: return Rtoast_is_shown(widget->id) ? R_ROLE_ALERT : R_ROLE_NONE;
@@ -293,6 +296,8 @@ static RAccessibleRole rvn_a11y_default_role(const rvn_widget_t* widget) {
 		case R_WIDGET_PAGINATION: return R_ROLE_GROUP;
 		case R_WIDGET_PLOT: return R_ROLE_IMAGE;
 		case R_WIDGET_PDF_VIEW: return R_ROLE_DOCUMENT;
+		/* (what is in the page is not in the tree of Raven: the view of the system holds it) */
+		case R_WIDGET_SYSTEM_WEB_VIEW: return R_ROLE_DOCUMENT;
 		/* a gauge is a meter: a value within a range; the other charts are pictures described in words */
 		case R_WIDGET_CHART: return Rchart_get_kind(widget->id) == R_CHART_GAUGE ? R_ROLE_PROGRESS_BAR : R_ROLE_IMAGE;
 		case R_WIDGET_MAP_VIEW: return R_ROLE_GROUP;
@@ -362,6 +367,8 @@ static int rvn_a11y_collect(const rvn_widget_t* widget, rvn_widget_t** out, int 
 		/* only the page that is shown of a tab view */
 		if (widget->cls->type == R_WIDGET_TAB_VIEW && (int)i != Rtab_view_get_active(widget->id)) continue;
 		if (widget->cls->type == R_WIDGET_CAROUSEL && (int)i != Rcarousel_get_page(widget->id)) continue;
+		/* and of a switcher (the pages it does not show keep their place and size) */
+		if (widget->cls->type == R_WIDGET_SWITCHER && (int)i != Rswitcher_get_index(widget->id)) continue;
 		if (rvn_a11y_role_of(child) == R_ROLE_NONE) {
 			count = rvn_a11y_collect(child, out, max, count);
 		} else {
@@ -381,6 +388,8 @@ static int rvn_a11y_item_count(const rvn_widget_t* widget) {
 		case R_WIDGET_TAB_VIEW: return (int)widget->child_count;
 		case R_WIDGET_MAP_VIEW: return Rmap_view_get_marker_count(widget->id);
 		case R_WIDGET_CAROUSEL: return (int)widget->child_count;
+		case RVN_WIDGET_INTERNAL_COMBO_LIST: return rvn_combo_list_row_count(widget);
+		case R_WIDGET_DIFF_VIEW: return Rdiff_view_get_row_count(widget->id);
 		default: return 0;
 	}
 }
@@ -563,6 +572,11 @@ rvn_a11y_id_t rvn_a11y_hit(Rid id, float x, float y) {
 				int row = rvn_table_accessible_row_at(hit, x - origin.x, y - origin.y);
 				if (row >= 0) return rvn_a11y_make_item(hit->id, row);
 			}
+			if (hit->cls->type == R_WIDGET_DIFF_VIEW) {
+				rvn_vec2_t origin = rvn_widget_origin(hit);
+				int row = rvn_diff_view_row_at(hit, x - origin.x, y - origin.y);
+				if (row >= 0) return rvn_a11y_make_item(hit->id, row);
+			}
 			return rvn_a11y_node_of(hit);
 		}
 	}
@@ -579,8 +593,16 @@ rvn_a11y_id_t rvn_a11y_focus(Rid id) {
 		if (selected >= 0) return rvn_a11y_make_item(window->focus->id, selected);
 	}
 	if (window->focus->cls->type == R_WIDGET_TABLE) {
-		int selected = Rtable_get_selected(window->focus->id);
+		int selected = rvn_table_cursor_row(window->focus);
 		if (selected >= 0) return rvn_a11y_make_item(window->focus->id, selected);
+	}
+	/* a combo box (or its text field) with its list open: the highlighted row of the list */
+	{
+		rvn_widget_t* combo = window->focus->cls->type == R_WIDGET_COMBO_BOX ? window->focus :
+			(window->focus->parent && window->focus->parent->cls->type == R_WIDGET_COMBO_BOX ? window->focus->parent : NULL);
+		rvn_widget_t* list = combo ? rvn_combo_box_open_list(combo) : NULL;
+		if (list && rvn_combo_list_hot(list) >= 0 && rvn_combo_list_hot(list) < rvn_combo_list_row_count(list))
+			return rvn_a11y_make_item(list->id, rvn_combo_list_hot(list));
 	}
 	return rvn_a11y_node_of(window->focus);
 }
@@ -726,13 +748,28 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 				node->height = rect.h;
 				if (rect.w <= 0 || rect.h <= 0) node->states |= RVN_A11Y_OFFSCREEN;
 				node->role = R_ROLE_LIST_ITEM;
-				node->states |= RVN_A11Y_TABLE_ROW | RVN_A11Y_SELECTABLE | RVN_A11Y_INVOKABLE;
+				node->states |= RVN_A11Y_TABLE_ROW | RVN_A11Y_INVOKABLE;
+				if (rvn_table_selectable(widget)) node->states |= RVN_A11Y_SELECTABLE;
 				for (c = 0; c < Rtable_get_column_count(widget->id); c++) {
 					if (c) rvn_text_add(&g_a11y.name, ", ");
-					rvn_text_add(&g_a11y.name, Rtable_get_cell(widget->id, item, c));
+					rvn_text_add(&g_a11y.name, rvn_table_accessible_cell(widget, item, c));
 				}
 				if (Rtable_is_row_selected(widget->id, item)) node->states |= RVN_A11Y_SELECTED;
-				if ((widget->flags & RVN_WF_FOCUSED) && Rtable_get_selected(widget->id) == item) node->states |= RVN_A11Y_FOCUSED;
+				if ((widget->flags & RVN_WF_FOCUSED) && rvn_table_cursor_row(widget) == item) node->states |= RVN_A11Y_FOCUSED;
+				break;
+			}
+			case R_WIDGET_DIFF_VIEW: {
+				/* a row: "added line 12: ...", a fold that opens */
+				rvn_rect_t rect = rvn_diff_view_row_rect(widget, item);
+				if (item >= Rdiff_view_get_row_count(widget->id)) return R_FALSE;
+				node->x += rect.x;
+				node->y += rect.y;
+				node->width = rect.w;
+				node->height = rect.h;
+				if (rect.w <= 0 || rect.h <= 0) node->states |= RVN_A11Y_OFFSCREEN;
+				node->role = R_ROLE_LIST_ITEM;
+				rvn_diff_view_describe_row(widget, item, &g_a11y.name);
+				if (rvn_diff_view_row_is_fold(widget, item)) node->states |= RVN_A11Y_INVOKABLE | RVN_A11Y_EXPANDABLE;
 				break;
 			}
 			case R_WIDGET_LIST_VIEW: {
@@ -775,6 +812,28 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 				node->width = pin.w;
 				node->height = pin.h;
 				node->states |= RVN_A11Y_INVOKABLE;
+				break;
+			}
+			case RVN_WIDGET_INTERNAL_COMBO_LIST: {
+				/* a row of the list of a combo box; "No matches" is a row that cannot be chosen */
+				const char* text = NULL;
+				rvn_rect_t rect;
+				int kind = rvn_combo_list_row_info(widget, item, &text, &rect);
+				if (!kind) return R_FALSE;
+				node->role = R_ROLE_LIST_ITEM;
+				node->x += rect.x;
+				node->y += rect.y;
+				node->width = rect.w;
+				node->height = rect.h;
+				if (rect.w <= 0 || rect.h <= 0) node->states |= RVN_A11Y_OFFSCREEN;
+				if (text) rvn_text_add(&g_a11y.name, text);
+				if (kind == 2) {
+					node->states |= RVN_A11Y_DISABLED;
+					break;
+				}
+				node->states |= RVN_A11Y_SELECTABLE | RVN_A11Y_INVOKABLE;
+				if (rvn_combo_list_selected_row(widget) == item) node->states |= RVN_A11Y_SELECTED;
+				if (rvn_combo_list_hot(widget) == item) node->states |= RVN_A11Y_FOCUSED;
 				break;
 			}
 			case R_WIDGET_CAROUSEL: {
@@ -842,7 +901,7 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 			/* the selected row, cell after cell */
 			for (c = 0; selected >= 0 && c < columns; c++) {
 				if (c) rvn_text_add(&g_a11y.value, ", ");
-				rvn_text_add(&g_a11y.value, Rtable_get_cell(widget->id, selected, c));
+				rvn_text_add(&g_a11y.value, rvn_table_accessible_cell(widget, selected, c));
 			}
 			break;
 		}
@@ -851,12 +910,10 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 			if (Rdate_picker_is_open(widget->id)) node->states |= RVN_A11Y_EXPANDED;
 			rvn_text_add(&g_a11y.value, Rdate_picker_get_text(widget->id));
 			break;
-		case R_WIDGET_TIME_PICKER: {
-			int hour = 0, minute = 0, second = 0;
-			Rtime_picker_get_time(widget->id, &hour, &minute, &second);
-			rvn_text_printf(&g_a11y.value, "%02d:%02d:%02d", hour, minute, second);
+		case R_WIDGET_TIME_PICKER:
+			/* as shown: "3:05 PM EST", "15:05" */
+			rvn_text_add(&g_a11y.value, Rtime_picker_get_text(widget->id));
 			break;
-		}
 		case R_WIDGET_TOAST:
 			rvn_text_add(&g_a11y.name, Rtoast_get_text(widget->id));
 			break;
@@ -876,6 +933,12 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 			if (Rcarousel_get_page_count(widget->id) > 0)
 				rvn_text_printf(&g_a11y.value, "page %d of %d", Rcarousel_get_page(widget->id) + 1, Rcarousel_get_page_count(widget->id));
 			break;
+		case R_WIDGET_DIFF_VIEW: {
+			int changes = Rdiff_view_get_change_count(widget->id), current = Rdiff_view_get_current_change(widget->id);
+			if (current >= 0) rvn_text_printf(&g_a11y.value, "change %d of %d", current + 1, changes);
+			else rvn_text_printf(&g_a11y.value, changes == 1 ? "%d change" : "%d changes", changes);
+			break;
+		}
 		case R_WIDGET_PDF_VIEW:
 			/* the title as the name; the page shown as the value */
 			if (!rvn_a11y_str(&g_a11y.name)[0]) rvn_text_add(&g_a11y.name, Rpdf_view_get_title(widget->id));
@@ -940,9 +1003,11 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 			break;
 		}
 		case R_WIDGET_COMBO_BOX: {
-			int selected = Rcombo_box_get_selected(widget->id);
-			const char* text = selected >= 0 ? Rcombo_box_get_item_text(widget->id, selected) : NULL;
+			/* the text shown: the item chosen, or what was typed in an editable one */
+			const char* text = Rcombo_box_get_text(widget->id);
 			node->states |= RVN_A11Y_EXPANDABLE | RVN_A11Y_INVOKABLE;
+			if (Rcombo_box_is_editable(widget->id)) node->states |= RVN_A11Y_EDITABLE;
+			if (Rcombo_box_is_open(widget->id)) node->states |= RVN_A11Y_EXPANDED;
 			if (text) rvn_text_add(&g_a11y.value, text);
 			break;
 		}
@@ -1054,12 +1119,28 @@ int rvn_a11y_act(rvn_a11y_id_t id, rvn_a11y_action_t action) {
 				return R_TRUE;
 			case R_WIDGET_LIST_VIEW: Rlist_view_set_selected(widget->id, item); return R_TRUE;
 			case R_WIDGET_TAB_VIEW: Rtab_view_set_active(widget->id, item); return R_TRUE;
+			case RVN_WIDGET_INTERNAL_COMBO_LIST:
+				if (action != RVN_A11Y_SELECT && action != RVN_A11Y_PRESS) return R_FALSE;
+				{
+					const char* text;
+					rvn_rect_t rect;
+					/* (not the row that says nothing matches) */
+					if (rvn_combo_list_row_info(widget, item, &text, &rect) != 1) return R_FALSE;
+				}
+				rvn_dispatch_begin();
+				rvn_combo_list_choose(widget, item);
+				rvn_dispatch_end();
+				return R_TRUE;
 			case R_WIDGET_MAP_VIEW:
 				if (item >= Rmap_view_get_marker_count(widget->id)) return R_FALSE;
 				rvn_dispatch_begin();
 				rvn_map_view_press_marker(widget, item);
 				rvn_dispatch_end();
 				return R_TRUE;
+			case R_WIDGET_DIFF_VIEW:
+				/* a fold opens */
+				if (action != RVN_A11Y_PRESS && action != RVN_A11Y_EXPAND) return R_FALSE;
+				return Rdiff_view_expand(widget->id, item);
 			case R_WIDGET_CAROUSEL:
 				if (item >= Rcarousel_get_page_count(widget->id)) return R_FALSE;
 				Rcarousel_set_page(widget->id, item, R_TRUE);
@@ -1112,6 +1193,16 @@ int rvn_a11y_set_value(rvn_a11y_id_t id, const char* text) {
 			return R_TRUE;
 		case R_WIDGET_TEXT_EDITOR:
 			Rtext_editor_set_text(widget->id, text);
+			return R_TRUE;
+		case R_WIDGET_COMBO_BOX:
+			/* an editable combo box takes any text; another one the text of one of its items */
+			if (!Rcombo_box_is_editable(widget->id)) {
+				int i;
+				for (i = 0; i < Rcombo_box_get_item_count(widget->id); i++)
+					if (strcmp(Rcombo_box_get_item_text(widget->id, i), text) == 0) break;
+				if (i == Rcombo_box_get_item_count(widget->id)) return R_FALSE;
+			}
+			Rcombo_box_set_text(widget->id, text);
 			return R_TRUE;
 		case R_WIDGET_SLIDER:
 		case R_WIDGET_SPIN_BOX:
@@ -1221,6 +1312,10 @@ void rvn_a11y_frame(rvn_window_t* window) {
         return;
     }
 #endif
+	if (g_rvn.platform->a11y_every_frame) {
+		g_rvn.platform->a11y_event(window->platform, RVN_A11Y_EVENT_STRUCTURE, (uint64_t)window->id);
+		return;
+	}
 	focus = rvn_a11y_focus(window->id);
 	if (g_a11y.generation != window->a11y_generation) {
 		window->a11y_generation = g_a11y.generation;

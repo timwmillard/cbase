@@ -64,6 +64,16 @@ is a plan, not a promise: issues and pull requests can change the order.
   only; the Win32 and Cocoa platforms are only compiled. Run the headless
   tests on `windows-latest` and `macos-latest`, and the platform tests where
   a display is available.
+- [x] **Tests of interfaces** (`raven_testing.h`): widgets found by name
+  and driven through the input path of the window system (click, double
+  click, drag, wheel, keys, text, tap, swipe), frames until nothing moves,
+  golden PNG images with a tolerance, `.actual.png` / `.diff.png` on a
+  mismatch, `RAVEN_UPDATE_GOLDENS=1` to write them; a PNG writer of its own.
+- [x] **Any application driven headlessly** (`RAVEN_HEADLESS`,
+  `RAVEN_SCRIPT`, `RAVEN_SNAP`, `RAVEN_TREE`, `RAVEN_FILM`), without a change
+  of its code: the tree of the windows as JSON, scripts of steps with checks
+  and an exit code, PNG pictures and films; `Rtest_dump_tree`,
+  `Rtest_run_script` for the tests.
 - [ ] **Win32 event queue.** The queue of events gathered while Windows runs
   its modal loops (moving, resizing) has a fixed size; make it grow, and
   test it with injected bursts.
@@ -85,33 +95,66 @@ is a plan, not a promise: issues and pull requests can change the order.
   `NSTextInputClient` on macOS, `text-input-v3` on Wayland; the core already
   tracks the composition rectangle (`Rwindow_get_text_input_rect`).
 - [ ] Placement of the composition window of the IME.
-- [ ] Text editor: multiple cursors, search and replace, code folding, a
-  language server client.
+- [x] Text editor: search and replace (find bar, match case, whole word,
+  replace all as one undo step).
+- [x] Text editor: several cursors (Alt+click, Ctrl+D, Ctrl+Shift+L, column
+  selection; one undo step per edit) and code folding (brackets and
+  indentation, markers in the margin, works with word wrap).
+- [ ] Text editor: a language server client, regular expressions in the
+  search, folding by the tags of markup.
 - [ ] Full OpenType shaping (Indic scripts, kerning).
+- [x] **Spell checking** in `TextInput` and `TextEditor` (`SpellCheck="true"`,
+  `Rspell_*`): the checker of the system (NSSpellChecker, the spell checker
+  of Windows, Enchant / Hunspell), wavy underlines, a menu of corrections.
+- [ ] Spell checking on iOS (`UITextChecker`), Android
+  (`TextServicesManager`) and the web; reporting misspellings to screen readers.
 
 ### Widgets
 
-- [ ] Table: several selected rows, cells that are edited in place, cells
-  holding a widget (a checkbox, a progress bar), frozen first column.
-- [ ] Date picker: a range of two dates; a time zone aware time picker; a
-  12-hour clock where the locale uses one.
-- [ ] Notifications: actions (buttons), a click that brings the window
-  back, replacing a notification, an icon.
+- [x] Diff view: two texts or a patch, unified or side by side, folds,
+  words that changed, notes on lines, virtualized.
+- [x] Table: several selected rows (`SelectionMode="Multiple"`, kept as
+  ranges: a million virtual rows cost nothing), cells that are edited in place
+  (`Rtable_set_column_editable`, `Rtable_set_cell_edited_callback`), frozen
+  first columns (`Rtable_set_frozen_columns`), and cells drawn as a check box
+  or a progress bar (`Rtable_set_column_kind`). Other widgets in cells are
+  not planned: the table draws its cells itself.
+- [x] ComboBox: editable (any text) and searchable (typing filters the list,
+  without regard to case or accents).
+- [~] Date picker: a range of two dates (to do). Done: a 12-hour clock with
+  AM and PM where the locale uses one (`Clock="Auto|12|24"`,
+  `Rlocale_uses_12_hour_clock`), and time zones (`Rtimezone_*`, the tz
+  database of the system, `TimeZone` and `ShowTimeZone` on the pickers).
+- [x] Notifications: actions (buttons), a click that brings the window
+  back, replacing a notification, an icon (`Rnotification_show_desc`,
+  `Rnotification_close`, `Rnotification_set_callback`, the fallback toast).
+  Not yet: buttons on Windows (WinRT toasts), xdg-activation on Wayland.
 - [ ] Node graph: knots on links, groups and comments, minimap, undo.
 - [ ] Timeline: nested tracks, curves between keys.
 - [ ] Markdown: images from the network, HTML, footnotes.
 
 ### Images
 
-- [ ] SVG icons tinted with the theme (`currentColor`), with a set of icons
-  shipped with Raven.
-- [ ] Animated images (GIF, APNG).
+- [x] SVG icons tinted with the theme (`currentColor`), with a set of icons
+  shipped with Raven: 63 icons of Lucide (`Ricon_get`, `raven:search` in
+  XML), drawn in white and tinted with the text color of the widget.
+- [x] Animated images (GIF, APNG): an `Image` plays them on the clock of the
+  animations, only while it is painted; play / pause / stop / seek, loop
+  count, a callback at the end; `Animate` and `Loop` in XML. Raven's own GIF
+  decoder, APNG frames through stb_image; frames composed on demand into one
+  canvas (fuzzed under AddressSanitizer).
 
 ### Windows and system
 
-- [ ] Dragging from a Raven window to another application (files, text).
+- [x] Dragging from a Raven window to another application (files, pictures,
+  text, formats of the application) on macOS and Windows; pictures and
+  formats of the application on the clipboard.
+- [ ] The same on X11 and Wayland; files made on demand when dropped (file promises).
 - [ ] Glass over a native child window.
-- [ ] Embedding the system web view (WebView2, WebKitGTK).
+- [x] Embedding the system web view: `SystemWebView`, WKWebView on macOS
+  (and iOS), WebKit opened at run time.
+- [ ] The system web view on Windows (WebView2), Linux (WebKitGTK) and Android
+  (`android.webkit.WebView`).
 
 ### Rendering
 

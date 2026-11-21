@@ -11,6 +11,7 @@
  *     Windows still moves, snaps and resizes them, from the answers to
  *     WM_NCHITTEST,
  *   - files dropped from the Explorer (WM_DROPFILES),
+ *   - clipboard formats and drags out of the windows (win32_transfer.c),
  *   - precision touchpads through Direct Manipulation (win32_manipulation.c):
  *     scrolling by pixels, its inertia and the pinch,
  *   - an event object so that other threads can wake the event loop.
@@ -36,9 +37,12 @@
 #include <windows.h>
 #include <windowsx.h>
 #include <shellapi.h>
+#include <imm.h>
+#include "../../widget/widget.h"
 #include "win32_uia.h"
 #include "win32_manipulation.h"
 #include "win32_taskbar.h"
+#include "win32_transfer.h"
 
 #ifndef WM_DPICHANGED
 #define WM_DPICHANGED 0x02E0
@@ -170,6 +174,18 @@ struct rvn_pwindow_t {
 	/** The progress on its taskbar button, given again when the button is made (0: none). */
 	int progress_state;
 	float progress_value;
+	/**
+	 * The input method (IMM32): turned off while the focus takes no text;
+	 * composing; where its windows were put (the caret of the field, pixels);
+	 * the scan codes of the keys it took (their key up is not sent either);
+	 * the text being composed, in UTF-8 (in the window: an event that waits in
+	 * the queue points to it).
+	 */
+	int ime_off;
+	int ime_composing;
+	RECT ime_rect;
+	unsigned char ime_keys[256];
+	char ime_text[1024];
 	struct rvn_pwindow_t* next;
 };
 
@@ -481,9 +497,12 @@ static RKey rvn_win32_translate_key(WPARAM virtual_key, LPARAM info) {
  *  Window procedure
  * ------------------------------------------------------------------------- */
 
+static void rvn_win32_ime_complete(rvn_pwindow_t* window);
+
 static void rvn_win32_mouse_button(rvn_pwindow_t* window, RMouseButton button, int pressed, LPARAM position) {
 	rvn_pevent_t event;
 
+	if (pressed) rvn_win32_ime_complete(window);
 	/* keep receiving the mouse while a button is held, also outside the window (drags) */
 	if (pressed) {
 		if (window->buttons_down++ == 0) SetCapture(window->handle);
@@ -511,6 +530,193 @@ static void rvn_win32_key(rvn_pwindow_t* window, WPARAM virtual_key, LPARAM info
 	/* bit 30: the key was already down before this message */
 	event.repeat = pressed && ((info >> 30) & 1);
 	rvn_win32_emit(window, &event);
+}
+
+/* ---------------------------------------------------------------------------
+ *  Input methods (IMM32: Chinese, Japanese, Korean)
+ *
+ * The composition is drawn by the field itself (RVN_PEVENT_COMPOSITION), not
+ * in the window of the input method; its candidate window is put at the caret
+ * (Rwindow_get_text_input_rect). The input method is turned off while the
+ * focus is not in a text field. imm32.dll is loaded at run time.
+ * ------------------------------------------------------------------------- */
+
+typedef HIMC (WINAPI *rvn_imm_get_context_fn)(HWND);
+typedef BOOL (WINAPI *rvn_imm_release_context_fn)(HWND, HIMC);
+typedef LONG (WINAPI *rvn_imm_get_composition_string_fn)(HIMC, DWORD, LPVOID, DWORD);
+typedef BOOL (WINAPI *rvn_imm_set_composition_window_fn)(HIMC, LPCOMPOSITIONFORM);
+typedef BOOL (WINAPI *rvn_imm_set_candidate_window_fn)(HIMC, LPCANDIDATEFORM);
+typedef BOOL (WINAPI *rvn_imm_associate_context_ex_fn)(HWND, HIMC, DWORD);
+typedef BOOL (WINAPI *rvn_imm_notify_ime_fn)(HIMC, DWORD, DWORD, DWORD);
+
+static struct {
+	int loaded;
+	rvn_imm_get_context_fn get_context;
+	rvn_imm_release_context_fn release_context;
+	rvn_imm_get_composition_string_fn get_composition_string;
+	rvn_imm_set_composition_window_fn set_composition_window;
+	rvn_imm_set_candidate_window_fn set_candidate_window;
+	rvn_imm_associate_context_ex_fn associate_context_ex;
+	rvn_imm_notify_ime_fn notify_ime;
+} g_imm;
+
+static int rvn_win32_imm(void) {
+	if (!g_imm.loaded) {
+		HMODULE imm = LoadLibraryW(L"imm32.dll");
+		g_imm.loaded = R_TRUE;
+		if (imm) {
+			g_imm.get_context = RVN_WIN32_FUNCTION(rvn_imm_get_context_fn, GetProcAddress(imm, "ImmGetContext"));
+			g_imm.release_context = RVN_WIN32_FUNCTION(rvn_imm_release_context_fn, GetProcAddress(imm, "ImmReleaseContext"));
+			g_imm.get_composition_string = RVN_WIN32_FUNCTION(rvn_imm_get_composition_string_fn, GetProcAddress(imm, "ImmGetCompositionStringW"));
+			g_imm.set_composition_window = RVN_WIN32_FUNCTION(rvn_imm_set_composition_window_fn, GetProcAddress(imm, "ImmSetCompositionWindow"));
+			g_imm.set_candidate_window = RVN_WIN32_FUNCTION(rvn_imm_set_candidate_window_fn, GetProcAddress(imm, "ImmSetCandidateWindow"));
+			g_imm.associate_context_ex = RVN_WIN32_FUNCTION(rvn_imm_associate_context_ex_fn, GetProcAddress(imm, "ImmAssociateContextEx"));
+			g_imm.notify_ime = RVN_WIN32_FUNCTION(rvn_imm_notify_ime_fn, GetProcAddress(imm, "ImmNotifyIME"));
+		}
+	}
+	return g_imm.get_context && g_imm.release_context && g_imm.get_composition_string && g_imm.set_composition_window &&
+		g_imm.set_candidate_window && g_imm.associate_context_ex && g_imm.notify_ime;
+}
+
+static Rid rvn_win32_core(const rvn_pwindow_t* window) {
+	const rvn_window_t* core = window ? (const rvn_window_t*)window->user : NULL;
+	return core ? core->id : R_INVALID_ID;
+}
+
+/* Puts the composition and candidate windows of the input method at the caret of the field (when it moved, or `force`). */
+static void rvn_win32_ime_place(rvn_pwindow_t* window, int force) {
+	Rid core = rvn_win32_core(window);
+	int x, y, width, height;
+	HIMC context;
+	COMPOSITIONFORM composition;
+	CANDIDATEFORM candidate;
+	if (!rvn_win32_imm() || core == R_INVALID_ID || !Rwindow_get_text_input_rect(core, &x, &y, &width, &height)) return;
+	if (!force && window->ime_rect.left == x && window->ime_rect.top == y &&
+		window->ime_rect.right == x + width && window->ime_rect.bottom == y + height) return;
+	SetRect(&window->ime_rect, x, y, x + width, y + height);
+	context = g_imm.get_context(window->handle);
+	if (!context) return;
+	memset(&composition, 0, sizeof(composition));
+	composition.dwStyle = CFS_POINT;
+	composition.ptCurrentPos.x = x;
+	composition.ptCurrentPos.y = y;
+	g_imm.set_composition_window(context, &composition);
+	/* the candidates below the caret, never over it */
+	memset(&candidate, 0, sizeof(candidate));
+	candidate.dwIndex = 0;
+	candidate.dwStyle = CFS_EXCLUDE;
+	candidate.ptCurrentPos.x = x;
+	candidate.ptCurrentPos.y = y + height;
+	candidate.rcArea = window->ime_rect;
+	g_imm.set_candidate_window(context, &candidate);
+	g_imm.release_context(window->handle, context);
+}
+
+/* A string of the composition (GCS_COMPSTR, GCS_RESULTSTR), and its length in UTF-16 units. Free with rvn_free. */
+static WCHAR* rvn_win32_ime_string(HIMC context, DWORD kind, int* count) {
+	LONG bytes = g_imm.get_composition_string(context, kind, NULL, 0);
+	WCHAR* text;
+	if (bytes < 0) bytes = 0;
+	text = (WCHAR*)rvn_calloc((size_t)bytes + sizeof(WCHAR));
+	if (bytes > 0) bytes = g_imm.get_composition_string(context, kind, text, (DWORD)bytes);
+	*count = bytes > 0 ? (int)(bytes / (LONG)sizeof(WCHAR)) : 0;
+	return text;
+}
+
+static void rvn_win32_emit_composition(rvn_pwindow_t* window, const char* text, int start, int end) {
+	rvn_pevent_t event;
+	memset(&event, 0, sizeof(event));
+	event.type = RVN_PEVENT_COMPOSITION;
+	event.composition = text;
+	event.composition_start = start;
+	event.composition_end = end;
+	rvn_win32_emit(window, &event);
+}
+
+static void rvn_win32_char(rvn_pwindow_t* window, WCHAR unit);
+
+/* WM_IME_COMPOSITION: the committed text (as characters), then the text being composed. */
+static void rvn_win32_ime_composition(rvn_pwindow_t* window, LPARAM flags) {
+	HIMC context = g_imm.get_context(window->handle);
+	WCHAR* text;
+	int count, i;
+	if (!context) return;
+	if (flags & GCS_RESULTSTR) {
+		text = rvn_win32_ime_string(context, GCS_RESULTSTR, &count);
+		/* (the text events end the composition in the core) */
+		window->ime_composing = R_FALSE;
+		for (i = 0; i < count; i++) rvn_win32_char(window, text[i]);
+		rvn_free(text);
+	}
+	if (flags & GCS_COMPSTR) {
+		LONG cursor = g_imm.get_composition_string(context, GCS_CURSORPOS, NULL, 0);
+		int start, end, bytes, room = (int)sizeof(window->ime_text) - 1;
+		text = rvn_win32_ime_string(context, GCS_COMPSTR, &count);
+		/* (what does not fit in the buffer is not shown; an input method composes far less) */
+		while (count > 0 && WideCharToMultiByte(CP_UTF8, 0, text, count, NULL, 0, NULL, NULL) > room) count--;
+		if (count > 0 && text[count - 1] >= 0xD800 && text[count - 1] <= 0xDBFF) count--;
+		start = end = cursor < 0 ? count : (cursor > count ? count : (int)cursor);
+		/* the clause being converted: the part the input method works on */
+		if (flags & GCS_COMPATTR) {
+			LONG length = g_imm.get_composition_string(context, GCS_COMPATTR, NULL, 0);
+			if (length > 0) {
+				BYTE* attributes = (BYTE*)rvn_calloc((size_t)length);
+				length = g_imm.get_composition_string(context, GCS_COMPATTR, attributes, (DWORD)length);
+				for (i = 0; i < count && i < (int)length; i++) {
+					if (attributes[i] != ATTR_TARGET_CONVERTED && attributes[i] != ATTR_TARGET_NOTCONVERTED) continue;
+					start = i;
+					while (i < count && i < (int)length && (attributes[i] == ATTR_TARGET_CONVERTED || attributes[i] == ATTR_TARGET_NOTCONVERTED)) i++;
+					end = i;
+					break;
+				}
+				rvn_free(attributes);
+			}
+		}
+		bytes = count > 0 ? WideCharToMultiByte(CP_UTF8, 0, text, count, window->ime_text, room, NULL, NULL) : 0;
+		window->ime_text[bytes > 0 ? bytes : 0] = '\0';
+		window->ime_composing = bytes > 0;
+		rvn_win32_emit_composition(window, bytes > 0 ? window->ime_text : NULL,
+			start > 0 ? WideCharToMultiByte(CP_UTF8, 0, text, start, NULL, 0, NULL, NULL) : 0,
+			end > 0 ? WideCharToMultiByte(CP_UTF8, 0, text, end, NULL, 0, NULL, NULL) : 0);
+		rvn_free(text);
+	}
+	g_imm.release_context(window->handle, context);
+}
+
+/* A click while composing: what was composed is committed first, where it was composed. */
+static void rvn_win32_ime_complete(rvn_pwindow_t* window) {
+	HIMC context;
+	if (!window->ime_composing || !rvn_win32_imm()) return;
+	context = g_imm.get_context(window->handle);
+	if (!context) return;
+	g_imm.notify_ime(context, NI_COMPOSITIONSTR, CPS_COMPLETE, 0);
+	g_imm.release_context(window->handle, context);
+}
+
+/*
+ * After the events: the input method on while the focus takes text, off
+ * elsewhere (keys then go to shortcuts and games as they are); its windows at
+ * the caret; and a composition the core ended (the focus moved) is cancelled.
+ */
+static void rvn_win32_ime_update(rvn_pwindow_t* window) {
+	Rid core = rvn_win32_core(window);
+	int wants;
+	if (window->is_child || core == R_INVALID_ID || !rvn_win32_imm()) return;
+	wants = Rwindow_wants_text_input(core);
+	if (window->ime_composing && !Rwindow_get_text_composition(core, NULL, NULL)) {
+		HIMC context = g_imm.get_context(window->handle);
+		window->ime_composing = R_FALSE;
+		if (context) {
+			g_imm.notify_ime(context, NI_COMPOSITIONSTR, CPS_CANCEL, 0);
+			g_imm.release_context(window->handle, context);
+		}
+	}
+	if (wants == window->ime_off) {
+		g_imm.associate_context_ex(window->handle, NULL, wants ? IACE_DEFAULT : 0);
+		window->ime_off = !wants;
+		if (wants) memset(&window->ime_rect, 0, sizeof(window->ime_rect));
+	}
+	if (wants) rvn_win32_ime_place(window, R_FALSE);
 }
 
 static void rvn_win32_char(rvn_pwindow_t* window, WCHAR unit) {
@@ -967,9 +1173,18 @@ static LRESULT CALLBACK rvn_win32_window_proc(HWND handle, UINT message, WPARAM 
 		}
 
 		case WM_KEYDOWN:
+			/* a key the input method takes: not a key for the core, nor its key up */
+			if (wparam == VK_PROCESSKEY) {
+				window->ime_keys[(lparam >> 16) & 0xFF] = 1;
+				return 0;
+			}
 			rvn_win32_key(window, wparam, lparam, R_TRUE);
 			return 0;
 		case WM_KEYUP:
+			if (window->ime_keys[(lparam >> 16) & 0xFF]) {
+				window->ime_keys[(lparam >> 16) & 0xFF] = 0;
+				return 0;
+			}
 			rvn_win32_key(window, wparam, lparam, R_FALSE);
 			return 0;
 		case WM_SYSKEYDOWN:
@@ -982,6 +1197,26 @@ static LRESULT CALLBACK rvn_win32_window_proc(HWND handle, UINT message, WPARAM 
 
 		case WM_CHAR:
 			rvn_win32_char(window, (WCHAR)wparam);
+			return 0;
+
+		case WM_IME_SETCONTEXT:
+			/* the field draws the composition: not the window of the input method (its candidates stay) */
+			if (wparam) lparam &= ~(LPARAM)ISC_SHOWUICOMPOSITIONWINDOW;
+			return DefWindowProcW(handle, message, wparam, lparam);
+		case WM_IME_STARTCOMPOSITION:
+			rvn_win32_ime_place(window, R_TRUE);
+			return 0;
+		case WM_IME_COMPOSITION:
+			if (!rvn_win32_imm()) break;
+			/* (handled here: Windows then sends no WM_IME_CHAR / WM_CHAR for the committed text) */
+			rvn_win32_ime_composition(window, lparam);
+			rvn_win32_ime_place(window, R_FALSE);
+			return 0;
+		case WM_IME_ENDCOMPOSITION:
+			if (window->ime_composing) {
+				window->ime_composing = R_FALSE;
+				rvn_win32_emit_composition(window, NULL, 0, 0);
+			}
 			return 0;
 		case WM_SYSCHAR:
 			/* Alt+letter would beep; Alt+Space still opens the system menu */
@@ -998,6 +1233,7 @@ static LRESULT CALLBACK rvn_win32_window_proc(HWND handle, UINT message, WPARAM 
 			rvn_win32_emit(window, &event);
 			return 0;
 		case WM_KILLFOCUS:
+			memset(window->ime_keys, 0, sizeof(window->ime_keys));
 			if (window->buttons_down > 0) {
 				window->buttons_down = 0;
 				ReleaseCapture();
@@ -1139,11 +1375,21 @@ static void rvn_win32_copy_wide(WCHAR* out, size_t capacity, const char* text) {
 #endif
 
 static WNDPROC g_rvn_notify_static_proc;
+/* The tag of the balloon shown (one at a time: a new one takes its place), or NULL. */
+static char* g_rvn_notify_tag;
+
+void rvn_win32_balloon_clicked(void) {
+	/* (the core may hear of it after the balloon was replaced: the tag of the one clicked is kept) */
+	char* tag = g_rvn_notify_tag;
+	g_rvn_notify_tag = NULL;
+	if (tag) rvn_notification_event(tag, R_NOTIFICATION_ACTIVATED, NULL);
+	rvn_free(tag);
+}
 
 static LRESULT CALLBACK rvn_win32_notify_proc(HWND handle, UINT message, WPARAM wparam, LPARAM lparam) {
 	if (message == RVN_WM_NOTIFY_ICON) {
 		/* the event is lparam (or its low word, with NOTIFYICON_VERSION_4) */
-		if (LOWORD(lparam) == NIN_BALLOONUSERCLICK) rvn_notification_clicked();
+		if (LOWORD(lparam) == NIN_BALLOONUSERCLICK) rvn_win32_balloon_clicked();
 		return 0;
 	}
 	return CallWindowProcW(g_rvn_notify_static_proc, handle, message, wparam, lparam);
@@ -1151,22 +1397,22 @@ static LRESULT CALLBACK rvn_win32_notify_proc(HWND handle, UINT message, WPARAM 
 
 static void rvn_win32_notify_shutdown(void);
 
-static int rvn_win32_notify(const char* app, const char* title, const char* body, int urgency) {
+/* Shows the balloon (empty texts: takes it away) on the tray icon of the application, else on an icon of its own. */
+static int rvn_win32_balloon(const char* title, const char* body, DWORD info_flags, const char* app) {
 	NOTIFYICONDATAW data;
-	/* low: no sound; critical: the error sign */
-	DWORD info_flags = urgency <= 0 ? (NIIF_NONE | NIIF_NOSOUND) : urgency >= 2 ? NIIF_ERROR : NIIF_INFO;
 	{
 		/* the application has a tray icon: the notification is shown on it
 		 * (one icon in the notification area, not two) */
 		WCHAR info_title[64], info_text[256];
-		rvn_win32_copy_wide(info_title, RVN_COUNT_OF(info_title), *title ? title : app);
-		rvn_win32_copy_wide(info_text, RVN_COUNT_OF(info_text), *body ? body : " ");
+		rvn_win32_copy_wide(info_title, RVN_COUNT_OF(info_title), title);
+		rvn_win32_copy_wide(info_text, RVN_COUNT_OF(info_text), body);
 		if (rvn_win32_tray_balloon(info_title, info_text, info_flags)) {
 			/* (an icon of its own made before the tray icon came: gone) */
 			if (g_win32.notify_icon) rvn_win32_notify_shutdown();
 			return R_TRUE;
 		}
 	}
+	if (!*body && !g_win32.notify_icon) return R_TRUE;
 	if (!g_win32.notify_window) {
 		/* a message-only window: never shown, it only owns the icon and hears its clicks */
 		g_win32.notify_window = CreateWindowExW(0, L"STATIC", L"", 0, 0, 0, 0, 0, HWND_MESSAGE, NULL, g_win32.instance, NULL);
@@ -1186,10 +1432,33 @@ static int rvn_win32_notify(const char* app, const char* title, const char* body
 		g_win32.notify_icon = R_TRUE;
 	}
 	data.uFlags = NIF_INFO;
-	rvn_win32_copy_wide(data.szInfoTitle, RVN_COUNT_OF(data.szInfoTitle), *title ? title : app);
-	rvn_win32_copy_wide(data.szInfo, RVN_COUNT_OF(data.szInfo), *body ? body : " ");
+	rvn_win32_copy_wide(data.szInfoTitle, RVN_COUNT_OF(data.szInfoTitle), title);
+	rvn_win32_copy_wide(data.szInfo, RVN_COUNT_OF(data.szInfo), body);
 	data.dwInfoFlags = info_flags;
 	return Shell_NotifyIconW(NIM_MODIFY, &data) ? R_TRUE : R_FALSE;
+}
+
+/* (no buttons and no image of its own: a balloon has neither; the newest one replaces the one shown) */
+static int rvn_win32_notify(const rvn_notification_t* notification) {
+	int urgency = notification->urgency;
+	/* low: no sound; critical: the error sign */
+	DWORD info_flags = urgency <= 0 ? (NIIF_NONE | NIIF_NOSOUND) : urgency >= 2 ? NIIF_ERROR : NIIF_INFO;
+	if (!rvn_win32_balloon(notification->title[0] ? notification->title : notification->app,
+		notification->body[0] ? notification->body : " ", info_flags, notification->app)) return R_FALSE;
+	rvn_str_set(&g_rvn_notify_tag, notification->tag);
+	return R_TRUE;
+}
+
+static void rvn_win32_notify_close(const char* tag) {
+	if (!g_rvn_notify_tag || strcmp(g_rvn_notify_tag, tag) != 0) return;
+	/* an empty text takes the balloon away */
+	rvn_win32_balloon("", "", NIIF_NONE, "");
+	rvn_free(g_rvn_notify_tag);
+	g_rvn_notify_tag = NULL;
+}
+
+static unsigned rvn_win32_notify_features(void) {
+	return R_NOTIFICATION_FEATURE_REPLACE | R_NOTIFICATION_FEATURE_CLOSE | R_NOTIFICATION_FEATURE_ACTIVATED;
 }
 
 static void rvn_win32_notify_shutdown(void) {
@@ -1204,6 +1473,8 @@ static void rvn_win32_notify_shutdown(void) {
 	if (g_win32.notify_window) DestroyWindow(g_win32.notify_window);
 	g_win32.notify_window = NULL;
 	g_win32.notify_icon = R_FALSE;
+	rvn_free(g_rvn_notify_tag);
+	g_rvn_notify_tag = NULL;
 }
 
 static void rvn_win32_shutdown(void) {
@@ -1212,6 +1483,7 @@ static void rvn_win32_shutdown(void) {
 	rvn_win32_manipulation_shutdown();
 	rvn_win32_taskbar_shutdown();
 	rvn_win32_tray_shutdown();
+	rvn_win32_transfer_shutdown();
 	if (g_win32.wake_event) CloseHandle(g_win32.wake_event);
 	UnregisterClassW(RVN_WIN32_CHILD_CLASS, g_win32.instance);
 	UnregisterClassW(RVN_WIN32_CLASS, g_win32.instance);
@@ -1650,6 +1922,16 @@ static void rvn_win32_window_show(rvn_pwindow_t* window, int visible) {
 	if (visible) window->shown_once = R_TRUE;
 }
 
+/* Rwindow_focus (and a click on a notification, after which Windows lets the application come to the
+ * front): out of the taskbar if minimized, in front, with the keyboard. */
+static void rvn_win32_window_focus(rvn_pwindow_t* window) {
+	if (IsIconic(window->handle)) ShowWindow(window->handle, SW_RESTORE);
+	else if (!IsWindowVisible(window->handle)) ShowWindow(window->handle, SW_SHOW);
+	window->shown_once = R_TRUE;
+	BringWindowToTop(window->handle);
+	SetForegroundWindow(window->handle);
+}
+
 static void rvn_win32_window_set_state(rvn_pwindow_t* window, rvn_pwindow_state_t state) {
 	switch (state) {
 		case RVN_PWINDOW_MINIMIZED: ShowWindow(window->handle, SW_MINIMIZE); break;
@@ -1836,6 +2118,28 @@ static char* rvn_win32_clipboard_get(void) {
 	return text;
 }
 
+/*
+ * A drag out of the window: DoDragDrop runs it and returns at its end. It
+ * takes the release of the button itself: the window lets the mouse go.
+ * The end reaches the core in its turn with the other events.
+ */
+static int rvn_win32_drag_begin(rvn_pwindow_t* window, const RDataItem* items, int count, uint32_t operations,
+	const uint8_t* rgba, int width, int height) {
+	rvn_pevent_t event;
+	int operation = R_DRAG_OPERATION_NONE;
+	if (!window || !window->handle) return R_FALSE;
+	if (window->buttons_down) {
+		window->buttons_down = 0;
+		ReleaseCapture();
+	}
+	if (!rvn_win32_drag(window->handle, items, count, operations, rgba, width, height, &operation)) return R_FALSE;
+	memset(&event, 0, sizeof(event));
+	event.type = RVN_PEVENT_DRAG_END;
+	event.operation = operation;
+	rvn_win32_emit_app(&event);
+	return R_TRUE;
+}
+
 /* ---------------------------------------------------------------------------
  *  Events
  * ------------------------------------------------------------------------- */
@@ -1888,6 +2192,7 @@ static void rvn_win32_pump(double timeout_seconds) {
 		g_win32_queue.dispatching--;
 		rvn_win32_flush_events();
 	}
+	for (window = g_win32.windows; window; window = window->next) rvn_win32_ime_update(window);
 	g_win32_queue.handling = handling;
 	rvn_dispatch_end();
 }
@@ -1938,6 +2243,7 @@ const rvn_platform_t* rvn_platform_win32(void) {
 		.window_get_position = rvn_win32_window_get_position,
 		.window_get_scale = rvn_win32_window_get_scale,
 		.window_show = rvn_win32_window_show,
+		.window_focus = rvn_win32_window_focus,
 		.window_set_state = rvn_win32_window_set_state,
 		.window_get_state = rvn_win32_window_get_state,
 		.window_begin_move = rvn_win32_window_begin_move,
@@ -1967,12 +2273,18 @@ const rvn_platform_t* rvn_platform_win32(void) {
 		.wake = rvn_win32_wake,
 		.clipboard_set = rvn_win32_clipboard_set,
 		.clipboard_get = rvn_win32_clipboard_get,
+		.clipboard_set_data = rvn_win32_clipboard_set_data,
+		.clipboard_has_data = rvn_win32_clipboard_has_data,
+		.clipboard_get_data = rvn_win32_clipboard_get_data,
+		.drag_begin = rvn_win32_drag_begin,
 		.wait_service = rvn_win32_wait_service,
 		.a11y_event = rvn_win32_a11y_event,
 		.a11y_announce = rvn_win32_a11y_announce,
 		.a11y_active = rvn_uia_active,
 		.a11y_settings = rvn_uia_settings,
-		.notify = rvn_win32_notify
+		.notify = rvn_win32_notify,
+		.notify_close = rvn_win32_notify_close,
+		.notify_features = rvn_win32_notify_features
 	};
 	return &platform;
 }

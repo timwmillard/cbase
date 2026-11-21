@@ -55,7 +55,7 @@ typedef enum glyph_t {
 	G_TEXT, G_PICTURE, G_LINES, G_LIST, G_TREE, G_TIMELINE, G_BLOCKS, G_NODES, G_ITEM, G_WINDOW, G_HEADER,
 	G_MENUBAR, G_MENU, G_MENUITEM, G_DOCK, G_ISLAND, G_BLUR, G_COLOR, G_VIEWPORT, G_SPARK, G_FOLDER, G_KEY,
 	G_CODE, G_REPEAT, G_IF, G_INCLUDE, G_CHILDREN, G_PUZZLE, G_COMMENT, G_PALETTE, G_TABLE, G_FILE,
-	G_CALENDAR, G_CLOCK, G_TOAST, G_CRUMBS, G_STAR, G_PAGER, G_PLOT, G_PIE, G_CAROUSEL
+	G_CALENDAR, G_CLOCK, G_TOAST, G_CRUMBS, G_STAR, G_PAGER, G_PLOT, G_PIE, G_CAROUSEL, G_GLOBE, G_DIFF
 } glyph_t;
 
 /* Every picture: the tag (or "#..." for what is not a tag), its family, its glyph. The order of a family is the order of the palette. */
@@ -74,6 +74,7 @@ static const struct { const char* key; unsigned char family; unsigned char glyph
 	{ "DatePicker", FAMILY_CONTROL, G_CALENDAR }, { "TimePicker", FAMILY_CONTROL, G_CLOCK }, { "Rating", FAMILY_CONTROL, G_STAR },
 	/* text and pictures */
 	{ "Label", FAMILY_TEXT, G_TEXT }, { "Image", FAMILY_TEXT, G_PICTURE }, { "TextEditor", FAMILY_TEXT, G_LINES },
+	{ "DiffView", FAMILY_TEXT, G_DIFF },
 	{ "Separator", FAMILY_TEXT, G_LINE }, { "Viewport", FAMILY_TEXT, G_VIEWPORT }, { "Custom", FAMILY_TEXT, G_SPARK },
 	/* lists and data */
 	{ "ListView", FAMILY_DATA, G_LIST }, { "TreeView", FAMILY_DATA, G_TREE }, { "TileView", FAMILY_DATA, G_TILES },
@@ -83,7 +84,7 @@ static const struct { const char* key; unsigned char family; unsigned char glyph
 	{ "Cell", FAMILY_DATA, G_ITEM }, { "Pagination", FAMILY_DATA, G_PAGER }, { "Plot", FAMILY_DATA, G_PLOT },
 	{ "Chart", FAMILY_DATA, G_PIE }, { "Slice", FAMILY_DATA, G_ITEM }, { "Band", FAMILY_DATA, G_ITEM },
 	{ "PdfView", FAMILY_DATA, G_FILE },
-	{ "PdfView", FAMILY_DATA, G_FILE }, { "MapView", FAMILY_DATA, G_PICTURE },
+	{ "PdfView", FAMILY_DATA, G_FILE }, { "MapView", FAMILY_DATA, G_PICTURE }, { "SystemWebView", FAMILY_DATA, G_GLOBE },
 	{ "Series", FAMILY_DATA, G_ITEM }, { "Scatter", FAMILY_DATA, G_ITEM }, { "DragLine", FAMILY_DATA, G_ITEM },
 	{ "Track", FAMILY_DATA, G_TIMELINE }, { "Clip", FAMILY_DATA, G_PROGRESS }, { "Key", FAMILY_DATA, G_ITEM },
 	{ "Marker", FAMILY_DATA, G_ITEM }, { "Node", FAMILY_DATA, G_NODES }, { "Input", FAMILY_DATA, G_ITEM },
@@ -464,10 +465,22 @@ static void draw_glyph(cell_t* c, glyph_t glyph) {
 			ring(c, 15, 17, 8.5f, 3.4f, 0.7f);
 			line(c, 18.5f, 5.5f, 18.5f, 10, 3.4f, 1); line(c, 22, 13.5f, 26.5f, 13.5f, 3.4f, 1);
 			disc(c, 22.5f, 10, 1.8f, 1);
+		case G_GLOBE:
+			/* the earth with a meridian and three parallels: a web page */
+			ring(c, 16, 16, 9, STROKE, 1); outline(c, 12, 7, 20, 25, 4, 1.6f, 0.8f);
+			line(c, 7.5f, 16, 24.5f, 16, 1.6f, 0.8f); line(c, 9, 11.5f, 23, 11.5f, 1.4f, 0.6f); line(c, 9, 20.5f, 23, 20.5f, 1.4f, 0.6f);
+			break;
 		case G_CAROUSEL:
 			/* a page between the edges of its neighbours, its dots under it */
 			box(c, 10, 7, 22, 20, 2, 1); box(c, 5, 9, 8, 18, 1.2f, 0.5f); box(c, 24, 9, 27, 18, 1.2f, 0.5f);
 			line(c, 14.5f, 24.5f, 17.5f, 24.5f, 2.6f, 1); disc(c, 10.5f, 24.5f, 1.3f, 0.6f); disc(c, 21.5f, 24.5f, 1.3f, 0.6f);
+			break;
+		case G_DIFF:
+			/* two texts side by side: a line taken out of the left one, a line put into the right one */
+			outline(c, 5, 7, 27, 25, 2.5f, STROKE, 1); line(c, 16, 7, 16, 25, 1.6f, 0.7f);
+			line(c, 8.5f, 11.5f, 13, 11.5f, 1.6f, 0.6f); line(c, 8.5f, 20.5f, 13, 20.5f, 1.6f, 0.6f);
+			line(c, 19, 11.5f, 23.5f, 11.5f, 1.6f, 0.6f); line(c, 19, 20.5f, 23.5f, 20.5f, 1.6f, 0.6f);
+			line(c, 8, 16, 13.5f, 16, 2.2f, 1); line(c, 18.5f, 16, 24, 16, 2.2f, 1); line(c, 21.25f, 13.25f, 21.25f, 18.75f, 2.2f, 1);
 			break;
 		case G_FILE:
 			outline(c, 9, 7, 23, 25, 2.5f, STROKE, 1); line(c, 12.5f, 13, 19.5f, 13, 1.6f, 0.7f); line(c, 12.5f, 17, 19.5f, 17, 1.6f, 0.7f);

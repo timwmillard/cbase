@@ -30,6 +30,31 @@
  * Ctrl+Y or Ctrl+Shift+Z; Tab and Shift+Tab indent the selected lines;
  * Ctrl+Space proposes words; Ctrl+/ comments the selected lines out.
  * A double click selects a word, a triple click a line.
+ *
+ * Ctrl+F (Cmd+F on macOS) opens a find bar over the text, Ctrl+H
+ * (Cmd+Option+F) the same bar with a row to replace; the selected text is
+ * what it looks for. Enter and Shift+Enter, F3 and Shift+F3, Cmd+G and
+ * Cmd+Shift+G go to the next and the previous match; Escape closes it. The
+ * search itself (Rtext_editor_set_search, Rtext_editor_find_next...) works
+ * without the bar, for an application that has its own.
+ *
+ * Several cursors: Alt+click (Option+click) adds one; Ctrl+D (Cmd+D) selects
+ * the word at the caret, then adds the next occurrence of the selection;
+ * Ctrl+Shift+L (Cmd+Shift+L), or Alt+Enter in the find bar, puts one on
+ * every occurrence; Ctrl+Alt+Up / Down (Cmd+Option+Up / Down) adds one on
+ * the row above or below; Alt+Shift+drag selects a column. Typing, erasing,
+ * Enter, Tab, the clipboard and the arrows then act at every cursor; Escape
+ * goes back to one. The main cursor (the last one added) is the one the view
+ * follows, the one the functions of a single cursor (Rtext_editor_get_cursor,
+ * Rtext_editor_get_selection...) speak of, and the one where an input method
+ * composes; what it commits is typed at every cursor.
+ *
+ * Folding: a line that opens a bracket closed on a later line, or that the
+ * next lines are more indented than, starts a region that can be folded.
+ * With line numbers, a marker in their margin folds and unfolds it (the
+ * markers show while the pointer is over the margin); Ctrl+Shift+[ and
+ * Ctrl+Shift+] (Cmd+Option+[ and ]) fold and unfold at the caret. A folded
+ * region shows its first line followed by "..." (a click unfolds it).
  */
 
 #ifndef RAVEN_TEXT_EDITOR_H
@@ -135,6 +160,18 @@ typedef enum RToken{
 	R_TOKEN_LINK
 }RToken;
 
+/** Options of a search (Rtext_editor_set_search), a bitmask. */
+typedef enum RSearchFlags{
+	/**
+	 * Upper and lower case differ. Without it the case is ignored, for the
+	 * letters of ASCII, Latin-1, the Latin letters of Unicode, Greek,
+	 * Cyrillic and Armenian.
+	 */
+	R_SEARCH_MATCH_CASE = (1 << 0),
+	/** A match is a whole word: "for" does not find the start of "format". */
+	R_SEARCH_WHOLE_WORD = (1 << 1)
+}RSearchFlags;
+
 /** What a marker says about the text it underlines. */
 typedef enum RMarkerKind{
 	R_MARKER_ERROR = 0x0350,
@@ -165,7 +202,8 @@ extern "C" {
 
 	/**
 	 * @brief Types a text at the cursor, replacing the selection, as the user
-	 * would: it can be undone and the changed callback is called.
+	 * would (at every cursor when there are several): it can be undone and
+	 * the changed callback is called.
 	 */
 	RAVEN_API void Rtext_editor_insert_text(Rid editor, const char* text);
 
@@ -184,6 +222,73 @@ extern "C" {
 
 	/** @brief Scrolls so that a line is visible. */
 	RAVEN_API void Rtext_editor_scroll_to_line(Rid editor, int line);
+
+	/* ---- several cursors ---- */
+
+	/**
+	 * @brief Adds a cursor (a caret) to the editor; the main cursor stays
+	 * the main one. A cursor over another one, or at the place of another
+	 * caret, becomes one with it. Rtext_editor_set_cursor,
+	 * Rtext_editor_select and Rtext_editor_set_text go back to one cursor.
+	 */
+	RAVEN_API void Rtext_editor_add_cursor(Rid editor, int line, int column);
+	/** @brief Adds a cursor that selects from one position to another (its caret on the second). */
+	RAVEN_API void Rtext_editor_add_selection(Rid editor, int from_line, int from_column, int to_line, int to_column);
+	/** @return The number of cursors, the main one included (1 at least). */
+	RAVEN_API int Rtext_editor_get_cursor_count(Rid editor);
+	/**
+	 * @brief A cursor by its index, in the order of the text (0 for the
+	 * first): its caret and the anchor of its selection (the same position
+	 * when nothing is selected). Returns R_FALSE when `index` is out of range.
+	 */
+	RAVEN_API int Rtext_editor_get_cursor_at(Rid editor, int index, int* line, int* column, int* anchor_line, int* anchor_column);
+	/** @return The index of the main cursor, in the order of Rtext_editor_get_cursor_at. */
+	RAVEN_API int Rtext_editor_get_main_cursor(Rid editor);
+	/** @brief Back to the main cursor alone, as Escape does. */
+	RAVEN_API void Rtext_editor_clear_cursors(Rid editor);
+	/**
+	 * @brief What Ctrl+D does: with nothing selected, selects the word at
+	 * each caret; else adds a cursor on the next occurrence of the main
+	 * selection (with its case, a whole word when it was selected so) that no
+	 * cursor selects, going on from the start of the text. Returns R_FALSE
+	 * when there is none.
+	 */
+	RAVEN_API int Rtext_editor_add_next_occurrence(Rid editor);
+	/** @brief What Ctrl+Shift+L does: a cursor on every occurrence of the main selection (or of the word at the caret). Returns their number. */
+	RAVEN_API int Rtext_editor_select_all_occurrences(Rid editor);
+
+	/* ---- folding ---- */
+
+	/**
+	 * @brief Folds the region that starts at a line: the lines after it, up
+	 * to the one before the bracket that closes it (or to the last one more
+	 * indented), are hidden. When the line starts none, or it is folded
+	 * already, the nearest region around the line is folded. Cursors in it
+	 * go to the end of its first line. Returns R_FALSE when there is none.
+	 * Line numbers stay those of the text. Folds follow the lines when text
+	 * is added or removed elsewhere; editing a hidden line (or the line break
+	 * of the first line) unfolds its region, and so does a match of the
+	 * search or a cursor that goes into it.
+	 */
+	RAVEN_API int Rtext_editor_fold(Rid editor, int line);
+	/** @brief Unfolds the region that starts at a line, or what hides it. Returns R_FALSE when nothing was folded there. */
+	RAVEN_API int Rtext_editor_unfold(Rid editor, int line);
+	/** @brief Folds every region, those inside others too. */
+	RAVEN_API void Rtext_editor_fold_all(Rid editor);
+	RAVEN_API void Rtext_editor_unfold_all(Rid editor);
+	/** @return R_TRUE when a folded region starts at this line. */
+	RAVEN_API int Rtext_editor_is_folded(Rid editor, int line);
+	/** @return R_TRUE when the line is hidden in a folded region. */
+	RAVEN_API int Rtext_editor_is_line_hidden(Rid editor, int line);
+	/** @return The last line of the region that starts at a line (folded or not), -1 when it starts none. */
+	RAVEN_API int Rtext_editor_get_fold_end(Rid editor, int line);
+	/**
+	 * @brief R_FALSE unfolds everything and stops folding: no markers, and
+	 * Ctrl+Shift+[ / ] go to the shortcuts of the window. On by default.
+	 * XML: Folding="false".
+	 */
+	RAVEN_API void Rtext_editor_set_folding(Rid editor, int enabled);
+	RAVEN_API int Rtext_editor_get_folding(Rid editor);
 
 	/* ---- history ---- */
 
@@ -269,6 +374,17 @@ extern "C" {
 	RAVEN_API int Rtext_editor_get_markdown(Rid editor);
 
 	/**
+	 * @brief Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+	 * a right click on one offers corrections (see SPELL CHECKING in
+	 * raven_controls.h). Only the lines shown are checked, again when they
+	 * change. Off by default: it is meant for prose, not for code.
+	 */
+	RAVEN_API void Rtext_editor_set_spell_check(Rid editor, int enabled);
+	RAVEN_API int Rtext_editor_get_spell_check(Rid editor);
+	/** @brief Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language). */
+	RAVEN_API void Rtext_editor_set_spell_language(Rid editor, const char* language);
+
+	/**
 	 * @brief What the language of the editor makes of the character at a
 	 * position: the colors come from it. R_TOKEN_TEXT without a language.
 	 */
@@ -336,6 +452,76 @@ extern "C" {
 	 */
 	typedef const char* (*RTextEditorHoverCallback)(Rid editor, int line, int column, void* user_data);
 	RAVEN_API void Rtext_editor_set_hover_callback(Rid editor, RTextEditorHoverCallback callback, void* user_data);
+
+	/* ---- search and replace ---- */
+
+	/**
+	 * @brief Sets what is searched for, with RSearchFlags, and shows every
+	 * match of the visible text (theme colors R_COLOR_SEARCH_MATCH and
+	 * R_COLOR_SEARCH_CURRENT). A match lies on one line: a query with a line
+	 * break finds nothing. NULL or "" clears the search. The selection does
+	 * not move; Rtext_editor_find_next goes to a match.
+	 */
+	RAVEN_API void Rtext_editor_set_search(Rid editor, const char* query, Ruint flags);
+	/** @return The text searched for, "" when there is none. */
+	RAVEN_API const char* Rtext_editor_get_search(Rid editor);
+	/** @return The RSearchFlags of the search. */
+	RAVEN_API Ruint Rtext_editor_get_search_flags(Rid editor);
+	/**
+	 * @brief Selects the next match after the selection (or the cursor),
+	 * going on from the start of the text after its end, and scrolls to it.
+	 * Returns R_FALSE when the text has no match.
+	 */
+	RAVEN_API int Rtext_editor_find_next(Rid editor);
+	/** @brief The same, toward the start: the match before the selection, from the end of the text after its start. */
+	RAVEN_API int Rtext_editor_find_previous(Rid editor);
+	/** @return The number of matches in the whole text. Counted once per change of the text or of the search. */
+	RAVEN_API int Rtext_editor_get_match_count(Rid editor);
+	/** @return The index of the selected match (0 for the first in the text), -1 when the selection is not a match. */
+	RAVEN_API int Rtext_editor_get_match_index(Rid editor);
+	/**
+	 * @brief Where a match is: its line and the columns of its first byte and
+	 * of the byte after it. Returns R_FALSE when `index` is out of range.
+	 */
+	RAVEN_API int Rtext_editor_get_match(Rid editor, int index, int* line, int* from_column, int* to_column);
+	/** @brief Selects a match by its index and scrolls to it. Returns R_FALSE when `index` is out of range. */
+	RAVEN_API int Rtext_editor_select_match(Rid editor, int index);
+	/**
+	 * @brief Replaces the selected match by `replacement`, as one step of
+	 * the history, then selects the next match. When the selection is not a
+	 * match, only selects the next one (the user sees what will be replaced).
+	 * Returns R_TRUE when something was replaced. As with
+	 * Rtext_editor_insert_text, the changed callback is called.
+	 */
+	RAVEN_API int Rtext_editor_replace(Rid editor, const char* replacement);
+	/**
+	 * @brief Replaces every match by `replacement`, as a single step of the
+	 * history (one undo puts them all back). Returns the number of matches
+	 * replaced.
+	 */
+	RAVEN_API int Rtext_editor_replace_all(Rid editor, const char* replacement);
+
+	/**
+	 * @brief Opens the find bar of the editor (Ctrl+F), with the row to
+	 * replace when `replace` is R_TRUE (Ctrl+H), and gives it the keyboard.
+	 * Text selected on one line becomes the text searched for.
+	 * Its texts are English unless the locale has the keys Raven.Find,
+	 * Raven.Replace, Raven.ReplaceAll, Raven.FindNoResults, Raven.FindCount
+	 * ("{0} of {1}"), Raven.FindMatchCase, Raven.FindWholeWord,
+	 * Raven.FindPrevious, Raven.FindNext, Raven.FindClose and
+	 * Raven.FindToggleReplace.
+	 */
+	RAVEN_API void Rtext_editor_show_find(Rid editor, int replace);
+	/** @brief Closes the find bar; the matches are no longer shown, F3 still goes to the next one. */
+	RAVEN_API void Rtext_editor_hide_find(Rid editor);
+	RAVEN_API int Rtext_editor_is_find_shown(Rid editor);
+	/**
+	 * @brief R_FALSE removes the find bar and its keys (Ctrl+F, Ctrl+H, F3,
+	 * Cmd+G), which then go to the shortcuts of the window: for an
+	 * application with its own search, built on Rtext_editor_set_search. On
+	 * by default. XML: FindBar="false".
+	 */
+	RAVEN_API void Rtext_editor_set_find_bar(Rid editor, int enabled);
 
 	/* ---- colors ---- */
 

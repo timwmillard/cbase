@@ -14,6 +14,7 @@
 
 #include "common.h"
 #include "../xml/xml.h"
+#include "../render/renderer.h"
 
 typedef struct rvn_menu_item_t {
 	rvn_widget_t base;
@@ -215,6 +216,15 @@ static int rvn_menu_item_set_attribute(rvn_widget_t* widget, const char* name, c
 		if (item->checked) item->checkable = R_TRUE;
 	} else if (RVN_ATTR("Separator")) {
 		if (!rvn_parse_bool(value, &item->separator)) return R_FALSE;
+	} else if (RVN_ATTR("Icon")) {
+		/* "raven:save" or an image file; an empty value removes it */
+		Rid icon = value[0] ? rvn_xml_texture(value) : R_INVALID_ID;
+		if (value[0] && icon == R_INVALID_ID) return R_FALSE;
+		item->has_icon = icon != R_INVALID_ID;
+		item->icon = icon;
+		item->icon_uv[0] = item->icon_uv[1] = 0.0f;
+		item->icon_uv[2] = item->icon_uv[3] = 1.0f;
+		item->icon_tint = R_FALSE;
 	} else {
 		return R_FALSE;
 	}
@@ -306,6 +316,22 @@ static int rvn_menu_entry_rect(const rvn_widget_t* widget, int index, rvn_rect_t
 			return R_TRUE;
 		}
 		y += height;
+	}
+	return R_FALSE;
+}
+
+int rvn_menu_entry_bounds(const rvn_widget_t* entry, rvn_rect_t* rect) {
+	const rvn_widget_t* menu = entry->parent;
+	rvn_vec2_t origin;
+	uint32_t i;
+	if (!menu || menu->cls->type != R_WIDGET_MENU || !menu->window || !rvn_widget_is_shown(menu)) return R_FALSE;
+	for (i = 0; i < menu->child_count; i++) {
+		if (menu->children[i] != entry) continue;
+		if (!rvn_menu_entry_rect(menu, (int)i, rect)) return R_FALSE;
+		origin = rvn_widget_origin(menu);
+		rect->x += origin.x;
+		rect->y += origin.y;
+		return R_TRUE;
 	}
 	return R_FALSE;
 }
@@ -437,7 +463,7 @@ static void rvn_menu_paint_fluent(rvn_widget_t* widget, RPainter* painter) {
 		if (family == RVN_FAMILY_MACOS && (states & (RVN_STATE_HOVERED | RVN_STATE_OPEN)) && enabled) secondary = look.foreground;
 		if (child->cls->type == R_WIDGET_MENU_ITEM && ((rvn_menu_item_t*)child)->has_icon) {
 			const rvn_menu_item_t* item = (const rvn_menu_item_t*)child;
-			rvn_color_t tint = item->icon_tint ? look.foreground : rvn_rgba(1.0f, 1.0f, 1.0f, enabled ? 1.0f : 0.45f);
+			rvn_color_t tint = rvn_icon_tint(item->icon, item->icon_tint, look.foreground, rvn_rgba(1.0f, 1.0f, 1.0f, enabled ? 1.0f : 0.45f));
 			rvn_paint_image(painter, rvn_rect(row.x + 12.0f, floorf(row.y + (row.h - 16.0f) * 0.5f), 16.0f, 16.0f), item->icon, item->icon_uv, tint, 0.0f);
 		}
 		rvn_paint_text_in(painter, R_INVALID_ID, font_size, rvn_rect(row.x + text_x, row.y, row.w - text_x, row.h), 0.0f,
@@ -511,7 +537,7 @@ static void rvn_menu_paint(rvn_widget_t* widget, RPainter* painter) {
 		}
 		if (child->cls->type == R_WIDGET_MENU_ITEM && ((rvn_menu_item_t*)child)->has_icon) {
 			const rvn_menu_item_t* item = (const rvn_menu_item_t*)child;
-			rvn_color_t tint = item->icon_tint ? color : rvn_rgba(1.0f, 1.0f, 1.0f, enabled ? 1.0f : 0.45f);
+			rvn_color_t tint = rvn_icon_tint(item->icon, item->icon_tint, color, rvn_rgba(1.0f, 1.0f, 1.0f, enabled ? 1.0f : 0.45f));
 			rvn_paint_image(painter, rvn_rect(row.x + RVN_MENU_GUTTER - RVN_MENU_PADDING, floorf(row.y + (row.h - RVN_MENU_ICON) * 0.5f),
 				RVN_MENU_ICON, RVN_MENU_ICON), item->icon, item->icon_uv, tint, 0.0f);
 		}

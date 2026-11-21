@@ -98,7 +98,8 @@ extern "C" {
 
 	/**
 	 * @brief Creates a texture from the content of an image file (PNG, JPEG,
-	 * BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread.
+	 * BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread. An
+	 * animated GIF or APNG keeps its frames: an Image showing it plays them.
 	 * @return R_INVALID_ID on failure.
 	 */
 	RAVEN_API Rid Rtexture_create(const char* data, size_t data_size);
@@ -125,14 +126,40 @@ extern "C" {
 	 * does not. Rtexture_create, Rtexture_create_from_file and the asynchronous
 	 * ones read SVG files this way. Paths, fills, strokes and gradients are
 	 * drawn; text, filters and masks are not.
+	 *
+	 * currentColor: an SVG painted only in currentColor (fill="currentColor",
+	 * stroke="currentColor") is drawn in white, keeping its shape and its
+	 * opacity, and the widgets that show it (Image, the icons of menu items,
+	 * tabs, tree items, dock panels, tiles, nodes) tint it with the color of
+	 * their text at draw time: it follows the theme, hover, pressed and
+	 * disabled without being drawn again. Rdraw_image draws it in its tint
+	 * color. In an SVG that also uses other colors, currentColor is black.
+	 * See Rtexture_uses_current_color.
 	 */
 	RAVEN_API Rid Rtexture_create_from_svg(const char* svg, size_t svg_size, float scale);
+	/**
+	 * @brief R_TRUE when the texture is an SVG painted only in currentColor:
+	 * white where it is painted, tinted with the color of the text by the
+	 * widgets that show it (see Rtexture_create_from_svg).
+	 */
+	RAVEN_API int Rtexture_uses_current_color(Rid texture);
 	/** @brief Pixels of the texture per logical unit: the scale of an SVG, 1 otherwise. */
 	RAVEN_API float Rtexture_get_density(Rid texture);
 
 	RAVEN_API Rid Rtexture_create_from_file(const char* path);
 	/** @brief Reads and decodes the file on a worker thread. */
 	RAVEN_API Rid Rtexture_create_from_file_async(const char* path);
+	/**
+	 * @brief Downloads an http:// or https:// image and decodes it on a worker
+	 * thread, as an Image whose Source is a URL does. The handle is usable at
+	 * once: widgets showing it draw nothing until it is ready (Rtexture_is_ready;
+	 * a texture that could not be downloaded is ready with a size of 0, and the
+	 * failure is reported as a warning). Desktops download with WinHTTP or
+	 * `curl`; iOS and Android through their platform. Android needs the INTERNET
+	 * permission in the manifest; iOS refuses http:// unless Info.plist allows
+	 * it (App Transport Security). Up to 32 MiB.
+	 */
+	RAVEN_API Rid Rtexture_create_from_url_async(const char* url);
 
 	/** @brief Creates a texture from tightly packed RGBA8 pixels (straight alpha). Its filter is R_FILTER_LINEAR. */
 	RAVEN_API Rid Rtexture_create_from_pixels(const uint8_t* rgba, int width, int height);
@@ -152,8 +179,38 @@ extern "C" {
 	 * is not an image Raven can read.
 	 */
 	RAVEN_API uint8_t* Rimage_decode(const void* data, size_t data_size, int* width, int* height);
+	/**
+	 * @brief Reads what an image file in memory holds without keeping its
+	 * pixels: its size, its frames (1 for a still image, more for an animated
+	 * GIF or APNG) and how many times it plays (0: forever). Thread-safe.
+	 * Each pointer may be NULL.
+	 * @return R_FALSE when the data is not an image Raven can read.
+	 */
+	RAVEN_API int Rimage_decode_info(const void* data, size_t data_size, int* width, int* height, int* frame_count, int* loop_count);
+	/**
+	 * @brief Decodes one frame of an animated GIF or APNG into tightly packed
+	 * RGBA8 pixels, composed as it is shown (the frames before it drawn and
+	 * disposed of). Frame 0 of a still image is the image. Thread-safe.
+	 * @param delay Receives the seconds the frame is shown (0 for a still image); may be NULL.
+	 * @return The pixels, to release with Rpixels_free; NULL when the frame does not exist.
+	 */
+	RAVEN_API uint8_t* Rimage_decode_frame(const void* data, size_t data_size, int frame, int* width, int* height, double* delay);
 	/** @brief Releases pixels returned by Raven (Rimage_decode, Rwindow_capture). Thread-safe. */
 	RAVEN_API void Rpixels_free(uint8_t* pixels);
+	/**
+	 * @brief Encodes tightly packed RGBA8 pixels (what Rwindow_capture
+	 * returns) as a PNG file in memory. Thread-safe.
+	 * @param size Receives the number of bytes.
+	 * @return The bytes of the file, to release with Rpixels_free; NULL when
+	 * there are no pixels.
+	 */
+	RAVEN_API uint8_t* Rimage_encode_png(const uint8_t* rgba, int width, int height, size_t* size);
+	/**
+	 * @brief Writes tightly packed RGBA8 pixels to a PNG file: a screenshot
+	 * of Rwindow_capture, a picture made by the application. Thread-safe.
+	 * @return R_FALSE when the file cannot be written.
+	 */
+	RAVEN_API int Rimage_save_png(const char* path, const uint8_t* rgba, int width, int height);
 
 	/** @return R_TRUE once an asynchronous texture is decoded (or failed). */
 	RAVEN_API int Rtexture_is_ready(Rid texture);
@@ -169,6 +226,28 @@ extern "C" {
 	 * R_FILTER_LINEAR.
 	 */
 	RAVEN_API void Rtexture_set_filter(Rid texture, RFilterType filter);
+
+	/* ============================================================================
+	 *  ICONS
+	 * ============================================================================ */
+
+	/**
+	 * @brief An icon shipped with Raven, by its name: "search", "settings",
+	 * "close"... (Ricon_get_name lists them; "raven:search" works too, as in
+	 * XML: Source="raven:search"). The icons are the ones of Lucide (ISC
+	 * License), 24 x 24 logical units, drawn with lines in currentColor: the
+	 * widgets that show them tint them with the color of their text, so they
+	 * follow the theme and the states (Rtexture_create_from_svg). Drawn at
+	 * the density they are shown with, sharp on every screen.
+	 * @return A texture owned by Raven, made on first use and then shared
+	 * (do not destroy it; if it was, the next call makes it again);
+	 * R_INVALID_ID, with an error, when there is no icon of that name.
+	 */
+	RAVEN_API Rid Ricon_get(const char* name);
+	/** @return The number of icons shipped with Raven. */
+	RAVEN_API int Ricon_get_count(void);
+	/** @return The name of an icon, from 0 to Ricon_get_count() - 1, in alphabetical order; NULL out of range. */
+	RAVEN_API const char* Ricon_get_name(int index);
 
 #ifdef __cplusplus
 } /* extern "C" */

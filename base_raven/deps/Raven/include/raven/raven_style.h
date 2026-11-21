@@ -216,6 +216,18 @@ typedef enum RColorRole{
 	R_COLOR_LINK,
 	/** Background of code in formatted text. */
 	R_COLOR_CODE,
+	/** The matches of a search in a text editor (usually see-through). */
+	R_COLOR_SEARCH_MATCH,
+	/** The selected match of a search in a text editor. */
+	R_COLOR_SEARCH_CURRENT,
+	/** Wavy underline of the misspelled words of a TextInput or a TextEditor (spell checking). */
+	R_COLOR_SPELLING,
+	/** Diff view: the background of an added line and of a removed line (see-through: the background shows). */
+	R_COLOR_DIFF_ADDED,
+	R_COLOR_DIFF_REMOVED,
+	/** Diff view: the words that changed inside an added line and inside a removed line, over the color of the line. */
+	R_COLOR_DIFF_ADDED_WORD,
+	R_COLOR_DIFF_REMOVED_WORD,
 	R_COLOR_LAST_
 }RColorRole;
 

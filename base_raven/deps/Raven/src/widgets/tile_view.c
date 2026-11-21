@@ -19,6 +19,7 @@
 
 #include "common.h"
 #include "../render/font.h"
+#include "../render/renderer.h"
 
 typedef struct rvn_tile_view_t {
 	rvn_widget_t base;
@@ -62,6 +63,9 @@ typedef struct rvn_tile_view_t {
 	char* drag_type;
 	RTileDragDataCallback drag_data_callback;
 	void* drag_data_user;
+	/* the tiles can leave the window (Rdrag_begin_external): the application gives their data */
+	RTileEventCallback drag_out_callback;
+	void* drag_out_user;
 	int drop_index;
 
 	RTileEventCallback selection_callback;
@@ -399,12 +403,19 @@ static void rvn_tile_view_paint(rvn_widget_t* widget, RPainter* painter) {
 		rvn_rect_t rect = rvn_tile_rect_in(widget, &block, i, offset);
 		int is_selected = tiles->selected[i] != 0;
 		float icon, label_y;
+		rvn_color_t icon_tint;
 		memset(&item, 0, sizeof(item));
 		item.icon = R_INVALID_ID;
 		item.tint[0] = item.tint[1] = item.tint[2] = item.tint[3] = 1.0f;
 		item.uv[2] = item.uv[3] = 1.0f;
 		if (tiles->item_callback) tiles->item_callback(widget->id, i, &item, tiles->item_user);
 		if (!rvn_widget_alive(widget)) goto done;
+		icon_tint = rvn_rgba(item.tint[0], item.tint[1], item.tint[2], item.tint[3]);
+		/* an icon in currentColor takes the color of the name, times its tint */
+		if (rvn_texture_is_current_color(item.icon)) {
+			icon_tint = rvn_color_multiply(icon_tint, item.text_color[3] > 0.0f ?
+				rvn_rgba(item.text_color[0], item.text_color[1], item.text_color[2], item.text_color[3]) : text);
+		}
 
 		if (is_selected) {
 			rvn_paint_box(painter, rect, radius, focused ? rvn_color_fade(selection, 0.85f) : rvn_color_fade(selection, 0.5f),
@@ -424,7 +435,7 @@ static void rvn_tile_view_paint(rvn_widget_t* widget, RPainter* painter) {
 			icon_w = tiles->icon_w > 0.0f ? tiles->icon_w * (icon / tiles->icon_size) : icon;
 			if (item.icon != R_INVALID_ID && icon >= 4.0f)
 				rvn_paint_image(painter, rvn_rect(floorf(rect.x + 6.0f), floorf(rect.y + (rect.h - icon) * 0.5f), icon_w, icon),
-					item.icon, item.uv, rvn_rgba(item.tint[0], item.tint[1], item.tint[2], item.tint[3]), item.icon_radius);
+					item.icon, item.uv, icon_tint, item.icon_radius);
 			text_x = rect.x + 6.0f + (item.icon != R_INVALID_ID || tiles->icon_w > 0.0f ? icon_w + 10.0f : 0.0f);
 			text_h = font_size + 4.0f + (has_detail ? font_size * 0.85f + 6.0f : 0.0f) + (has_note ? font_size * 0.85f + 6.0f : 0.0f);
 			label_y = floorf(rect.y + (rect.h - text_h) * 0.5f);
@@ -456,7 +467,7 @@ static void rvn_tile_view_paint(rvn_widget_t* widget, RPainter* painter) {
 			/* a small hop when hovered */
 			float hop = (i == tiles->hot && !tiles->band_active) ? -2.0f : 0.0f;
 			rvn_paint_image(painter, rvn_rect(floorf(rect.x + (rect.w - icon) * 0.5f), floorf(rect.y + 5.0f + hop), icon, icon),
-				item.icon, item.uv, rvn_rgba(item.tint[0], item.tint[1], item.tint[2], item.tint[3]), item.icon_radius);
+				item.icon, item.uv, icon_tint, item.icon_radius);
 		}
 		if (item.badge && item.badge[0]) {
 			rvn_paint_text_in(painter, R_INVALID_ID, font_size * 0.8f,
@@ -559,7 +570,7 @@ static int rvn_tile_view_event(rvn_widget_t* widget, const REvent* event) {
 				rvn_tile_band_update(widget);
 				return R_TRUE;
 			}
-			if (tiles->press_pending && tiles->press_index >= 0 && tiles->drag_type && widget->window &&
+			if (tiles->press_pending && tiles->press_index >= 0 && (tiles->drag_type || tiles->drag_out_callback) && widget->window &&
 				(widget->window->buttons & (1u << R_MOUSE_LEFT)) &&
 				(fabsf(event->x - tiles->press_x) > 5.0f || fabsf(event->y - tiles->press_y) > 5.0f)) {
 				char* data;
@@ -567,8 +578,14 @@ static int rvn_tile_view_event(rvn_widget_t* widget, const REvent* event) {
 				int i, count = 0;
 				RTileItem item;
 				char label[192];
+				int pressed = tiles->press_index;
 				tiles->press_pending = R_FALSE;
 				tiles->press_reduce = R_FALSE;
+				if (!tiles->drag_type) {
+					/* only out of the window: the application starts it */
+					tiles->drag_out_callback(widget->id, pressed, tiles->drag_out_user);
+					return R_TRUE;
+				}
 				data = (char*)rvn_alloc(cap);
 				data[0] = 0;
 				for (i = 0; i < tiles->count; i++) {
@@ -603,6 +620,8 @@ static int rvn_tile_view_event(rvn_widget_t* widget, const REvent* event) {
 				else snprintf(label, sizeof(label), "%s", item.text ? item.text : "");
 				if (rvn_widget_alive(widget)) Rdrag_begin(widget->id, tiles->drag_type, data, label);
 				rvn_free(data);
+				/* and out of it, when the pointer leaves it */
+				if (rvn_widget_alive(widget) && tiles->drag_out_callback) tiles->drag_out_callback(widget->id, pressed, tiles->drag_out_user);
 				return R_TRUE;
 			}
 			return R_FALSE;
@@ -936,6 +955,12 @@ void Rtile_view_set_drag_type(Rid id, const char* type) {
 	rvn_tile_view_t* tiles = (rvn_tile_view_t*)widget;
 	rvn_free(tiles->drag_type);
 	tiles->drag_type = type && type[0] ? rvn_strdup(type) : NULL;
+}
+
+void Rtile_view_set_drag_out_callback(Rid id, RTileEventCallback callback, void* user_data) {
+	RVN_WIDGET_VOID(widget, id, R_WIDGET_TILE_VIEW);
+	((rvn_tile_view_t*)widget)->drag_out_callback = callback;
+	((rvn_tile_view_t*)widget)->drag_out_user = user_data;
 }
 
 void Rtile_view_set_drag_data_callback(Rid id, RTileDragDataCallback callback, void* user_data) {

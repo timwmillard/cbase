@@ -489,6 +489,22 @@ constset DropPhase : CInt
 	DROPPED = 0x00E3,
 }
 
+<* What the application that takes a drag does with it (Rdrag_begin_external): a bitmask of what is allowed, or the one done. *>
+constset DragOperation : CInt
+{
+	<* Nothing was taken: dropped where nothing accepted it, or cancelled. *>
+	NONE = 0,
+	<* The target made a copy: the source keeps its data. *>
+	COPY = 1,
+	<* The target took the data: the source removes it (a file the file manager moved...). *>
+	MOVE = 2,
+	<* The target made a link, an alias or a shortcut to it. *>
+	LINK = 4,
+}
+
+<* Whether every flag of `flags` is set. *>
+fn bool DragOperation.has(self, DragOperation flags) @inline => (self & flags) == flags;
+
 <* What a finger does on a widget (Rwidget_set_touch_mode). *>
 constset TouchMode : CInt
 {
@@ -749,6 +765,18 @@ constset ColorRole : CInt
 	LINK = 0x0122,
 	<* Background of code in formatted text. *>
 	CODE = 0x0123,
+	<* The matches of a search in a text editor (usually see-through). *>
+	SEARCH_MATCH = 0x0124,
+	<* The selected match of a search in a text editor. *>
+	SEARCH_CURRENT = 0x0125,
+	<* Wavy underline of the misspelled words of a TextInput or a TextEditor (spell checking). *>
+	SPELLING = 0x0126,
+	<* Diff view: the background of an added line and of a removed line (see-through: the background shows). *>
+	DIFF_ADDED = 0x0127,
+	DIFF_REMOVED = 0x0128,
+	<* Diff view: the words that changed inside an added line and inside a removed line, over the color of the line. *>
+	DIFF_ADDED_WORD = 0x0129,
+	DIFF_REMOVED_WORD = 0x012A,
 }
 
 <* Sizes, in logical units. *>
@@ -909,6 +937,10 @@ constset WidgetType : CInt
 	MAP_VIEW = 0x0235,
 	<* Pages shown one at a time and swiped (a page view), with dots and arrows. *>
 	CAROUSEL = 0x0236,
+	<* A web page shown by the engine of the system (WKWebView) in a view kept over the widget. *>
+	SYSTEM_WEB_VIEW = 0x0237,
+	<* The differences between two texts or a patch: unified or side by side, folded, virtualized (raven_tools.h). *>
+	DIFF_VIEW = 0x0238,
 }
 
 constset HAlign : CInt
@@ -1227,6 +1259,47 @@ constset ChartKind : CInt
 	SPARKLINE = 0x0594,
 }
 
+<* What happens in a SystemWebView (Rsystem_web_view_set_event_callback). *>
+constset SystemWebViewEvent : CInt
+{
+	<* The view shows another address (Rsystem_web_view_get_url). *>
+	NAVIGATED = 0x0B90,
+	<* The title of the page changed (Rsystem_web_view_get_title). *>
+	TITLE = 0x0B91,
+	<* A page starts loading. *>
+	LOADING = 0x0B92,
+	<* The page and what it refers to are loaded. *>
+	LOADED = 0x0B93,
+	<* The page could not be loaded, or the engine showing it stopped (Rsystem_web_view_get_error). *>
+	FAILED = 0x0B94,
+}
+
+<* How the rows of a Table are selected (Rtable_set_selection_mode). *>
+constset TableSelectionMode : CInt
+{
+	<* One row at a time (the default). *>
+	SINGLE = 0x0BC0,
+	<* Any number of rows: Ctrl/Cmd+click, Shift+click, Shift+arrows, Space, Ctrl/Cmd+A. *>
+	MULTIPLE = 0x0BC1,
+	<* The user selects nothing (the rows are only shown; cells may still be edited and checked). *>
+	NONE = 0x0BC2,
+}
+
+<* What the cells of a column show (Rtable_set_column_kind). *>
+constset TableColumnKind : CInt
+{
+	<* Their text (the default). *>
+	TEXT = 0x0BD0,
+	<*
+	 A check box, checked when the text is "1", "true" or "yes". The user
+	 toggles it with a click or Space unless the column is made not
+	 editable; the cell edited callback is then called with "1" or "0".
+	*>
+	CHECK = 0x0BD1,
+	<* A progress bar, from a number 0..1 or a percentage ("45%"); an empty cell shows nothing. *>
+	PROGRESS = 0x0BD2,
+}
+
 <* Shorthands of Rtext_editor_set_language for two languages. *>
 constset Syntax : CInt
 {
@@ -1288,6 +1361,22 @@ constset Token : CInt
 	EMPHASIS = 0x03AD,
 	LINK = 0x03AE,
 }
+
+<* Options of a search (Rtext_editor_set_search), a bitmask. *>
+constset SearchFlags : CInt
+{
+	<*
+	 Upper and lower case differ. Without it the case is ignored, for the
+	 letters of ASCII, Latin-1, the Latin letters of Unicode, Greek,
+	 Cyrillic and Armenian.
+	*>
+	MATCH_CASE = 1,
+	<* A match is a whole word: "for" does not find the start of "format". *>
+	WHOLE_WORD = 2,
+}
+
+<* Whether every flag of `flags` is set. *>
+fn bool SearchFlags.has(self, SearchFlags flags) @inline => (self & flags) == flags;
 
 <* What a marker says about the text it underlines. *>
 constset MarkerKind : CInt
@@ -1386,6 +1475,56 @@ constset BlockPlace : CInt
 	INPUT = 0x0712,
 }
 
+constset DiffViewMode : CInt
+{
+	<* One column: the removed lines, then the added lines, between the lines kept. *>
+	UNIFIED = 0x0C50,
+	<* Two columns: the left text and the right text side by side, aligned. *>
+	SPLIT = 0x0C51,
+}
+
+constset DiffSide : CInt
+{
+	<* The text before (the old one, "a/", the lines removed). *>
+	LEFT = 0x0C54,
+	<* The text after (the new one, "b/", the lines added). *>
+	RIGHT = 0x0C55,
+}
+
+constset DiffRowKind : CInt
+{
+	<* A line that is on both sides. *>
+	SAME = 0x0C58,
+	<* A line of the left text only. *>
+	REMOVED = 0x0C59,
+	<* A line of the right text only. *>
+	ADDED = 0x0C5A,
+	<* Split mode: a removed line facing the added line that replaces it. *>
+	CHANGED = 0x0C5B,
+	<* Unchanged lines folded away ("12 unchanged lines"); Rdiff_view_expand shows them. *>
+	FOLD = 0x0C5C,
+	<* A patch: the header of a hunk ("@@ -12,7 +12,8 @@ main"). *>
+	HUNK = 0x0C5D,
+	<* A patch: the names of a file. *>
+	FILE = 0x0C5E,
+	<* A note attached to the line above it (Rdiff_view_add_annotation). *>
+	NOTE = 0x0C5F,
+}
+
+<* How lines are compared (Rdiff_view_set_flags, Rdiff_unified). *>
+constset DiffFlags : CInt
+{
+	<* Spaces and tabs at the end of a line (and a carriage return) do not count. *>
+	TRAILING_SPACE = 1,
+	<* No space or tab counts, wherever it is. *>
+	SPACE = 2,
+	<* Upper and lower case letters are the same (A to Z). *>
+	CASE = 4,
+}
+
+<* Whether every flag of `flags` is set. *>
+fn bool DiffFlags.has(self, DiffFlags flags) @inline => (self & flags) == flags;
+
 <* How much a notification of the system asks for attention (Rnotification_show). *>
 constset NotificationUrgency : CInt
 {
@@ -1395,6 +1534,37 @@ constset NotificationUrgency : CInt
 	<* Stays until the user dismisses it, where the system allows it. *>
 	CRITICAL = 0x04F2,
 }
+
+<* What happened to a notification (Rnotification_set_callback). *>
+constset NotificationEvent : CInt
+{
+	<* The user clicked the notification itself (not one of its buttons). *>
+	ACTIVATED = 0x0C20,
+	<* The user clicked one of its buttons: `action` is the id of that button. *>
+	ACTION_INVOKED = 0x0C21,
+	<* It went away without being clicked: closed by the user, or its time ran out (where the system tells). *>
+	DISMISSED = 0x0C22,
+}
+
+<* What the notifications of the system can do here (Rnotification_supports). *>
+constset NotificationFeature : CInt
+{
+	<* Buttons (RNotificationDesc::actions). *>
+	ACTIONS = 1,
+	<* A notification shown again with the same tag replaces the first one. *>
+	REPLACE = 2,
+	<* Rnotification_close takes a notification away. *>
+	CLOSE = 4,
+	<* An image beside the text (RNotificationDesc::icon). *>
+	ICON = 8,
+	<* A click on the notification is reported (R_NOTIFICATION_ACTIVATED). *>
+	ACTIVATED = 0x0010,
+	<* Its dismissal is reported (R_NOTIFICATION_DISMISSED). *>
+	DISMISSED = 0x0020,
+}
+
+<* Whether every flag of `flags` is set. *>
+fn bool NotificationFeature.has(self, NotificationFeature flags) @inline => (self & flags) == flags;
 
 constset FileDialogFlags : CInt
 {
@@ -1433,6 +1603,77 @@ constset MessageResult : CInt
 	OK = 1,
 	YES = 2,
 	NO = 3,
+}
+
+<* What the application may be allowed to use (Rpermission_request). *>
+constset Permission : CInt
+{
+	CAMERA = 0x0C00,
+	<* Notifications of the system (Rnotification_show). *>
+	NOTIFICATIONS = 0x0C01,
+	<* Reading the whole photo library. Rphoto_pick needs none: the system's picker gives only what the user chose. *>
+	PHOTOS = 0x0C02,
+	MICROPHONE = 0x0C03,
+	<* The location of the device while the application is in use. *>
+	LOCATION = 0x0C04,
+}
+
+<* What the user answered, or would be asked (Rpermission_get_status). *>
+constset PermissionStatus : CInt
+{
+	<*
+	 There is nothing to ask for here: the platform has no such permission,
+	 or Raven cannot ask for it on this platform. Whether the service itself
+	 exists is told by its own function (Rcamera_is_available,
+	 Rnotification_is_supported).
+	*>
+	UNSUPPORTED = 0x0C10,
+	<* Not asked yet: Rpermission_request shows the question of the system. *>
+	NOT_ASKED = 0x0C11,
+	<* Allowed (also where the system asks nothing: notifications on Windows and Linux). *>
+	GRANTED = 0x0C12,
+	<* Allowed in part: some photos only (iOS, Android 14), quiet notifications (iOS provisional), the approximate location only. *>
+	LIMITED = 0x0C13,
+	<* Refused, and the system may ask again (Android, after a first refusal). *>
+	DENIED = 0x0C14,
+	<*
+	 Refused for good, or not the user's to give (parental controls, a
+	 profile of the company): the system shows no question any more, only
+	 its Settings can change it (Rpermission_open_settings).
+	*>
+	BLOCKED = 0x0C15,
+}
+
+<* How a request of a picker, the camera or a share sheet ended. *>
+constset DeviceResult : CInt
+{
+	<* Done: the files were chosen, the photo taken, the file saved, the sheet shown. *>
+	DONE = 0x0C20,
+	<* The user closed the screen of the system without choosing. *>
+	CANCELLED = 0x0C21,
+	<* A permission it needs was refused (Rcamera_take_photo: the camera). *>
+	DENIED = 0x0C22,
+	<* The platform does not have this service. *>
+	UNSUPPORTED = 0x0C23,
+	<* Another screen of the system is still open: one at a time. *>
+	BUSY = 0x0C24,
+	<* The system reported an error (also reported as an R_ERROR_PLATFORM warning). *>
+	FAILED = 0x0C25,
+}
+
+<* A short vibration that answers a touch (Rhaptic_play). *>
+constset Haptic : CInt
+{
+	<* Impacts: something touched, snapped, landed. *>
+	LIGHT = 0x0C30,
+	MEDIUM = 0x0C31,
+	HEAVY = 0x0C32,
+	<* The selection moved (a picker wheel, a switch, a segmented control). *>
+	SELECTION = 0x0C33,
+	<* The outcome of an action. *>
+	SUCCESS = 0x0C34,
+	WARNING = 0x0C35,
+	ERROR = 0x0C36,
 }
 
 <*
@@ -1506,6 +1747,17 @@ constset XmlValueType : CInt
 	LIST = 0x03C8,
 }
 
+<* How the hours of a time are shown. *>
+constset Clock : CInt
+{
+	<* As the locale does (Rlocale_uses_12_hour_clock). *>
+	AUTO = 0x0C30,
+	<* 1 to 12, with AM and PM. *>
+	CLOCK_12_HOUR = 0x0C31,
+	<* 0 to 23. *>
+	CLOCK_24_HOUR = 0x0C32,
+}
+
 constset ColorFilter : CInt
 {
 	NONE = 0x0740,
@@ -1563,6 +1815,39 @@ constset AccessibleRole : CInt
 	SEPARATOR = 0x0781,
 	SCROLL_BAR = 0x0782,
 	PANE = 0x0783,
+}
+
+<* What a request of a service of the device asks the application for (RHostServiceRequest). *>
+constset HostService : CInt
+{
+	<* Files to read (Rfile_open_async): `filters`, `flags` (R_FILE_DIALOG_MULTIPLE). *>
+	OPEN_FILES = 0x0C40,
+	<* Save `data` / `size`, or the file `path` when data is NULL, as `file_name` (Rfile_save_async, Rfile_export_async). *>
+	SAVE_FILE = 0x0C41,
+	<* A folder (Rfile_select_folder_async). *>
+	SELECT_FOLDER = 0x0C42,
+	<* A photo from the camera (Rcamera_take_photo); camera permission already asked. *>
+	TAKE_PHOTO = 0x0C43,
+	<* Up to `max_count` photos (0: no limit) from the library (Rphoto_pick). *>
+	PICK_PHOTOS = 0x0C44,
+	<* The share sheet: `text` and / or the file `path` (`mime_type`), pointing at `anchor_*` (Rshare_show). *>
+	SHARE = 0x0C45,
+}
+
+constset GoldenStatus : CInt
+{
+	<* The capture matches the golden. *>
+	MATCH = 0x0BA0,
+	<* RAVEN_UPDATE_GOLDENS=1: the capture was written as the golden. *>
+	UPDATED = 0x0BA1,
+	<* Too many pixels differ: NAME.actual.png and NAME.diff.png were written. *>
+	MISMATCH = 0x0BA2,
+	<* The capture and the golden do not have the same size: NAME.actual.png was written. *>
+	SIZE_MISMATCH = 0x0BA3,
+	<* There is no golden yet: NAME.actual.png was written (run with RAVEN_UPDATE_GOLDENS=1 to keep it). *>
+	MISSING = 0x0BA4,
+	<* The window could not be captured, or a file could not be read or written. *>
+	FAILED = 0x0BA5,
 }
 
 constset DrawCommandType : CInt
@@ -1681,6 +1966,12 @@ alias KeyboardCallback = fn void(Id window, CInt visible, float height, void* us
 *>
 alias DropCallback = fn CInt(Id target, DropEvent* event, void* user_data);
 <*
+ The end of a drag out of the window (Rdrag_begin_external):
+ `operation` is what the target did, R_DRAG_OPERATION_NONE when nothing
+ took it. Called once per drag, whatever ended it.
+*>
+alias DragFinishedCallback = fn void(Id source, DragOperation operation, void* user_data);
+<*
  Called on Back when no popup or dialog of Raven is open. Return
  R_TRUE when the application went back, R_FALSE when it had nowhere to
  go (the system then does its default). NULL removes it.
@@ -1739,9 +2030,13 @@ alias LabelLinkCallback = fn void(Id label, ZString url, void* user_data);
 alias ButtonClickedCallback = fn void(Id button, void* user_data);
 alias CheckboxChangedCallback = fn void(Id checkbox, CInt checked, void* user_data);
 alias SliderChangedCallback = fn void(Id slider, float value, void* user_data);
+<* Called when the animation stops after its last play (at the next frame), before the action of the image. *>
+alias ImageFinishedCallback = fn void(Id image, void* user_data);
 alias TextChangedCallback = fn void(Id text_input, ZString text, void* user_data);
 alias SpinBoxChangedCallback = fn void(Id spin_box, double value, void* user_data);
 alias ComboBoxChangedCallback = fn void(Id combo_box, CInt index, void* user_data);
+<* Called each time the user changes the text of an editable or searchable combo box. *>
+alias ComboBoxTextCallback = fn void(Id combo_box, ZString text, void* user_data);
 <*
  Virtual mode, for large or computed data: the list stores nothing and
  asks for the text of the rows it draws. The returned string must stay
@@ -1798,6 +2093,17 @@ alias TableCellColorCallback = fn CInt(Id table, CInt row, CInt column, float* r
 alias TableEventCallback = fn void(Id table, CInt row, void* user_data);
 <* Called when the user clicks a header; `column` -1: not sorted. *>
 alias TableSortCallback = fn void(Id table, CInt column, CInt descending, void* user_data);
+<*
+ Called when the user keeps the text typed in a cell (Enter, Tab,
+ a click elsewhere). Return R_TRUE to accept it: a stored table then
+ keeps the text in the cell, unless the callback set the cell itself
+ (Rtable_set_cell, to keep "12.50" for "12.5"). A virtual table stores
+ nothing: the application keeps the text in its data. Return R_FALSE to
+ refuse it: after Enter or Tab the field stays open on the text, so the
+ user can correct it; after a click elsewhere the edit is dropped.
+ Without a callback, a stored table keeps every text.
+*>
+alias TableCellEditedCallback = fn CInt(Id table, CInt row, CInt column, ZString text, void* user_data);
 <* Called when the user chooses a date. This also fires the action of the widget. *>
 alias DateChangedCallback = fn void(Id date_picker, CInt year, CInt month, CInt day, void* user_data);
 <* Called when the user changes the time. This also fires the action of the widget. *>
@@ -1838,6 +2144,15 @@ alias MapMarkerCallback = fn void(Id map, CInt marker, void* user_data);
  the action of the widget.
 *>
 alias MapViewCallback = fn void(Id map, double latitude, double longitude, double zoom, void* user_data);
+<*
+ Receives the result of a script: `result` is its value written
+ as JSON ("42", "\"text\"", "{\"a\":1}", "null"), or NULL when the
+ script failed, `error` then telling why.
+*>
+alias SystemWebViewResultCallback = fn void(Id view, ZString result, ZString error, void* user_data);
+<* Receives what the page sends with `window.raven.postMessage(value)`. *>
+alias SystemWebViewMessageCallback = fn void(Id view, ZString message, void* user_data);
+alias SystemWebViewEventCallback = fn void(Id view, SystemWebViewEvent event, void* user_data);
 <* Called when the user zoomed (to zoom other editors the same, or to keep it for the next time). *>
 alias TextEditorZoomCallback = fn void(Id editor, float zoom, void* user_data);
 <*
@@ -1913,6 +2228,13 @@ alias NodeGraphPointCallback = fn void(Id graph, CInt item, float x, float y, vo
 alias BlockEditorCallback = fn void(Id editor, CInt block, void* user_data);
 <* Right click: on a block (0 on the canvas), at x, y in the widget. *>
 alias BlockEditorContextCallback = fn void(Id editor, CInt block, float x, float y, void* user_data);
+<*
+ A line, or its number in the gutter, was clicked. `side` is the side
+ of the line clicked (in unified mode: the left side for a removed line
+ and for the left column of numbers, else the right side), `line` its
+ number on that side, from 1.
+*>
+alias DiffViewLineCallback = fn void(Id diff_view, DiffSide side, CInt line, CInt in_gutter, void* user_data);
 <* Called when a dialog closes. `result` is the value given to Rdialog_close, 0 when dismissed. *>
 alias DialogClosedCallback = fn void(Id content, CInt result, void* user_data);
 <*
@@ -1924,6 +2246,21 @@ alias DialogClosedCallback = fn void(Id content, CInt result, void* user_data);
 alias FileBrowserCallback = fn void(Id browser, ZString path, void* user_data);
 alias NotificationFallback = fn void(ZString title, ZString body, NotificationUrgency urgency, void* user_data);
 alias NotificationClickedCallback = fn void(void* user_data);
+<*
+ Called on the UI thread when the user clicks a notification or
+ one of its buttons, or dismisses it. `tag` names the notification,
+ `action` is the id of the button for R_NOTIFICATION_ACTION_INVOKED, else NULL.
+ NULL: none.
+*>
+alias NotificationCallback = fn void(ZString tag, NotificationEvent event, ZString action, void* user_data);
+<* The answer to Rpermission_request. *>
+alias PermissionCallback = fn void(Permission permission, PermissionStatus status, void* user_data);
+<*
+ The end of a request of a picker, the camera, a save or a share
+ sheet. `files` (count of them) are what it gave: none unless `result` is
+ R_DEVICE_DONE. Called on the UI thread, once.
+*>
+alias DeviceCallback = fn void(DeviceResult result, PickedFile* files, CInt count, void* user_data);
 <*
  Called on the render thread each time the window is rendered.
  State you bind (pipeline, descriptor sets, viewport, scissor) does not
@@ -1978,6 +2315,8 @@ alias VulkanQueueLockCallback = fn void(void* user_data);
  Pending callbacks are cancelled without delivery when Raven shuts down.
 *>
 alias WebCallback = fn void(CInt success, ZString result, void* user_data);
+<* Called when the loop of Rweb_start_ex ends, in place of Rshutdown. *>
+alias WebShutdownCallback = fn void();
 
 <*
  Optional settings for Rinit_ex. A zero-initialized structure selects the
@@ -2046,6 +2385,38 @@ struct FrameStats
 	uint backdrop_count;
 	uint paint_job_count;
 	ulong frame_index;
+}
+
+<*
+ One format of something given to the other applications: put on
+ the clipboard (Rclipboard_set_data) or dragged out of a window
+ (Rdrag_begin_external). The program that receives it takes the format
+ it prefers.
+
+ `mime` names the format. Raven gives these their native names on each
+ system (and converts them), so that every program understands them:
+
+   text/plain      UTF-8 text
+   text/html       HTML (UTF-8)
+   image/png       a PNG file (Rimage_encode_png); on Windows it is also
+                   given as a bitmap (CF_DIBV5), on macOS also as TIFF
+   text/uri-list   files, as file:// URLs, one per line: the file
+                   manager copies or moves them, the other programs
+                   open them
+   text/rtf, image/jpeg, image/tiff, image/gif, application/pdf,
+   application/json, text/csv, image/svg+xml
+
+ Any other name is a format of the application ("application/x-myapp-node"):
+ passed as it is, and read back by the programs that know it (other
+ instances of the application).
+*>
+struct DataItem
+{
+	<* The format: a MIME type. *>
+	ZString mime;
+	<* The bytes (copied by the function they are given to). Text is not followed by a '\0'. *>
+	void* data;
+	usz size;
 }
 
 <* Distances from the edges of a window, in logical units. *>
@@ -2328,7 +2699,7 @@ struct TileItem
 	ZString detail;
 	<* Small text at the top right of the tile, or NULL. *>
 	ZString badge;
-	<* Icon texture (R_INVALID_ID: none), the region of it and its tint (white by default). *>
+	<* Icon texture (R_INVALID_ID: none), the region of it and its tint (white by default; an SVG in currentColor is also tinted with the color of the name). *>
 	Id icon;
 	float[4] uv;
 	float[4] tint;
@@ -2406,6 +2777,45 @@ struct JumpTask
 	ZString description;
 }
 
+<* A button of a notification. *>
+struct NotificationAction
+{
+	<* Given back to the callback ("reply", "snooze"); not empty, and not "default". *>
+	ZString id;
+	<* Shown to the user ("Reply"). *>
+	ZString label;
+}
+
+<*
+ A notification for Rnotification_show_desc. `size` must be
+ sizeof(RNotificationDesc): the fields that later versions of Raven add
+ come after the others, and a smaller size tells Raven they were not
+ given. The other fields may be left to zero.
+*>
+struct NotificationDesc
+{
+	<* sizeof(RNotificationDesc). *>
+	uint size;
+	<*
+	 Names the notification: shown again with the same tag, it replaces the
+	 one still shown instead of adding another; Rnotification_close takes it
+	 away; the callback is given it. NULL or "": a tag of its own
+	 ("raven.1", "raven.2"...).
+	*>
+	ZString tag;
+	ZString title;
+	ZString body;
+	<* 0: R_NOTIFICATION_NORMAL. *>
+	NotificationUrgency urgency;
+	<* An image file shown beside the text (PNG, JPEG, SVG...: what Raven reads), or NULL. *>
+	ZString icon;
+	<* Up to 3 buttons, or NULL. *>
+	NotificationAction* actions;
+	CInt action_count;
+	<* The window brought back when the notification is clicked. R_INVALID_ID: the main window (the first one opened). *>
+	Id window;
+}
+
 <* A kind of file in a file dialog. *>
 struct FileFilter
 {
@@ -2432,6 +2842,43 @@ struct FileDialogDesc
 	ZString default_extension;
 	<* Bitmask of RFileDialogFlags. *>
 	FileDialogFlags flags;
+}
+
+<* A file given by a service of the device. Valid during the callback only: copy what you keep. *>
+struct PickedFile
+{
+	<*
+	 A path Raven and the C library can read (Rfile_read, textures, fonts,
+	 fopen). On iOS and Android a copy in the cache of the application.
+	 NULL for Rfile_save_async on iOS and Android: the file went where the
+	 user chose, which the application cannot write to again.
+	*>
+	ZString path;
+	<* The name the user saw ("IMG_0042.JPG"), to show. *>
+	ZString name;
+	<* The MIME type when the system tells ("image/jpeg"), or NULL. *>
+	ZString mime_type;
+	<* Bytes. *>
+	ulong size;
+	<* Pixels of a photo (Rcamera_take_photo, Rphoto_pick) when known, else 0. *>
+	CInt width;
+	<* Pixels of a photo (Rcamera_take_photo, Rphoto_pick) when known, else 0. *>
+	CInt height;
+}
+
+<* What a share sheet offers to the other applications (Rshare_show). Every field may be left to zero, but not all of them. *>
+struct ShareDesc
+{
+	<* Text, or a link ("https://..."). May be NULL. *>
+	ZString text;
+	<* A file to send (a path Raven can read), or NULL. *>
+	ZString path;
+	<* Its MIME type ("image/png"); NULL: guessed from its extension. *>
+	ZString mime_type;
+	<* The title of the sheet, where the system shows one (Android's chooser). May be NULL. *>
+	ZString title;
+	<* The widget the sheet points at on a tablet (the button that shares). 0 or R_INVALID_ID: the middle of the window. *>
+	Id anchor;
 }
 
 <* Passed to the draw callback of a viewport. Sizes are in pixels. *>
@@ -2541,6 +2988,38 @@ struct AccessibilitySettings
 	CInt screen_reader;
 }
 
+<* A request of a service of the device, valid during the call only. Fields that do not concern the service are zero. *>
+struct HostServiceRequest
+{
+	<* Given back to Rhost_service_complete. *>
+	uint id;
+	HostService service;
+	<* The window it is for (R_INVALID_ID: none). *>
+	Id window;
+	<* What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window. *>
+	float anchor_x;
+	<* What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window. *>
+	float anchor_y;
+	<* What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window. *>
+	float anchor_width;
+	<* What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window. *>
+	float anchor_height;
+	ZString title;
+	FileFilter* filters;
+	CInt filter_count;
+	<* Bitmask of RFileDialogFlags. *>
+	uint flags;
+	ZString file_name;
+	ZString default_extension;
+	void* data;
+	usz size;
+	ZString path;
+	CInt max_count;
+	ZString text;
+	ZString mime_type;
+	ZString share_title;
+}
+
 <* The type of HostPlatformDesc.set_cursor. *>
 alias HostPlatformDescSetCursorFn = fn void(Id window, Cursor cursor, void* user_data);
 <* The type of HostPlatformDesc.clipboard_set. *>
@@ -2549,6 +3028,18 @@ alias HostPlatformDescClipboardSetFn = fn void(ZString text, void* user_data);
 alias HostPlatformDescClipboardGetFn = fn ZString(void* user_data);
 <* The type of HostPlatformDesc.wake. *>
 alias HostPlatformDescWakeFn = fn void(void* user_data);
+<* The type of HostPlatformDesc.permission_status. *>
+alias HostPlatformDescPermissionStatusFn = fn PermissionStatus(Permission permission, void* user_data);
+<* The type of HostPlatformDesc.permission_request. *>
+alias HostPlatformDescPermissionRequestFn = fn void(Permission permission, void* user_data);
+<* The type of HostPlatformDesc.service_request. *>
+alias HostPlatformDescServiceRequestFn = fn void(HostServiceRequest* request, void* user_data);
+<* The type of HostPlatformDesc.open_url. *>
+alias HostPlatformDescOpenUrlFn = fn CInt(ZString url, void* user_data);
+<* The type of HostPlatformDesc.haptic. *>
+alias HostPlatformDescHapticFn = fn CInt(Haptic haptic, void* user_data);
+<* The type of HostPlatformDesc.download. *>
+alias HostPlatformDescDownloadFn = fn void*(ZString url, usz* size, void* user_data);
 struct HostPlatformDesc
 {
 	<* The pointer over `window` should look like `cursor`. May be NULL. *>
@@ -2560,6 +3051,55 @@ struct HostPlatformDesc
 	<* Raven has work to do (a timer, a posted task, a redraw): produce a frame soon. Thread-safe. May be NULL. *>
 	HostPlatformDescWakeFn wake;
 	void* user_data;
+	<* An RPermissionStatus, without asking. NULL: as on desktops (notifications granted, the rest unsupported). *>
+	HostPlatformDescPermissionStatusFn permission_status;
+	<* Ask the user (the status is not asked or denied); answer with Rhost_permission_answer. *>
+	HostPlatformDescPermissionRequestFn permission_request;
+	<* A picker, the camera, a save or a share sheet; answer with Rhost_service_complete. NULL: the file dialogs of Raven, nothing else. *>
+	HostPlatformDescServiceRequestFn service_request;
+	<* R_TRUE: there is a camera (Rcamera_is_available) for R_HOST_SERVICE_TAKE_PHOTO. *>
+	CInt has_camera;
+	<* Ropen_url. Returns R_FALSE when it could not. NULL: as on desktops (`open`, `xdg-open`...). *>
+	HostPlatformDescOpenUrlFn open_url;
+	<* Rhaptic_play: an RHaptic. Returns R_TRUE when played. *>
+	HostPlatformDescHapticFn haptic;
+	<*
+	 Downloads an http(s) URL (images from a URL): returns its content in a
+	 buffer from Rmemory_alloc and its size, or NULL. Called on worker
+	 threads, several at a time, and may block. NULL: as on desktops.
+	*>
+	HostPlatformDescDownloadFn download;
+}
+
+<* How Rtest_expect_golden compares. NULL options: a tolerance of 2 per channel and no different pixel. *>
+struct GoldenOptions
+{
+	<* Largest difference on one channel (0..255) for which two pixels are still the same. *>
+	CInt channel_tolerance;
+	<* Share of the pixels (0..1) that may differ while the images still match. *>
+	float max_diff_ratio;
+	<* R_TRUE: the golden of this OS and backend, "button.png" read as "button.macos-metal.png" (Rtest_get_platform_tag). *>
+	CInt per_platform;
+	<* Folder of the .actual.png and .diff.png written on a mismatch. NULL: beside the golden. *>
+	ZString output_directory;
+}
+
+<* What Rtest_expect_golden found. *>
+struct GoldenResult
+{
+	GoldenStatus status;
+	<* Size of the capture, in pixels. *>
+	CInt width;
+	<* Size of the capture, in pixels. *>
+	CInt height;
+	<* Pixels farther from the golden than the tolerance. *>
+	CInt differing_pixels;
+	<* Largest difference found on one channel (0..255). *>
+	CInt max_channel_difference;
+	<* The golden that was read or written (with the platform tag). Valid until the next call. *>
+	ZString golden_path;
+	<* One line that says what happened, for the log of the test. Valid until the next call. *>
+	ZString message;
 }
 
 <* Memory exported by Rvulkan_texture_create_shared. *>
@@ -3342,8 +3882,45 @@ fn Image image_create() @inline => (Image)c::r_widget_create(c::R_WIDGET_IMAGE);
 *>
 alias image_decode = c::r_image_decode;
 
+<*
+ Reads what an image file in memory holds without keeping its
+ pixels: its size, its frames (1 for a still image, more for an animated
+ GIF or APNG) and how many times it plays (0: forever). Thread-safe.
+ Each pointer may be NULL.
+ Returns R_FALSE when the data is not an image Raven can read.
+*>
+fn bool image_decode_info(void* data, usz data_size, CInt* width, CInt* height, CInt* frame_count, CInt* loop_count) @inline => c::r_image_decode_info(data, data_size, width, height, frame_count, loop_count) != 0;
+
+<*
+ Decodes one frame of an animated GIF or APNG into tightly packed
+ RGBA8 pixels, composed as it is shown (the frames before it drawn and
+ disposed of). Frame 0 of a still image is the image. Thread-safe.
+ Returns The pixels, to release with Rpixels_free; NULL when the frame does not exist.
+*>
+alias image_decode_frame = c::r_image_decode_frame;
+
+<*
+ Encodes tightly packed RGBA8 pixels (what Rwindow_capture
+ returns) as a PNG file in memory. Thread-safe.
+ Returns The bytes of the file, to release with Rpixels_free; NULL when
+ there are no pixels.
+*>
+alias image_encode_png = c::r_image_encode_png;
+
+<*
+ Writes tightly packed RGBA8 pixels to a PNG file: a screenshot
+ of Rwindow_capture, a picture made by the application. Thread-safe.
+ Returns R_FALSE when the file cannot be written.
+*>
+fn bool image_save_png(ZString path, char* rgba, CInt width, CInt height) @inline => c::r_image_save_png((char*)path, rgba, width, height) != 0;
+
 fn void Image.set_texture(self, Id texture) @inline => c::r_image_set_texture((c::Rid)self, (c::Rid)texture);
 
+<*
+ Color the image is multiplied by (white by default). An SVG in
+ currentColor (Ricon_get, Rtexture_create_from_svg) is drawn in the color of
+ the text around it until a tint is given; then in the tint. XML: Tint.
+*>
 fn void Image.set_tint_color(self, float r, float g, float b, float a) @inline => c::r_image_set_tint_color((c::Rid)self, r, g, b, a);
 
 <* R_TRUE: the image is tinted with the text color around it (white icons that follow the theme). XML: TintText. *>
@@ -3355,6 +3932,50 @@ fn void Image.set_stretch(self, Stretch stretch) @inline => c::r_image_set_stret
 fn void Image.set_region(self, float min_u, float min_v, float max_u, float max_v) @inline => c::r_image_set_region((c::Rid)self, min_u, min_v, max_u, max_v);
 
 fn void Image.set_corner_radius(self, float radius) @inline => c::r_image_set_corner_radius((c::Rid)self, radius);
+
+<* R_TRUE when the texture of the image is an animated GIF or APNG (two frames or more). *>
+fn bool Image.is_animated(self) @inline => c::r_image_is_animated((c::Rid)self) != 0;
+
+<* Returns The frames of its animation; 1 for a still image, 0 without a texture. *>
+fn CInt Image.get_frame_count(self) @inline => c::r_image_get_frame_count((c::Rid)self);
+
+<* Returns The seconds one play of its animation lasts (0 for a still image). *>
+fn double Image.get_duration(self) @inline => c::r_image_get_duration((c::Rid)self);
+
+<* Returns The seconds a frame of its animation is shown (0 for a frame that does not exist). *>
+fn double Image.get_frame_delay(self, CInt frame) @inline => c::r_image_get_frame_delay((c::Rid)self, frame);
+
+<*
+ Plays the animation from the frame it is on (from the first
+ again when it had finished). An Image plays as soon as it is given an
+ animated texture, unless XML says Animate="false".
+*>
+fn void Image.play(self) @inline => c::r_image_play((c::Rid)self);
+
+<* Stops the animation on the frame it is on. *>
+fn void Image.pause(self) @inline => c::r_image_pause((c::Rid)self);
+
+<* Stops the animation and shows its first frame. *>
+fn void Image.stop(self) @inline => c::r_image_stop((c::Rid)self);
+
+fn bool Image.is_playing(self) @inline => c::r_image_is_playing((c::Rid)self) != 0;
+
+<* Shows a frame (from 0), playing on from it if it plays. *>
+fn void Image.set_frame(self, CInt frame) @inline => c::r_image_set_frame((c::Rid)self, frame);
+
+fn CInt Image.get_frame(self) @inline => c::r_image_get_frame((c::Rid)self);
+
+<*
+ How many times the animation plays before it stops on its last
+ frame: 0 forever, -1 what the file says (the default). XML: Loop
+ (a number; also Forever, Once).
+*>
+fn void Image.set_loop_count(self, CInt count) @inline => c::r_image_set_loop_count((c::Rid)self, count);
+
+<* Returns The plays of the animation (0: forever), the file's unless it was set. *>
+fn CInt Image.get_loop_count(self) @inline => c::r_image_get_loop_count((c::Rid)self);
+
+fn void Image.set_finished_callback(self, ImageFinishedCallback callback, void* user_data) @inline => c::r_image_set_finished_callback((c::Rid)self, (c::RImageFinishedCallback)callback, user_data);
 
 // ---- TextInput
 
@@ -3398,6 +4019,18 @@ fn void TextInput.set_changed_callback(self, TextChangedCallback callback, void*
 
 <* Called when Enter is pressed. This also fires the action of the widget. *>
 fn void TextInput.set_committed_callback(self, TextChangedCallback callback, void* user_data) @inline => c::r_text_input_set_committed_callback((c::Rid)self, (c::RTextChangedCallback)callback, user_data);
+
+<*
+ Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+ a right click on one offers corrections (see SPELL CHECKING). Off by
+ default. A password is never checked.
+*>
+fn void TextInput.set_spell_check(self, bool enabled) @inline => c::r_text_input_set_spell_check((c::Rid)self, (CInt)enabled);
+
+fn CInt TextInput.get_spell_check(self) @inline => c::r_text_input_get_spell_check((c::Rid)self);
+
+<* Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language). *>
+fn void TextInput.set_spell_language(self, ZString language) @inline => c::r_text_input_set_spell_language((c::Rid)self, (char*)language);
 
 // ---- SpinBox
 
@@ -3455,6 +4088,41 @@ fn void ComboBox.set_selected(self, CInt index) @inline => c::r_combo_box_set_se
 fn CInt ComboBox.get_selected(self) @inline => c::r_combo_box_get_selected((c::Rid)self);
 
 fn void ComboBox.set_changed_callback(self, ComboBoxChangedCallback callback, void* user_data) @inline => c::r_combo_box_set_changed_callback((c::Rid)self, (c::RComboBoxChangedCallback)callback, user_data);
+
+<*
+ R_TRUE: the combo box is a text field with its list: the user
+ may type a text that is not one of the items (Editable="true"). The text
+ is Rcombo_box_get_text; choosing an item puts its text there. A typed
+ text equal to an item selects it, any other selects nothing (-1).
+*>
+fn void ComboBox.set_editable(self, CInt editable) @inline => c::r_combo_box_set_editable((c::Rid)self, editable);
+
+fn bool ComboBox.is_editable(self) @inline => c::r_combo_box_is_editable((c::Rid)self) != 0;
+
+<*
+ R_TRUE: typing in the combo box filters its list (Searchable="true"):
+ the items that contain what was typed, without regard to case or
+ accents ("zoe" finds "Zoë", "sao" finds "São Paulo"), or a row saying that nothing
+ matches. Up and Down move in the list, Enter chooses, Escape closes it.
+ A searchable combo box that is not editable comes back to the item
+ chosen when nothing is.
+*>
+fn void ComboBox.set_searchable(self, CInt searchable) @inline => c::r_combo_box_set_searchable((c::Rid)self, searchable);
+
+fn bool ComboBox.is_searchable(self) @inline => c::r_combo_box_is_searchable((c::Rid)self) != 0;
+
+<* The text shown: what was typed in an editable combo box, else the text of the selected item ("" for none). *>
+fn ZString ComboBox.get_text(self) @inline => (ZString)c::r_combo_box_get_text((c::Rid)self);
+
+<* Editable combo box: sets the text of the field (the item equal to it is selected); otherwise selects the item with this text. *>
+fn void ComboBox.set_text(self, ZString text) @inline => c::r_combo_box_set_text((c::Rid)self, (char*)text);
+
+fn void ComboBox.set_text_changed_callback(self, ComboBoxTextCallback callback, void* user_data) @inline => c::r_combo_box_set_text_changed_callback((c::Rid)self, (c::RComboBoxTextCallback)callback, user_data);
+
+<* Opens (R_TRUE) or closes the list. *>
+fn void ComboBox.set_open(self, CInt open) @inline => c::r_combo_box_set_open((c::Rid)self, open);
+
+fn bool ComboBox.is_open(self) @inline => c::r_combo_box_is_open((c::Rid)self) != 0;
 
 // ---- Separator
 
@@ -3802,7 +4470,7 @@ fn CInt TabView.find_tab(self, Id content) @inline => c::r_tab_view_find_tab((c:
 
 fn void TabView.set_tab_title(self, Id content, ZString title) @inline => c::r_tab_view_set_tab_title((c::Rid)self, (c::Rid)content, (char*)title);
 
-<* Icon before the title (documents). R_INVALID_ID removes it; tint: a mask in the text color. *>
+<* Icon before the title (documents). R_INVALID_ID removes it; tint: a mask in the text color (always, for an SVG in currentColor). XML: Slot.Icon. *>
 fn void TabView.set_tab_icon(self, Id content, Id texture, float u0, float v0, float u1, float v1, bool tint) @inline => c::r_tab_view_set_tab_icon((c::Rid)self, (c::Rid)content, (c::Rid)texture, u0, v0, u1, v1, (CInt)tint);
 
 <* R_FALSE: no close button (documents ; the level tab). Tabs can be closed by default. *>
@@ -3852,7 +4520,8 @@ fn ZString TextEditor.get_line(self, CInt line) @inline => (ZString)c::r_text_ed
 
 <*
  Types a text at the cursor, replacing the selection, as the user
- would: it can be undone and the changed callback is called.
+ would (at every cursor when there are several): it can be undone and
+ the changed callback is called.
 *>
 fn void TextEditor.insert_text(self, ZString text) @inline => c::r_text_editor_insert_text((c::Rid)self, (char*)text);
 
@@ -3873,6 +4542,84 @@ fn ZString TextEditor.get_selected_text(self) @inline => (ZString)c::r_text_edit
 
 <* Scrolls so that a line is visible. *>
 fn void TextEditor.scroll_to_line(self, CInt line) @inline => c::r_text_editor_scroll_to_line((c::Rid)self, line);
+
+<*
+ Adds a cursor (a caret) to the editor; the main cursor stays
+ the main one. A cursor over another one, or at the place of another
+ caret, becomes one with it. Rtext_editor_set_cursor,
+ Rtext_editor_select and Rtext_editor_set_text go back to one cursor.
+*>
+fn void TextEditor.add_cursor(self, CInt line, CInt column) @inline => c::r_text_editor_add_cursor((c::Rid)self, line, column);
+
+<* Adds a cursor that selects from one position to another (its caret on the second). *>
+fn void TextEditor.add_selection(self, CInt from_line, CInt from_column, CInt to_line, CInt to_column) @inline => c::r_text_editor_add_selection((c::Rid)self, from_line, from_column, to_line, to_column);
+
+<* Returns The number of cursors, the main one included (1 at least). *>
+fn CInt TextEditor.get_cursor_count(self) @inline => c::r_text_editor_get_cursor_count((c::Rid)self);
+
+<*
+ A cursor by its index, in the order of the text (0 for the
+ first): its caret and the anchor of its selection (the same position
+ when nothing is selected). Returns R_FALSE when `index` is out of range.
+*>
+fn CInt TextEditor.get_cursor_at(self, CInt index, CInt* line, CInt* column, CInt* anchor_line, CInt* anchor_column) @inline => c::r_text_editor_get_cursor_at((c::Rid)self, index, line, column, anchor_line, anchor_column);
+
+<* Returns The index of the main cursor, in the order of Rtext_editor_get_cursor_at. *>
+fn CInt TextEditor.get_main_cursor(self) @inline => c::r_text_editor_get_main_cursor((c::Rid)self);
+
+<* Back to the main cursor alone, as Escape does. *>
+fn void TextEditor.clear_cursors(self) @inline => c::r_text_editor_clear_cursors((c::Rid)self);
+
+<*
+ What Ctrl+D does: with nothing selected, selects the word at
+ each caret; else adds a cursor on the next occurrence of the main
+ selection (with its case, a whole word when it was selected so) that no
+ cursor selects, going on from the start of the text. Returns R_FALSE
+ when there is none.
+*>
+fn CInt TextEditor.add_next_occurrence(self) @inline => c::r_text_editor_add_next_occurrence((c::Rid)self);
+
+<* What Ctrl+Shift+L does: a cursor on every occurrence of the main selection (or of the word at the caret). Returns their number. *>
+fn CInt TextEditor.select_all_occurrences(self) @inline => c::r_text_editor_select_all_occurrences((c::Rid)self);
+
+<*
+ Folds the region that starts at a line: the lines after it, up
+ to the one before the bracket that closes it (or to the last one more
+ indented), are hidden. When the line starts none, or it is folded
+ already, the nearest region around the line is folded. Cursors in it
+ go to the end of its first line. Returns R_FALSE when there is none.
+ Line numbers stay those of the text. Folds follow the lines when text
+ is added or removed elsewhere; editing a hidden line (or the line break
+ of the first line) unfolds its region, and so does a match of the
+ search or a cursor that goes into it.
+*>
+fn CInt TextEditor.fold(self, CInt line) @inline => c::r_text_editor_fold((c::Rid)self, line);
+
+<* Unfolds the region that starts at a line, or what hides it. Returns R_FALSE when nothing was folded there. *>
+fn CInt TextEditor.unfold(self, CInt line) @inline => c::r_text_editor_unfold((c::Rid)self, line);
+
+<* Folds every region, those inside others too. *>
+fn void TextEditor.fold_all(self) @inline => c::r_text_editor_fold_all((c::Rid)self);
+
+fn void TextEditor.unfold_all(self) @inline => c::r_text_editor_unfold_all((c::Rid)self);
+
+<* Returns R_TRUE when a folded region starts at this line. *>
+fn bool TextEditor.is_folded(self, CInt line) @inline => c::r_text_editor_is_folded((c::Rid)self, line) != 0;
+
+<* Returns R_TRUE when the line is hidden in a folded region. *>
+fn bool TextEditor.is_line_hidden(self, CInt line) @inline => c::r_text_editor_is_line_hidden((c::Rid)self, line) != 0;
+
+<* Returns The last line of the region that starts at a line (folded or not), -1 when it starts none. *>
+fn CInt TextEditor.get_fold_end(self, CInt line) @inline => c::r_text_editor_get_fold_end((c::Rid)self, line);
+
+<*
+ R_FALSE unfolds everything and stops folding: no markers, and
+ Ctrl+Shift+[ / ] go to the shortcuts of the window. On by default.
+ XML: Folding="false".
+*>
+fn void TextEditor.set_folding(self, bool enabled) @inline => c::r_text_editor_set_folding((c::Rid)self, (CInt)enabled);
+
+fn CInt TextEditor.get_folding(self) @inline => c::r_text_editor_get_folding((c::Rid)self);
 
 fn void TextEditor.undo(self) @inline => c::r_text_editor_undo((c::Rid)self);
 
@@ -3945,6 +4692,19 @@ fn void TextEditor.set_markdown(self, bool enabled) @inline => c::r_text_editor_
 fn CInt TextEditor.get_markdown(self) @inline => c::r_text_editor_get_markdown((c::Rid)self);
 
 <*
+ Underlines the misspelled words with a wavy line (R_COLOR_SPELLING);
+ a right click on one offers corrections (see SPELL CHECKING in
+ raven_controls.h). Only the lines shown are checked, again when they
+ change. Off by default: it is meant for prose, not for code.
+*>
+fn void TextEditor.set_spell_check(self, bool enabled) @inline => c::r_text_editor_set_spell_check((c::Rid)self, (CInt)enabled);
+
+fn CInt TextEditor.get_spell_check(self) @inline => c::r_text_editor_get_spell_check((c::Rid)self);
+
+<* Language of the spell checking ("en_US", "fr"...). NULL: the default (Rspell_set_language). *>
+fn void TextEditor.set_spell_language(self, ZString language) @inline => c::r_text_editor_set_spell_language((c::Rid)self, (char*)language);
+
+<*
  What the language of the editor makes of the character at a
  position: the colors come from it. R_TOKEN_TEXT without a language.
 *>
@@ -4000,6 +4760,87 @@ fn void TextEditor.clear_markers(self) @inline => c::r_text_editor_clear_markers
 fn CInt TextEditor.get_marker_count(self) @inline => c::r_text_editor_get_marker_count((c::Rid)self);
 
 fn void TextEditor.set_hover_callback(self, TextEditorHoverCallback callback, void* user_data) @inline => c::r_text_editor_set_hover_callback((c::Rid)self, (c::RTextEditorHoverCallback)callback, user_data);
+
+<*
+ Sets what is searched for, with RSearchFlags, and shows every
+ match of the visible text (theme colors R_COLOR_SEARCH_MATCH and
+ R_COLOR_SEARCH_CURRENT). A match lies on one line: a query with a line
+ break finds nothing. NULL or "" clears the search. The selection does
+ not move; Rtext_editor_find_next goes to a match.
+*>
+fn void TextEditor.set_search(self, ZString query, SearchFlags flags) @inline => c::r_text_editor_set_search((c::Rid)self, (char*)query, (c::Ruint)flags);
+
+<* Returns The text searched for, "" when there is none. *>
+fn ZString TextEditor.get_search(self) @inline => (ZString)c::r_text_editor_get_search((c::Rid)self);
+
+<* Returns The RSearchFlags of the search. *>
+fn SearchFlags TextEditor.get_search_flags(self) @inline => (SearchFlags)c::r_text_editor_get_search_flags((c::Rid)self);
+
+<*
+ Selects the next match after the selection (or the cursor),
+ going on from the start of the text after its end, and scrolls to it.
+ Returns R_FALSE when the text has no match.
+*>
+fn CInt TextEditor.find_next(self) @inline => c::r_text_editor_find_next((c::Rid)self);
+
+<* The same, toward the start: the match before the selection, from the end of the text after its start. *>
+fn CInt TextEditor.find_previous(self) @inline => c::r_text_editor_find_previous((c::Rid)self);
+
+<* Returns The number of matches in the whole text. Counted once per change of the text or of the search. *>
+fn CInt TextEditor.get_match_count(self) @inline => c::r_text_editor_get_match_count((c::Rid)self);
+
+<* Returns The index of the selected match (0 for the first in the text), -1 when the selection is not a match. *>
+fn CInt TextEditor.get_match_index(self) @inline => c::r_text_editor_get_match_index((c::Rid)self);
+
+<*
+ Where a match is: its line and the columns of its first byte and
+ of the byte after it. Returns R_FALSE when `index` is out of range.
+*>
+fn CInt TextEditor.get_match(self, CInt index, CInt* line, CInt* from_column, CInt* to_column) @inline => c::r_text_editor_get_match((c::Rid)self, index, line, from_column, to_column);
+
+<* Selects a match by its index and scrolls to it. Returns R_FALSE when `index` is out of range. *>
+fn CInt TextEditor.select_match(self, CInt index) @inline => c::r_text_editor_select_match((c::Rid)self, index);
+
+<*
+ Replaces the selected match by `replacement`, as one step of
+ the history, then selects the next match. When the selection is not a
+ match, only selects the next one (the user sees what will be replaced).
+ Returns R_TRUE when something was replaced. As with
+ Rtext_editor_insert_text, the changed callback is called.
+*>
+fn CInt TextEditor.replace(self, ZString replacement) @inline => c::r_text_editor_replace((c::Rid)self, (char*)replacement);
+
+<*
+ Replaces every match by `replacement`, as a single step of the
+ history (one undo puts them all back). Returns the number of matches
+ replaced.
+*>
+fn CInt TextEditor.replace_all(self, ZString replacement) @inline => c::r_text_editor_replace_all((c::Rid)self, (char*)replacement);
+
+<*
+ Opens the find bar of the editor (Ctrl+F), with the row to
+ replace when `replace` is R_TRUE (Ctrl+H), and gives it the keyboard.
+ Text selected on one line becomes the text searched for.
+ Its texts are English unless the locale has the keys Raven.Find,
+ Raven.Replace, Raven.ReplaceAll, Raven.FindNoResults, Raven.FindCount
+ ("{0} of {1}"), Raven.FindMatchCase, Raven.FindWholeWord,
+ Raven.FindPrevious, Raven.FindNext, Raven.FindClose and
+ Raven.FindToggleReplace.
+*>
+fn void TextEditor.show_find(self, CInt replace) @inline => c::r_text_editor_show_find((c::Rid)self, replace);
+
+<* Closes the find bar; the matches are no longer shown, F3 still goes to the next one. *>
+fn void TextEditor.hide_find(self) @inline => c::r_text_editor_hide_find((c::Rid)self);
+
+fn bool TextEditor.is_find_shown(self) @inline => c::r_text_editor_is_find_shown((c::Rid)self) != 0;
+
+<*
+ R_FALSE removes the find bar and its keys (Ctrl+F, Ctrl+H, F3,
+ Cmd+G), which then go to the shortcuts of the window: for an
+ application with its own search, built on Rtext_editor_set_search. On
+ by default. XML: FindBar="false".
+*>
+fn void TextEditor.set_find_bar(self, bool enabled) @inline => c::r_text_editor_set_find_bar((c::Rid)self, (CInt)enabled);
 
 fn void TextEditor.set_changed_callback(self, TextEditorChangedCallback callback, void* user_data) @inline => c::r_text_editor_set_changed_callback((c::Rid)self, (c::RTextEditorChangedCallback)callback, user_data);
 
@@ -5000,6 +5841,17 @@ fn void TileView.set_drag_type(self, ZString type) @inline => c::r_tile_view_set
 
 fn void TileView.set_drag_data_callback(self, TileDragDataCallback callback, void* user_data) @inline => c::r_tile_view_set_drag_data_callback((c::Rid)self, (c::RTileDragDataCallback)callback, user_data);
 
+<*
+ Tiles can be dragged out of the window, to other applications:
+ when the user starts dragging the selected tiles (`index` is the one
+ under the pointer), the callback gives their data by calling
+ Rdrag_begin_external (the pictures, the files they stand for...), and
+ Rdrag_set_image. With a drag type too (Rtile_view_set_drag_type), the
+ drag first goes to the drop targets of the window and only leaves it
+ with the pointer. NULL: the tiles stay in the application (default).
+*>
+fn void TileView.set_drag_out_callback(self, TileEventCallback callback, void* user_data) @inline => c::r_tile_view_set_drag_out_callback((c::Rid)self, (c::RTileEventCallback)callback, user_data);
+
 fn void TileView.set_selection_changed_callback(self, TileEventCallback callback, void* user_data) @inline => c::r_tile_view_set_selection_changed_callback((c::Rid)self, (c::RTileEventCallback)callback, user_data);
 
 fn void TileView.set_activated_callback(self, TileEventCallback callback, void* user_data) @inline => c::r_tile_view_set_activated_callback((c::Rid)self, (c::RTileEventCallback)callback, user_data);
@@ -5168,12 +6020,30 @@ fn void Table.set_cell_color_callback(self, TableCellColorCallback callback, voi
 *>
 fn void Table.set_cell_text_color(self, CInt row, CInt column, float r, float g, float b, float a) @inline => c::r_table_set_cell_text_color((c::Rid)self, row, column, r, g, b, a);
 
-<* Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default. *>
+<* Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default. Same as Rtable_set_selection_mode(MULTIPLE or SINGLE). *>
 fn void Table.set_multi_select(self, bool enabled) @inline => c::r_table_set_multi_select((c::Rid)self, (CInt)enabled);
+
+<*
+ Single (default), multiple or no selection (SelectionMode="Multiple" in XML).
+ Going to single keeps the selected row, going to none clears the selection.
+*>
+fn void Table.set_selection_mode(self, TableSelectionMode mode) @inline => c::r_table_set_selection_mode((c::Rid)self, (c::RTableSelectionMode)mode);
+
+fn TableSelectionMode Table.get_selection_mode(self) @inline => (TableSelectionMode)c::r_table_get_selection_mode((c::Rid)self);
 
 fn void Table.set_row_selected(self, CInt row, bool selected) @inline => c::r_table_set_row_selected((c::Rid)self, row, (CInt)selected);
 
 fn bool Table.is_row_selected(self, CInt row) @inline => c::r_table_is_row_selected((c::Rid)self, row) != 0;
+
+<*
+ Selects (`selected` R_TRUE) or deselects the rows first..last, both
+ included, keeping the others: multiple selection only (in single
+ selection, selecting a range selects `last`).
+*>
+fn void Table.select_range(self, CInt first, CInt last, bool selected) @inline => c::r_table_select_range((c::Rid)self, first, last, (CInt)selected);
+
+<* Multiple selection: selects every row (Ctrl/Cmd+A). Nothing in the other modes. *>
+fn void Table.select_all(self) @inline => c::r_table_select_all((c::Rid)self);
 
 fn void Table.clear_selection(self) @inline => c::r_table_clear_selection((c::Rid)self);
 
@@ -5182,10 +6052,32 @@ fn CInt Table.get_selection_count(self) @inline => c::r_table_get_selection_coun
 <* Selected row at index, top to bottom; -1 outside the selection. *>
 fn CInt Table.get_selection(self, CInt index) @inline => c::r_table_get_selection((c::Rid)self, index);
 
+<*
+ The selection as runs of consecutive rows, top to bottom: the
+ fast way to go through a large selection (select all of a million rows
+ is one range).
+*>
+fn CInt Table.get_selection_range_count(self) @inline => c::r_table_get_selection_range_count((c::Rid)self);
+
+<* The rows first..last (both included) of a range of the selection. @return R_FALSE outside the ranges. *>
+fn bool Table.get_selection_range(self, CInt index, CInt* first, CInt* last) @inline => c::r_table_get_selection_range((c::Rid)self, index, first, last) != 0;
+
 <* Replaces the selection with one row. -1 selects nothing, including in multi-select mode. *>
 fn void Table.set_selected(self, CInt row) @inline => c::r_table_set_selected((c::Rid)self, row);
 
+<*
+ The selected row (-1: none). In multiple selection, the one
+ selected last, or else the first one; the selection changed callback
+ receives it.
+*>
 fn CInt Table.get_selected(self) @inline => c::r_table_get_selected((c::Rid)self);
+
+<*
+ The row the keyboard is on: the selected row in single
+ selection; in multiple selection the row last clicked or reached with
+ the arrows, which Space toggles (it may be unselected). -1: none.
+*>
+fn CInt Table.get_current_row(self) @inline => c::r_table_get_current_row((c::Rid)self);
 
 fn void Table.scroll_to_row(self, CInt row) @inline => c::r_table_scroll_to_row((c::Rid)self, row);
 
@@ -5209,6 +6101,55 @@ fn void Table.set_selection_changed_callback(self, TableEventCallback callback, 
 fn void Table.set_activated_callback(self, TableEventCallback callback, void* user_data) @inline => c::r_table_set_activated_callback((c::Rid)self, (c::RTableEventCallback)callback, user_data);
 
 fn void Table.set_sort_callback(self, TableSortCallback callback, void* user_data) @inline => c::r_table_set_sort_callback((c::Rid)self, (c::RTableSortCallback)callback, user_data);
+
+<* R_TRUE: the cells of the column are edited in place by the user (default R_FALSE). *>
+fn void Table.set_column_editable(self, CInt column, CInt editable) @inline => c::r_table_set_column_editable((c::Rid)self, column, editable);
+
+fn bool Table.is_column_editable(self, CInt column) @inline => c::r_table_is_column_editable((c::Rid)self, column) != 0;
+
+fn void Table.set_cell_edited_callback(self, TableCellEditedCallback callback, void* user_data) @inline => c::r_table_set_cell_edited_callback((c::Rid)self, (c::RTableCellEditedCallback)callback, user_data);
+
+<*
+ Opens the editor on a cell, its text selected, as F2 does (the
+ row is selected and scrolled into view). Any column can be edited this
+ way, editable or not. @return R_TRUE when the editor is open.
+*>
+fn bool Table.edit_cell(self, CInt row, CInt column) @inline => c::r_table_edit_cell((c::Rid)self, row, column) != 0;
+
+fn bool Table.is_editing(self) @inline => c::r_table_is_editing((c::Rid)self) != 0;
+
+<*
+ Closes the editor: `commit` R_TRUE keeps the text (through the
+ cell edited callback), R_FALSE forgets it. @return R_FALSE when the text
+ was refused (the editor then stays open), R_TRUE otherwise.
+*>
+fn bool Table.end_edit(self, CInt commit) @inline => c::r_table_end_edit((c::Rid)self, commit) != 0;
+
+<*
+ The first `count` columns stay in place when the table scrolls
+ sideways; a thin shadow marks where the others pass under them. 0 (the
+ default): every column scrolls.
+*>
+fn void Table.set_frozen_columns(self, CInt count) @inline => c::r_table_set_frozen_columns((c::Rid)self, count);
+
+fn CInt Table.get_frozen_columns(self) @inline => c::r_table_get_frozen_columns((c::Rid)self);
+
+<*
+ Text (default), check box or progress bar: how the cells of the
+ column are drawn from their texts. A check column is made editable (the
+ user toggles it; Rtable_set_column_editable(R_FALSE) after this shows it
+ only) and centered. For anything else, a cell color callback and the
+ texts are what the table offers: it draws no other widget in its cells.
+*>
+fn void Table.set_column_kind(self, CInt column, TableColumnKind kind) @inline => c::r_table_set_column_kind((c::Rid)self, column, (c::RTableColumnKind)kind);
+
+fn TableColumnKind Table.get_column_kind(self, CInt column) @inline => (TableColumnKind)c::r_table_get_column_kind((c::Rid)self, column);
+
+<* A cell of a check column: R_TRUE when its text is "1", "true" or "yes". Any cell can be asked. *>
+fn bool Table.is_cell_checked(self, CInt row, CInt column) @inline => c::r_table_is_cell_checked((c::Rid)self, row, column) != 0;
+
+<* Stored rows: writes "1" or "0" in the cell (no callback is called). *>
+fn void Table.set_cell_checked(self, CInt row, CInt column, bool checked) @inline => c::r_table_set_cell_checked((c::Rid)self, row, column, (CInt)checked);
 
 // ---- DatePicker
 
@@ -5245,6 +6186,17 @@ fn bool DatePicker.is_open(self) @inline => c::r_date_picker_is_open((c::Rid)sel
 
 fn void DatePicker.set_changed_callback(self, DateChangedCallback callback, void* user_data) @inline => c::r_date_picker_set_changed_callback((c::Rid)self, (c::RDateChangedCallback)callback, user_data);
 
+<* The time zone of the date, for the instants below; NULL or "" (default): the zone of the system. TimeZone="..." in XML. *>
+fn void DatePicker.set_time_zone(self, ZString zone) @inline => c::r_date_picker_set_time_zone((c::Rid)self, (char*)zone);
+
+fn ZString DatePicker.get_time_zone(self) @inline => (ZString)c::r_date_picker_get_time_zone((c::Rid)self);
+
+<* Shows the date an instant (seconds since 1970, UTC) has in the zone of the picker. *>
+fn void DatePicker.set_instant(self, double utc) @inline => c::r_date_picker_set_instant((c::Rid)self, utc);
+
+<* The first instant of the date in the zone: its midnight (or, where the clocks skip midnight, the time they go to). *>
+fn double DatePicker.get_instant(self) @inline => c::r_date_picker_get_instant((c::Rid)self);
+
 // ---- TimePicker
 
 typedef TimePicker = inline Widget;
@@ -5262,6 +6214,42 @@ fn void TimePicker.set_seconds_visible(self, bool visible) @inline => c::r_time_
 fn void TimePicker.set_minute_step(self, CInt step) @inline => c::r_time_picker_set_minute_step((c::Rid)self, step);
 
 fn void TimePicker.set_changed_callback(self, TimeChangedCallback callback, void* user_data) @inline => c::r_time_picker_set_changed_callback((c::Rid)self, (c::RTimeChangedCallback)callback, user_data);
+
+<* 12 or 24 hours for this picker; R_CLOCK_AUTO (default): the clock of the locale. Clock="Auto|12|24" in XML. *>
+fn void TimePicker.set_clock(self, Clock clock) @inline => c::r_time_picker_set_clock((c::Rid)self, (c::RClock)clock);
+
+fn Clock TimePicker.get_clock(self) @inline => (Clock)c::r_time_picker_get_clock((c::Rid)self);
+
+<* The time as the field shows it: "3:05 PM", "15:05", with the zone when it is shown (valid until the next call). *>
+fn ZString TimePicker.get_text(self) @inline => (ZString)c::r_time_picker_get_text((c::Rid)self);
+
+<*
+ The time zone of the time ("America/New_York", see
+ Rtimezone_is_valid); NULL or "" (default): the zone of the system. An
+ unknown zone is refused. TimeZone="..." in XML.
+*>
+fn void TimePicker.set_time_zone(self, ZString zone) @inline => c::r_time_picker_set_time_zone((c::Rid)self, (char*)zone);
+
+<* The zone set, "" for none. *>
+fn ZString TimePicker.get_time_zone(self) @inline => (ZString)c::r_time_picker_get_time_zone((c::Rid)self);
+
+<* Writes the zone after the time ("EST", "CET", "UTC+3"). ShowTimeZone="true" in XML. *>
+fn void TimePicker.set_time_zone_visible(self, bool visible) @inline => c::r_time_picker_set_time_zone_visible((c::Rid)self, (CInt)visible);
+
+<* The day of the time, for its zone (month 1 to 12); year 0: today (default). Date="YYYY-MM-DD" in XML. *>
+fn void TimePicker.set_date(self, CInt year, CInt month, CInt day) @inline => c::r_time_picker_set_date((c::Rid)self, year, month, day);
+
+fn void TimePicker.get_date(self, CInt* year, CInt* month, CInt* day) @inline => c::r_time_picker_get_date((c::Rid)self, year, month, day);
+
+<* Shows an instant (seconds since 1970, UTC) in the zone of the picker: its day and its time. *>
+fn void TimePicker.set_instant(self, double utc) @inline => c::r_time_picker_set_instant((c::Rid)self, utc);
+
+<*
+ The instant the day and the time are in the zone. A time the
+ clocks skipped is moved forward, a time they repeated is the first
+ (see Rtimezone_from_local).
+*>
+fn double TimePicker.get_instant(self) @inline => c::r_time_picker_get_instant((c::Rid)self);
 
 // ---- Toast
 
@@ -5901,6 +6889,187 @@ fn Orientation Carousel.get_orientation(self) @inline => (Orientation)c::r_carou
 
 fn void Carousel.set_page_changed_callback(self, CarouselPageChangedCallback callback, void* user_data) @inline => c::r_carousel_set_page_changed_callback((c::Rid)self, (c::RCarouselPageChangedCallback)callback, user_data);
 
+// ---- SystemWebView
+
+typedef SystemWebView = inline Widget;
+
+<* Returns R_TRUE when web views show pages here (the system has an engine Raven can embed, and Raven runs with a window system). *>
+fn bool system_web_view_is_supported() @inline => c::r_system_web_view_is_supported() != 0;
+
+fn SystemWebView system_web_view_create() @inline => (SystemWebView)c::r_system_web_view_create();
+
+<* Goes to an address ("https://...", "file:///...", "about:blank"). A file: address may read the files of its folder. *>
+fn void SystemWebView.load_url(self, ZString url) @inline => c::r_system_web_view_load_url((c::Rid)self, (char*)url);
+
+<* Shows a file of the computer (an .html file, and what it refers to in its folder). *>
+fn void SystemWebView.load_file(self, ZString path) @inline => c::r_system_web_view_load_file((c::Rid)self, (char*)path);
+
+<* Shows HTML given as text. *>
+fn void SystemWebView.load_html(self, ZString html, ZString base_url) @inline => c::r_system_web_view_load_html((c::Rid)self, (char*)html, (char*)base_url);
+
+fn void SystemWebView.reload(self) @inline => c::r_system_web_view_reload((c::Rid)self);
+
+fn void SystemWebView.stop(self) @inline => c::r_system_web_view_stop((c::Rid)self);
+
+fn void SystemWebView.go_back(self) @inline => c::r_system_web_view_go_back((c::Rid)self);
+
+fn void SystemWebView.go_forward(self) @inline => c::r_system_web_view_go_forward((c::Rid)self);
+
+fn bool SystemWebView.can_go_back(self) @inline => c::r_system_web_view_can_go_back((c::Rid)self) != 0;
+
+fn bool SystemWebView.can_go_forward(self) @inline => c::r_system_web_view_can_go_forward((c::Rid)self) != 0;
+
+<* Returns The address of the page shown (the one asked for, where unsupported). Valid until it changes. *>
+fn ZString SystemWebView.get_url(self) @inline => (ZString)c::r_system_web_view_get_url((c::Rid)self);
+
+<* Returns The title of the page, "" when it has none. Valid until it changes. *>
+fn ZString SystemWebView.get_title(self) @inline => (ZString)c::r_system_web_view_get_title((c::Rid)self);
+
+fn bool SystemWebView.is_loading(self) @inline => c::r_system_web_view_is_loading((c::Rid)self) != 0;
+
+<* Returns Why the last page could not be shown, or "" when all is well. *>
+fn ZString SystemWebView.get_error(self) @inline => (ZString)c::r_system_web_view_get_error((c::Rid)self);
+
+<*
+ Runs JavaScript in the page; the value of its last statement is
+ the result. If it is a promise, the result is what the promise
+ resolves to. The callback (may be NULL) always comes later, never
+ during this call.
+*>
+fn void SystemWebView.run_javascript(self, ZString script, SystemWebViewResultCallback callback, void* user_data) @inline => c::r_system_web_view_run_javascript((c::Rid)self, (char*)script, (c::RSystemWebViewResultCallback)callback, user_data);
+
+fn void SystemWebView.set_message_callback(self, SystemWebViewMessageCallback callback, void* user_data) @inline => c::r_system_web_view_set_message_callback((c::Rid)self, (c::RSystemWebViewMessageCallback)callback, user_data);
+
+<*
+ Called when something happens in the page. The action of the
+ widget (Rwidget_set_action, OnChanged in XML) is fired as well each
+ time the address changes.
+*>
+fn void SystemWebView.set_event_callback(self, SystemWebViewEventCallback callback, void* user_data) @inline => c::r_system_web_view_set_event_callback((c::Rid)self, (c::RSystemWebViewEventCallback)callback, user_data);
+
+<*
+ The view of the system, to go further than these functions:
+ a WKWebView* on macOS and iOS. NULL where unsupported.
+*>
+fn void* SystemWebView.get_native_handle(self) @inline => c::r_system_web_view_get_native_handle((c::Rid)self);
+
+// ---- DiffView
+
+typedef DiffView = inline Widget;
+
+fn DiffView diff_view_create() @inline => (DiffView)c::r_diff_view_create();
+
+<* The two texts to compare (NULL: empty). Lines end with "\n" or "\r\n". *>
+fn void DiffView.set_texts(self, ZString left, ZString right) @inline => c::r_diff_view_set_texts((c::Rid)self, (char*)left, (char*)right);
+
+<* Names shown over the two sides (file names, "Before" / "After"); NULL: none. Their extension chooses the colors of the code. *>
+fn void DiffView.set_names(self, ZString left_name, ZString right_name) @inline => c::r_diff_view_set_names((c::Rid)self, (char*)left_name, (char*)right_name);
+
+<*
+ Compares two files. Their paths become the names unless names
+ were given. @return R_FALSE when a file cannot be read (it is compared
+ as empty).
+*>
+fn bool DiffView.load_files(self, ZString left_path, ZString right_path) @inline => c::r_diff_view_load_files((c::Rid)self, (char*)left_path, (char*)right_path) != 0;
+
+<*
+ Shows a patch (unified diff: the output of `git diff`, `diff -u`)
+ instead of two texts: each file with its name, each hunk with its header.
+ Returns R_FALSE when the text holds no hunk (nothing is shown).
+*>
+fn bool DiffView.set_patch(self, ZString patch) @inline => c::r_diff_view_set_patch((c::Rid)self, (char*)patch) != 0;
+
+fn void DiffView.set_mode(self, DiffViewMode mode) @inline => c::r_diff_view_set_mode((c::Rid)self, (c::RDiffViewMode)mode);
+
+fn DiffViewMode DiffView.get_mode(self) @inline => (DiffViewMode)c::r_diff_view_get_mode((c::Rid)self);
+
+<*
+ Unchanged lines shown around each change (3 by default); the
+ others are folded. A negative number shows every line.
+*>
+fn void DiffView.set_context(self, CInt lines) @inline => c::r_diff_view_set_context((c::Rid)self, lines);
+
+fn CInt DiffView.get_context(self) @inline => c::r_diff_view_get_context((c::Rid)self);
+
+<* How lines are compared: RDiffFlags (0 by default). Not used by a patch. *>
+fn void DiffView.set_flags(self, uint flags) @inline => c::r_diff_view_set_flags((c::Rid)self, flags);
+
+fn uint DiffView.get_flags(self) @inline => c::r_diff_view_get_flags((c::Rid)self);
+
+<* Marks the words that changed inside a changed line (default R_TRUE). *>
+fn void DiffView.set_word_diff(self, bool enabled) @inline => c::r_diff_view_set_word_diff((c::Rid)self, (CInt)enabled);
+
+<* Shows the numbers of the lines (default R_TRUE). *>
+fn void DiffView.set_line_numbers(self, bool visible) @inline => c::r_diff_view_set_line_numbers((c::Rid)self, (CInt)visible);
+
+<*
+ Colors the code as the text editor does: a language name of
+ Rlanguage_register ("C", "Python", "JSON"...), "None" for plain text,
+ NULL (default) to guess it from the extension of the names.
+*>
+fn void DiffView.set_language(self, ZString language) @inline => c::r_diff_view_set_language((c::Rid)self, (char*)language);
+
+<* The number of changes: runs of lines removed and / or added. *>
+fn CInt DiffView.get_change_count(self) @inline => c::r_diff_view_get_change_count((c::Rid)self);
+
+<*
+ Where a change is: its first line and its number of lines on
+ each side (a count of 0: nothing on that side; the line is then the one
+ after which the other side's lines go). @return R_FALSE when there is
+ no such change.
+*>
+fn bool DiffView.get_change(self, CInt change, CInt* left_line, CInt* left_count, CInt* right_line, CInt* right_count) @inline => c::r_diff_view_get_change((c::Rid)self, change, left_line, left_count, right_line, right_count) != 0;
+
+<* Scrolls to a change (from 0) and marks it as the current one. *>
+fn void DiffView.go_to_change(self, CInt change) @inline => c::r_diff_view_go_to_change((c::Rid)self, change);
+
+<* The current change, -1 before the first one is gone to. *>
+fn CInt DiffView.get_current_change(self) @inline => c::r_diff_view_get_current_change((c::Rid)self);
+
+<* Goes to the next / previous change. @return Its index, -1 when there is none. *>
+fn CInt DiffView.next_change(self) @inline => c::r_diff_view_next_change((c::Rid)self);
+
+fn CInt DiffView.prev_change(self) @inline => c::r_diff_view_prev_change((c::Rid)self);
+
+<* The rows shown, folds, hunk headers and notes included. *>
+fn CInt DiffView.get_row_count(self) @inline => c::r_diff_view_get_row_count((c::Rid)self);
+
+<*
+ What a row shows, and the numbers of its lines (0 for a side it
+ has no line of). A fold gives the first line it hides on each side.
+*>
+fn DiffRowKind DiffView.get_row(self, CInt row, CInt* left_line, CInt* right_line) @inline => (DiffRowKind)c::r_diff_view_get_row((c::Rid)self, row, left_line, right_line);
+
+<*
+ The text of a row on one side (in unified mode the side does not
+ matter for a line); a fold, a hunk, a file or a note give their label.
+ Valid until the next call. "" when there is none.
+*>
+fn ZString DiffView.get_row_text(self, CInt row, DiffSide side) @inline => (ZString)c::r_diff_view_get_row_text((c::Rid)self, row, (c::RDiffSide)side);
+
+<* Shows the lines of a fold. @return R_FALSE when the row is not a fold. *>
+fn bool DiffView.expand(self, CInt row) @inline => c::r_diff_view_expand((c::Rid)self, row) != 0;
+
+<* The first row at the top of the view; Rdiff_view_scroll_to_row brings one there. *>
+fn CInt DiffView.get_first_visible_row(self) @inline => c::r_diff_view_get_first_visible_row((c::Rid)self);
+
+fn void DiffView.scroll_to_row(self, CInt row) @inline => c::r_diff_view_scroll_to_row((c::Rid)self, row);
+
+<*
+ Attaches a short note to a line (a review comment, an error): a
+ mark in the gutter and the text in a row under the line, which is never
+ folded away. Several notes may go to one line.
+*>
+fn void DiffView.add_annotation(self, DiffSide side, CInt line, ZString text) @inline => c::r_diff_view_add_annotation((c::Rid)self, (c::RDiffSide)side, line, (char*)text);
+
+fn void DiffView.clear_annotations(self) @inline => c::r_diff_view_clear_annotations((c::Rid)self);
+
+<* The text selected by the user ("" when none), one line after another. *>
+fn ZString DiffView.get_selected_text(self) @inline => (ZString)c::r_diff_view_get_selected_text((c::Rid)self);
+
+<* Called when a line or its number is clicked (the action of the widget is fired too). *>
+fn void DiffView.set_line_clicked_callback(self, DiffViewLineCallback callback, void* user_data) @inline => c::r_diff_view_set_line_clicked_callback((c::Rid)self, (c::RDiffViewLineCallback)callback, user_data);
+
 // ---- Window
 
 typedef Window = inline Id;
@@ -6210,6 +7379,20 @@ fn void Window.inject_key(self, Key key, bool pressed, Modifier modifiers) @inli
 fn void Window.inject_text(self, ZString text) @inline => c::r_window_inject_text((c::Rid)self, (char*)text);
 
 <*
+ The text an input method is composing (preedit: Chinese,
+ Japanese, Korean, dead keys), as the platforms send it. The focused
+ TextInput, SpinBox or TextEditor shows it at its caret, underlined, in
+ place of its selection, but it is not in its text and no changed
+ callback runs. [selection_start, selection_end) are bytes of `text`:
+ the part the input method works on (underlined thicker), or the caret
+ when they are equal; -1 is the end of `text`. NULL or "" ends the
+ composition without typing anything (cancel). The committed text comes
+ through Rwindow_inject_text, which ends the composition too, and so
+ does a change of focus. Ignored when the focus takes no text.
+*>
+fn void Window.inject_composition(self, ZString text, CInt selection_start, CInt selection_end) @inline => c::r_window_inject_composition((c::Rid)self, (char*)text, selection_start, selection_end);
+
+<*
  A drag from another application moves over the window
  (`inside` R_TRUE) or leaves it.
  Returns R_TRUE when a drop at this position would be accepted.
@@ -6218,6 +7401,14 @@ fn bool Window.inject_drag(self, float x, float y, bool inside) @inline => c::r_
 
 <* Drops files and / or text at a position. Returns R_TRUE when a target took them. *>
 fn CInt Window.inject_drop(self, float x, float y, ZString* paths, CInt path_count, ZString text) @inline => c::r_window_inject_drop((c::Rid)self, x, y, (char**)paths, path_count, (char*)text);
+
+<*
+ The end of the drag out of the window that the window system
+ holds (Rdrag_begin_external), as it reports it: `operation` is what the
+ target did (an RDragOperation). Returns R_FALSE when no such drag is in
+ progress.
+*>
+fn CInt Window.inject_drag_end(self, DragOperation operation) @inline => c::r_window_inject_drag_end((c::Rid)self, (c::RDragOperation)operation);
 
 <* Back, as the system sends it (Rwindow_set_back_callback). Returns R_TRUE when something took it. *>
 fn CInt Window.inject_back(self) @inline => c::r_window_inject_back((c::Rid)self);
@@ -6256,6 +7447,13 @@ fn CInt Window.set_text_input_selection(self, CInt start, CInt end) @inline => c
 *>
 fn CInt Window.replace_text_input(self, CInt start, CInt end, ZString text) @inline => c::r_window_replace_text_input((c::Rid)self, start, end, (char*)text);
 
+<*
+ The composition of the input method in progress (UTF-8, valid
+ until it changes) and its selection in bytes; NULL when there is none.
+ Any output pointer may be NULL.
+*>
+fn ZString Window.get_text_composition(self, CInt* selection_start, CInt* selection_end) @inline => (ZString)c::r_window_get_text_composition((c::Rid)self, selection_start, selection_end);
+
 <* R_TRUE while a menu, list or dialog is open over the window. *>
 fn bool Window.has_popup(self) @inline => c::r_window_has_popup((c::Rid)self) != 0;
 
@@ -6263,7 +7461,9 @@ fn bool Window.has_popup(self) @inline => c::r_window_has_popup((c::Rid)self) !=
  Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
  Call after Rdraw_frame. Independent of the blink phase. Returns R_FALSE and zeros the
  outputs when there is no visible editable caret, the window is inactive, or focus changed
- since painting. Any output pointer may be NULL.
+ since painting. Any output pointer may be NULL. While an input method
+ composes, it is the caret inside the composition: where its candidate
+ window goes.
 *>
 fn CInt Window.get_text_input_rect(self, CInt* x, CInt* y, CInt* width, CInt* height) @inline => c::r_window_get_text_input_rect((c::Rid)self, x, y, width, height);
 
@@ -6412,7 +7612,10 @@ fn CInt TreeItem.get_child_count(self) @inline => c::r_tree_item_get_child_count
 
 fn TreeItem TreeItem.get_child(self, CInt index) @inline => (TreeItem)c::r_tree_item_get_child((c::Rid)self, index);
 
-<* Icon drawn before the text of the item (a region u0,v0,u1,v1 of the texture). R_INVALID_ID removes it. *>
+<*
+ Icon drawn before the text of the item (a region u0,v0,u1,v1 of the texture). R_INVALID_ID removes it.
+ An SVG in currentColor (Ricon_get) takes the color of the text. XML: Icon on an Item.
+*>
 fn void TreeItem.set_icon(self, Id texture, float u0, float v0, float u1, float v1) @inline => c::r_tree_item_set_icon((c::Rid)self, (c::Rid)texture, u0, v0, u1, v1);
 
 <* Color of the text of the item; alpha 0 goes back to the theme. *>
@@ -6493,7 +7696,8 @@ typedef Texture = inline Id;
 
 <*
  Creates a texture from the content of an image file (PNG, JPEG,
- BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread.
+ BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread. An
+ animated GIF or APNG keeps its frames: an Image showing it plays them.
  Returns R_INVALID_ID on failure.
 *>
 fn Texture? texture_create(ZString data, usz data_size)
@@ -6525,6 +7729,15 @@ fn Texture texture_create_async(ZString data, usz data_size) @inline => (Texture
  does not. Rtexture_create, Rtexture_create_from_file and the asynchronous
  ones read SVG files this way. Paths, fills, strokes and gradients are
  drawn; text, filters and masks are not.
+
+ currentColor: an SVG painted only in currentColor (fill="currentColor",
+ stroke="currentColor") is drawn in white, keeping its shape and its
+ opacity, and the widgets that show it (Image, the icons of menu items,
+ tabs, tree items, dock panels, tiles, nodes) tint it with the color of
+ their text at draw time: it follows the theme, hover, pressed and
+ disabled without being drawn again. Rdraw_image draws it in its tint
+ color. In an SVG that also uses other colors, currentColor is black.
+ See Rtexture_uses_current_color.
 *>
 fn Texture? texture_create_from_svg(ZString svg, usz svg_size, float scale)
 {
@@ -6532,6 +7745,13 @@ fn Texture? texture_create_from_svg(ZString svg, usz svg_size, float scale)
 	if (result == INVALID_ID) return last_fault()~;
 	return (Texture)result;
 }
+
+<*
+ R_TRUE when the texture is an SVG painted only in currentColor:
+ white where it is painted, tinted with the color of the text by the
+ widgets that show it (see Rtexture_create_from_svg).
+*>
+fn CInt Texture.uses_current_color(self) @inline => c::r_texture_uses_current_color((c::Rid)self);
 
 <* Pixels of the texture per logical unit: the scale of an SVG, 1 otherwise. *>
 fn float Texture.get_density(self) @inline => c::r_texture_get_density((c::Rid)self);
@@ -6550,6 +7770,18 @@ fn Texture? texture_create_from_file_async(ZString path)
 	if (result == INVALID_ID) return last_fault()~;
 	return (Texture)result;
 }
+
+<*
+ Downloads an http:// or https:// image and decodes it on a worker
+ thread, as an Image whose Source is a URL does. The handle is usable at
+ once: widgets showing it draw nothing until it is ready (Rtexture_is_ready;
+ a texture that could not be downloaded is ready with a size of 0, and the
+ failure is reported as a warning). Desktops download with WinHTTP or
+ `curl`; iOS and Android through their platform. Android needs the INTERNET
+ permission in the manifest; iOS refuses http:// unless Info.plist allows
+ it (App Transport Security). Up to 32 MiB.
+*>
+fn Texture texture_create_from_url_async(ZString url) @inline => (Texture)c::r_texture_create_from_url_async((char*)url);
 
 <* Creates a texture from tightly packed RGBA8 pixels (straight alpha). Its filter is R_FILTER_LINEAR. *>
 fn Texture? texture_create_from_pixels(char* rgba, CInt width, CInt height)
@@ -7194,7 +8426,9 @@ fn bool action_is_builtin(ZString name) @inline => c::r_action_is_builtin((char*
 <*
  Opens an address with the program the user has for it: a web
  page in the browser, a mailto: in the mail program, a file in its
- application. Returns at once.
+ application. Returns at once. On iOS and Android the system opens it
+ (a web page, a tel:, a mailto:; not a file: share it with Rshare_show),
+ and Raven must be initialized and this be called on the UI thread.
  Returns R_FALSE when the OS could not be asked (nothing tells whether
  a program then really opened it).
 *>
@@ -7209,13 +8443,66 @@ fn void clipboard_set_text(ZString text) @inline => c::r_clipboard_set_text((cha
  Copies one content in two formats: `html` for the programs that
  paste formatting (word processors, chat, mail) and `text` for the
  others (editors, terminals). Each program takes the format it prefers.
- Where the window system has no clipboard formats (Win32 and macOS for
- now), or `html` is NULL, it is Rclipboard_set_text(text).
+ Where the window system has no clipboard formats, or `html` is NULL,
+ it is Rclipboard_set_text(text).
 *>
 fn void clipboard_set_html(ZString text, ZString html) @inline => c::r_clipboard_set_html((char*)text, (char*)html);
 
-<* Returns The clipboard text, or "" when empty. Valid until the next call. *>
+<*
+ Returns The clipboard text, or "" when empty. Valid until the next call.
+ On iOS a read that does not follow a paste of the user (the Paste of a
+ menu, a button, Command-V) shows the system's question "Allow Paste?",
+ and on Android 12+ the system says that the application pasted: read it
+ when the user pastes, not to look at it. Android lets only the
+ application in front read it.
+*>
 fn ZString clipboard_get_text() @inline => (ZString)c::r_clipboard_get_text();
+
+<*
+ Returns R_TRUE when the clipboard holds text, without reading it (no
+ question of the system on iOS): to enable a Paste button.
+*>
+fn bool clipboard_has_text() @inline => c::r_clipboard_has_text() != 0;
+
+<*
+ Replaces what the clipboard holds with one content in several
+ formats (RDataItem): each program pastes the one it prefers.
+ Returns R_TRUE when every format was put on the clipboard; R_FALSE when
+ some could not be (a window system that only takes text: X11 and
+ Wayland for now, where the text/plain item, if any, still is).
+*>
+fn bool clipboard_set_data(DataItem* items, CInt count) @inline => c::r_clipboard_set_data((c::RDataItem*)items, count) != 0;
+
+<* Returns R_TRUE when the clipboard holds this format (Rclipboard_set_data), or one Raven converts to it. *>
+fn bool clipboard_has_data(ZString mime) @inline => c::r_clipboard_has_data((char*)mime) != 0;
+
+<*
+ What the clipboard holds in one format, converted from the
+ native one when needed (a bitmap given as image/png...).
+ Returns The bytes, followed by a '\0' that `size` does not count, to
+ release with Rmemory_free; NULL when the clipboard does not hold it.
+*>
+fn ZString clipboard_get_data(ZString mime, usz* size) @inline => (ZString)c::r_clipboard_get_data((char*)mime, size);
+
+<*
+ Copies a picture: RGBA8 pixels, straight alpha, rows `stride`
+ bytes apart (0: width * 4). It goes on the clipboard as image/png
+ (and as the bitmaps of the system), so that image editors, documents
+ and mail paste it.
+ Returns R_FALSE when it could not be put there.
+*>
+fn bool clipboard_set_image(char* rgba, CInt width, CInt height, CInt stride) @inline => c::r_clipboard_set_image(rgba, width, height, stride) != 0;
+
+<* Returns R_TRUE when the clipboard holds a picture Rclipboard_get_image can read. *>
+fn bool clipboard_has_image() @inline => c::r_clipboard_has_image() != 0;
+
+<*
+ The picture on the clipboard (copied from any program: PNG,
+ TIFF, a bitmap...), as tightly packed RGBA8 pixels, straight alpha.
+ Returns The pixels, to release with Rpixels_free; NULL when there is
+ none (or no decoder: RAVEN_WITH_STB_IMAGE off).
+*>
+alias clipboard_get_image = c::r_clipboard_get_image;
 
 <*
  Retrieves and clears the last recorded error.
@@ -7263,6 +8550,50 @@ fn ZString drag_get_data(Id window) @inline => (ZString)c::r_drag_get_data((c::R
 
 <* Ends the drag in progress without dropping (the target receives R_DROP_LEAVE). *>
 fn void drag_cancel(Id window) @inline => c::r_drag_cancel((c::Rid)window);
+
+<*
+ Lets the user drag data out of the window, to another
+ application: a picture into a document, files into the file manager,
+ text into an editor. `items` is one content in several formats
+ (RDataItem, copied): the target takes the one it prefers.
+ `operations` is a bitmask of RDragOperation the target may do (0:
+ R_DRAG_OPERATION_COPY).
+
+ Call it as Rdrag_begin, while the mouse button is held (from a mouse
+ move once the pointer has moved a few units). The window system then
+ takes the drag at the next move of the pointer: it shows the picture
+ that follows the pointer (Rdrag_set_image) and the cursor that tells
+ what a drop there does; the button released, `callback` (may be NULL)
+ is told what the target did.
+
+ Called while a drag inside the application (Rdrag_begin) is in progress
+ in the window of `source`, it gives that drag the data for outside:
+ the drag stays inside the window, to its drop targets, and becomes a
+ drag of the window system only when the pointer leaves the window.
+ Brought back over a window of the application, it still comes to the
+ drop targets with the type and data given to Rdrag_begin.
+
+ Implemented on macOS and Windows; elsewhere it returns R_FALSE
+ (Rdrag_external_supported).
+ Returns R_FALSE when the widget is not in a window or the window
+ system cannot drag out of its windows.
+*>
+fn bool drag_begin_external(Id source, DataItem* items, CInt count, uint operations, DragFinishedCallback callback, void* user_data) @inline => c::r_drag_begin_external((c::Rid)source, (c::RDataItem*)items, count, operations, (c::RDragFinishedCallback)callback, user_data) != 0;
+
+<*
+ The picture that follows the pointer during the drag given by
+ Rdrag_begin_external (RGBA8 pixels, straight alpha, tightly packed,
+ copied), held by the pointer at its center. Call it right after
+ Rdrag_begin_external. Without it the system chooses: the picture
+ dragged, the icons of the files, or a generic one.
+*>
+alias drag_set_image = c::r_drag_set_image;
+
+<* R_TRUE when the window system lets Raven drag data out of its windows (Rdrag_begin_external). *>
+alias drag_external_supported = c::r_drag_external_supported;
+
+<* R_TRUE from Rdrag_begin_external until its callback was called. *>
+alias drag_external_is_active = c::r_drag_external_is_active;
 
 <* The settings every window follows, unless it has its own. *>
 fn void touch_get_settings(TouchSettings* settings) @inline => c::r_touch_get_settings((c::RTouchSettings*)settings);
@@ -7423,11 +8754,71 @@ fn CInt theme_save(ZString path, ZString name) @inline => c::r_theme_save((char*
 <* Releases pixels returned by Raven (Rimage_decode, Rwindow_capture). Thread-safe. *>
 alias pixels_free = c::r_pixels_free;
 
+<*
+ An icon shipped with Raven, by its name: "search", "settings",
+ "close"... (Ricon_get_name lists them; "raven:search" works too, as in
+ XML: Source="raven:search"). The icons are the ones of Lucide (ISC
+ License), 24 x 24 logical units, drawn with lines in currentColor: the
+ widgets that show them tint them with the color of their text, so they
+ follow the theme and the states (Rtexture_create_from_svg). Drawn at
+ the density they are shown with, sharp on every screen.
+ Returns A texture owned by Raven, made on first use and then shared
+ (do not destroy it; if it was, the next call makes it again);
+ R_INVALID_ID, with an error, when there is no icon of that name.
+*>
+fn Texture icon_get(ZString name) @inline => (Texture)c::r_icon_get((char*)name);
+
+<* Returns The number of icons shipped with Raven. *>
+alias icon_get_count = c::r_icon_get_count;
+
+<* Returns The name of an icon, from 0 to Ricon_get_count() - 1, in alphabetical order; NULL out of range. *>
+fn ZString icon_get_name(CInt index) @inline => (ZString)c::r_icon_get_name(index);
+
 <* Direction of every window: R_DIRECTION_AUTO (the default), _LTR or _RTL. *>
 fn void set_layout_direction(Direction direction) @inline => c::r_set_layout_direction((c::RDirection)direction);
 
 <* The direction the windows use now: R_DIRECTION_LTR or _RTL. *>
 fn Direction get_layout_direction() @inline => (Direction)c::r_get_layout_direction();
+
+<* R_TRUE when the system has a spell checker that Raven can use. *>
+alias spell_is_supported = c::r_spell_is_supported;
+
+<* The languages the checker has dictionaries for. *>
+alias spell_get_language_count = c::r_spell_get_language_count;
+
+fn ZString spell_get_language_at(CInt index) @inline => (ZString)c::r_spell_get_language_at(index);
+
+<*
+ The language used when a widget or a call gives none. NULL
+ follows the locale again.
+ Returns R_FALSE when the checker has no dictionary for it (the default
+ of the system is then used).
+*>
+fn bool spell_set_language(ZString language) @inline => c::r_spell_set_language((char*)language) != 0;
+
+<* The code of the language used by default, as the checker names it; "" when there is no checker. *>
+fn ZString spell_get_language() @inline => (ZString)c::r_spell_get_language();
+
+<*
+ Checks a text. `language` NULL: the default.
+ Returns The number of misspelled words, read with Rspell_get_misspelling.
+*>
+fn CInt spell_check(ZString text, ZString language) @inline => c::r_spell_check((char*)text, (char*)language);
+
+<* A misspelled word found by the last Rspell_check: bytes [start, end) of its text. *>
+alias spell_get_misspelling = c::r_spell_get_misspelling;
+
+<* Returns The number of corrections for a word (best first), read with Rspell_get_suggestion. *>
+fn CInt spell_suggest(ZString word, ZString language) @inline => c::r_spell_suggest((char*)word, (char*)language);
+
+<* A correction found by the last Rspell_suggest; valid until the next call. *>
+fn ZString spell_get_suggestion(CInt index) @inline => (ZString)c::r_spell_get_suggestion(index);
+
+<* Adds a word to the dictionary of the user, which the system keeps (with Hunspell alone: for the session). *>
+fn void spell_learn(ZString word, ZString language) @inline => c::r_spell_learn((char*)word, (char*)language);
+
+<* The word is no longer a misspelling, in every language, until the application quits. *>
+fn void spell_ignore(ZString word) @inline => c::r_spell_ignore((char*)word);
 
 <* R_TRUE when PDFium can be loaded (it is, the first time this is asked). *>
 alias pdf_is_available = c::r_pdf_is_available;
@@ -7591,6 +8982,21 @@ alias color_rgb_to_hsv = c::r_color_rgb_to_hsv;
 alias color_hsv_to_rgb = c::r_color_hsv_to_rgb;
 
 <*
+ The differences between two texts as a unified diff (the format
+ of `diff -u` and `git diff`), with `context` unchanged lines around each
+ change (3 is usual). `left_name` and `right_name` follow `---` and `+++`
+ (NULL: "a" and "b"). `flags`: RDiffFlags. It touches nothing else of
+ the library: it may be called from any thread.
+ Returns The patch followed by a '\0' (an empty text when the texts are
+ the same), to release with Rmemory_free; NULL when a text is NULL.
+ `size` receives its length in bytes, and may be NULL.
+*>
+fn ZString diff_unified(ZString left, ZString right, ZString left_name, ZString right_name, CInt context, uint flags, usz* size) @inline => (ZString)c::r_diff_unified((char*)left, (char*)right, (char*)left_name, (char*)right_name, context, flags, size);
+
+<* The number of changes (runs of lines removed and / or added) between two texts. Any thread. *>
+fn CInt diff_count_changes(ZString left, ZString right, uint flags) @inline => c::r_diff_count_changes((char*)left, (char*)right, flags);
+
+<*
  Shows a widget as a dialog of a window. The window takes
  ownership of `content`: it is deleted when the dialog closes, so read
  what you need from it before, or in `closed`.
@@ -7677,7 +9083,11 @@ fn CInt file_write(ZString path, void* data, usz size) @inline => c::r_file_writ
 <* Returns R_TRUE when the system took the notification. *>
 fn bool notification_show(ZString title, ZString body, NotificationUrgency urgency) @inline => c::r_notification_show((char*)title, (char*)body, (c::RNotificationUrgency)urgency) != 0;
 
-<* R_FALSE when the platform has no notifications (Rnotification_show then always uses the fallback). *>
+<*
+ R_FALSE when the system shows no notifications here (Rnotification_show then always uses
+ the fallback): the null platform, no notification server on Linux, an executable outside of a
+ bundle on macOS.
+*>
 alias notification_is_supported = c::r_notification_is_supported;
 
 <* Called with the notifications the system could not show; NULL: none. *>
@@ -7685,12 +9095,122 @@ fn void notification_set_fallback(NotificationFallback callback, void* user_data
 
 <*
  Called when the user clicks a notification of Rnotification_show
- (on the UI thread; the application may then bring its window to the
- front: the system lets it). It is the last one shown that was clicked:
- the application remembers what it was about. NULL: none.
- Windows and macOS (elsewhere it is never called).
+ (on the UI thread), as R_NOTIFICATION_ACTIVATED of
+ Rnotification_set_callback, which also tells which one. NULL: none.
 *>
 fn void notification_set_clicked_callback(NotificationClickedCallback callback, void* user_data) @inline => c::r_notification_set_clicked_callback((c::RNotificationClickedCallback)callback, user_data);
+
+<*
+ Shows a notification described by `desc` (see RNotificationDesc).
+ Returns R_TRUE when the system took it; R_FALSE when it went to the fallback (or nowhere).
+*>
+fn bool notification_show_desc(NotificationDesc* desc) @inline => c::r_notification_show_desc((c::RNotificationDesc*)desc) != 0;
+
+<* Takes away the notification of that tag, shown by the system or by the fallback toast. The callback is not called. *>
+fn void notification_close(ZString tag) @inline => c::r_notification_close((char*)tag);
+
+fn void notification_set_callback(NotificationCallback callback, void* user_data) @inline => c::r_notification_set_callback((c::RNotificationCallback)callback, user_data);
+
+<*
+ R_TRUE (the default): a click on a notification (not on one of
+ its buttons) brings its window back before the callback is called:
+ shown again if it was hidden or minimized, in front, with the keyboard.
+ R_FALSE: the application does what it wants in the callback.
+*>
+fn void notification_set_bring_to_front(bool enabled) @inline => c::r_notification_set_bring_to_front((CInt)enabled);
+
+<*
+ A Toast that shows the notifications the system could not show,
+ with their title, icon and buttons; a click on one, or on a button, is
+ reported to Rnotification_set_callback as for the system's. Put it in
+ an Overlay (Queue="Stack" shows several at once). It takes the place
+ of the fallback callback (Rnotification_set_fallback). R_INVALID_ID: none.
+*>
+fn void notification_set_fallback_toast(Id toast) @inline => c::r_notification_set_fallback_toast((c::Rid)toast);
+
+<* Whether the notifications of the system have that feature here (R_FALSE where there are none). *>
+fn CInt notification_supports(NotificationFeature feature) @inline => c::r_notification_supports((c::RNotificationFeature)feature);
+
+<*
+ What the user answered, without asking. Cheap: the platform
+ remembers it. On iOS the status of notifications is known shortly after
+ the start (R_PERMISSION_NOT_ASKED until then).
+*>
+fn PermissionStatus permission_get_status(Permission permission) @inline => (PermissionStatus)c::r_permission_get_status((c::RPermission)permission);
+
+<*
+ Asks the user, with the question of the system, when the status
+ is R_PERMISSION_NOT_ASKED or R_PERMISSION_DENIED; otherwise only answers
+ with the status. Several requests for the same permission share one
+ question. `callback` may be NULL.
+*>
+fn void permission_request(Permission permission, PermissionCallback callback, void* user_data) @inline => c::r_permission_request((c::RPermission)permission, (c::RPermissionCallback)callback, user_data);
+
+<*
+ Opens the page of the application in the Settings of the system,
+ where the user changes what was refused for good (R_PERMISSION_BLOCKED).
+ Returns R_FALSE when the platform has no such page.
+*>
+fn bool permission_open_settings() @inline => c::r_permission_open_settings() != 0;
+
+<* Returns The name of a permission or a status ("camera", "granted"...), for logs. *>
+fn ZString permission_to_string(Permission permission) @inline => (ZString)c::r_permission_to_string((c::RPermission)permission);
+
+fn ZString permission_status_to_string(PermissionStatus status) @inline => (ZString)c::r_permission_status_to_string((c::RPermissionStatus)status);
+
+<* Asks for one file to read (several with R_FILE_DIALOG_MULTIPLE). `desc` may be NULL. *>
+fn void file_open_async(FileDialogDesc* desc, DeviceCallback callback, void* user_data) @inline => c::r_file_open_async((c::RFileDialogDesc*)desc, (c::RDeviceCallback)callback, user_data);
+
+<*
+ Saves `size` bytes (copied: `data` may be freed at once) as a
+ file where the user chooses, proposed under `desc->file_name`. The
+ callback gives the file as saved: its name, and its path on desktops.
+*>
+fn void file_save_async(FileDialogDesc* desc, void* data, usz size, DeviceCallback callback, void* user_data) @inline => c::r_file_save_async((c::RFileDialogDesc*)desc, data, size, (c::RDeviceCallback)callback, user_data);
+
+<* Same as Rfile_save_async, for a file that already exists (a path Raven can read), copied where the user chooses. *>
+fn void file_export_async(FileDialogDesc* desc, ZString path, DeviceCallback callback, void* user_data) @inline => c::r_file_export_async((c::RFileDialogDesc*)desc, (char*)path, (c::RDeviceCallback)callback, user_data);
+
+<* Asks for a folder: desktops only for now (R_DEVICE_UNSUPPORTED on iOS and Android). *>
+fn void file_select_folder_async(FileDialogDesc* desc, DeviceCallback callback, void* user_data) @inline => c::r_file_select_folder_async((c::RFileDialogDesc*)desc, (c::RDeviceCallback)callback, user_data);
+
+<* Returns R_TRUE when Rcamera_take_photo can show a camera (none on desktops, nor in the iOS Simulator). *>
+fn bool camera_is_available() @inline => c::r_camera_is_available() != 0;
+
+<*
+ Shows the camera of the system to take one photo. It asks for
+ R_PERMISSION_CAMERA first when needed (R_DEVICE_DENIED when refused).
+ The photo is a JPEG file in the cache of the application, with its
+ size in pixels, upright.
+*>
+fn void camera_take_photo(DeviceCallback callback, void* user_data) @inline => c::r_camera_take_photo((c::RDeviceCallback)callback, user_data);
+
+<*
+ Shows the photo picker of the system (desktops: a file dialog for
+ images). No permission is needed: the application only sees what the
+ user picks. Each photo is a file Raven can load (iOS: converted to JPEG
+ when it is HEIC).
+*>
+fn void photo_pick(CInt max_count, DeviceCallback callback, void* user_data) @inline => c::r_photo_pick(max_count, (c::RDeviceCallback)callback, user_data);
+
+<* Returns R_TRUE when the device can play haptics (a phone; never a desktop). *>
+fn bool haptic_is_supported() @inline => c::r_haptic_is_supported() != 0;
+
+<*
+ A short vibration, as the controls of the system play when
+ touched. Nothing happens where there are none, or when the user turned
+ them off. @return R_TRUE when it was handed to the system.
+*>
+fn bool haptic_play(Haptic haptic) @inline => c::r_haptic_play((c::RHaptic)haptic) != 0;
+
+<*
+ Shows the share sheet of the system with a text and / or a file,
+ to send them to another application (mail, chat, Files...). The
+ callback says R_DEVICE_DONE once something was chosen (Android: once the
+ sheet was shown; it does not tell more), R_DEVICE_CANCELLED when it was
+ closed. R_DEVICE_UNSUPPORTED on desktops.
+*>
+fn void share_show(ShareDesc* desc, DeviceCallback callback, void* user_data) @inline => c::r_share_show((c::RShareDesc*)desc, (c::RDeviceCallback)callback, user_data);
 
 <* Pushes a spring away from its target (units per second): it bounces back. *>
 fn void spring_kick(Spring* spring, float velocity) @inline => c::r_spring_kick((c::RSpring*)spring, velocity);
@@ -7726,9 +9246,10 @@ fn void xml_set_auto_load(bool enabled) @inline => c::r_xml_set_auto_load((CInt)
 alias xml_get_auto_load = c::r_xml_get_auto_load;
 
 <*
- Turns live reload on or off. It is on by default; the
- environment variable RAVEN_LIVE_RELOAD=0 turns it off without
- rebuilding. When off, files are never looked at again.
+ Turns live reload on or off. It is on by default, except in
+ the browser (Emscripten), where watching files would keep the page
+ drawing; the environment variable RAVEN_LIVE_RELOAD=0 or 1 changes the
+ default without rebuilding. When off, files are never looked at again.
 *>
 fn void xml_set_live_reload(bool enabled) @inline => c::r_xml_set_live_reload((CInt)enabled);
 
@@ -7922,6 +9443,81 @@ fn ZString tr_plural(ZString key, CInt count) @inline => (ZString)c::r_tr_plural
 <* A number written in the conventions of the language: decimal separator and digit grouping ("1 234,5" in French). *>
 fn ZString locale_format_number(double value, CInt decimals) @inline => (ZString)c::r_locale_format_number(value, decimals);
 
+<*
+ Forces the clock of every time shown (a setting of the
+ application): R_CLOCK_12_HOUR, R_CLOCK_24_HOUR, or R_CLOCK_AUTO (default)
+ to follow the locale. A TimePicker can still choose its own (Clock="24").
+*>
+fn void locale_set_clock(Clock clock) @inline => c::r_locale_set_clock((c::RClock)clock);
+
+fn Clock locale_get_clock() @inline => (Clock)c::r_locale_get_clock();
+
+<*
+ R_TRUE when times are shown on 12 hours with AM and PM. With
+ Rlocale_set_clock, what it forces; else, when the application chose a
+ language (Rlocale_set_language), the usage of that language (from CLDR:
+ en-US, en-CA, en-AU, en-IN, hi, ar, ko, zh-TW, fil... use 12 hours, most
+ others 24); else the setting of the user on the system (Windows, macOS,
+ the LC_TIME of Linux), or the usage of the language of the system.
+*>
+alias locale_uses_12_hour_clock = c::r_locale_uses_12_hour_clock;
+
+<* "AM" (pm = R_FALSE) or "PM" in the language: the keys Raven.AM / Raven.PM when the tables have them. Never NULL. *>
+fn ZString locale_get_day_period(CInt pm) @inline => (ZString)c::r_locale_get_day_period(pm);
+
+<* A time of the day (hour 0 to 23) as the locale writes it: "3:05 PM", "15:05", "오후 3:05". *>
+fn ZString locale_format_time(CInt hour, CInt minute, CInt second, CInt show_seconds) @inline => (ZString)c::r_locale_format_time(hour, minute, second, show_seconds);
+
+<*
+ The zone of the system ("Europe/Paris"): the TZ variable, the
+ link /etc/localtime, else what the system says; "UTC" when it says
+ nothing. Valid until the next call.
+*>
+fn ZString timezone_get_system() @inline => (ZString)c::r_timezone_get_system();
+
+<*
+ The folder of the tz database (the files "Europe/Paris"...), or
+ the packed tzdata file of Android, to read instead of the system's: for
+ a database shipped with the application, or tests. It is then the only
+ one read. NULL: the system's (or the TZDIR variable). Forgets the zones
+ read so far.
+*>
+fn void timezone_set_directory(ZString path) @inline => c::r_timezone_set_directory((char*)path);
+
+<*
+ R_TRUE when the zone is known. Every function takes a name of
+ the tz database, "UTC", a POSIX TZ rule ("EST5EDT,M3.2.0,M11.1.0"), or
+ NULL / "" for the zone of the system.
+*>
+fn CInt timezone_is_valid(ZString zone) @inline => c::r_timezone_is_valid((char*)zone);
+
+<* The date and time an instant shows in a zone (month 1 to 12). R_FALSE for an unknown zone. *>
+fn CInt timezone_to_local(ZString zone, double utc, CInt* year, CInt* month, CInt* day, CInt* hour, CInt* minute, CInt* second) @inline => c::r_timezone_to_local((char*)zone, utc, year, month, day, hour, minute, second);
+
+<*
+ The instant a date and time of a zone is. When the clocks go
+ forward, the times they skip do not exist: such a time is moved forward
+ by the length of the gap (02:30 becomes 03:30). When they go back, the
+ times of the hour repeated happen twice: the first is taken (still in
+ summer time). Rtimezone_count_local tells these cases apart.
+*>
+fn double timezone_from_local(ZString zone, CInt year, CInt month, CInt day, CInt hour, CInt minute, CInt second) @inline => c::r_timezone_from_local((char*)zone, year, month, day, hour, minute, second);
+
+<* How many instants show this date and time in the zone: 1, 0 (skipped when the clocks went forward) or 2 (repeated when they went back). *>
+fn CInt timezone_count_local(ZString zone, CInt year, CInt month, CInt day, CInt hour, CInt minute, CInt second) @inline => c::r_timezone_count_local((char*)zone, year, month, day, hour, minute, second);
+
+<* Seconds the zone is ahead of UTC at an instant (3600 in Paris in winter, -14400 in New York in summer). *>
+fn CInt timezone_get_offset(ZString zone, double utc) @inline => c::r_timezone_get_offset((char*)zone, utc);
+
+<* R_TRUE when the zone is on summer (daylight saving) time at the instant. *>
+fn CInt timezone_is_daylight_saving(ZString zone, double utc) @inline => c::r_timezone_is_daylight_saving((char*)zone, utc);
+
+<* The abbreviation of the zone at an instant ("CET", "EDT"; "+03" where the database has no name). *>
+fn ZString timezone_get_abbreviation(ZString zone, double utc) @inline => (ZString)c::r_timezone_get_abbreviation((char*)zone, utc);
+
+<* The zone at an instant, to show: "CET, UTC+1", "EDT, UTC-4", "IST, UTC+5:30", "UTC+3" when it has no name. *>
+fn ZString timezone_get_label(ZString zone, double utc) @inline => (ZString)c::r_timezone_get_label((char*)zone, utc);
+
 <* Size of every text, 1 = as designed (0.5 to 4). Controls grow with their text. *>
 alias accessibility_set_text_scale = c::r_accessibility_set_text_scale;
 
@@ -8005,11 +9601,215 @@ fn void host_inject_key(Id window, Key key, bool pressed, Modifier modifiers, bo
 <* One typed Unicode code point. *>
 fn void host_inject_text(Id window, uint codepoint) @inline => c::r_host_inject_text((c::Rid)window, codepoint);
 
+<*
+ The input method of the application's system composes `text`
+ (preedit), with its selection in bytes (see Rwindow_inject_composition).
+ NULL or "" cancels it; the committed text then comes through
+ Rhost_inject_text. Rwindow_get_text_input_rect tells where to put the
+ candidate window.
+*>
+fn void host_inject_composition(Id window, ZString text, CInt selection_start, CInt selection_end) @inline => c::r_host_inject_composition((c::Rid)window, (char*)text, selection_start, selection_end);
+
 <* The window gained or lost the keyboard. Losing it closes popups and drops captures. *>
 fn void host_inject_focus(Id window, CInt focused) @inline => c::r_host_inject_focus((c::Rid)window, focused);
 
 <* The user asked to close the window (its close callback decides). *>
 fn void host_inject_close(Id window) @inline => c::r_host_inject_close((c::Rid)window);
+
+<*
+ The user answered a permission_request (or the status changed
+ by itself). The waiting Rpermission_request callbacks get it at the
+ next frame. Any thread.
+*>
+fn void host_permission_answer(Permission permission, PermissionStatus status) @inline => c::r_host_permission_answer((c::RPermission)permission, (c::RPermissionStatus)status);
+
+<*
+ The end of a service_request: the files it gave (copied; paths
+ Raven can read; size 0 is read from the file), at the next frame. Once
+ per request. Any thread.
+*>
+fn void host_service_complete(uint request, DeviceResult result, PickedFile* files, CInt count) @inline => c::r_host_service_complete(request, (c::RDeviceResult)result, (c::RPickedFile*)files, count);
+
+<*
+ R_TRUE makes what is drawn depend only on what the test does:
+ every frame advances the animations by 1/60 s (Rset_animation_time_step),
+ and the carets of the text fields stay lit instead of blinking. R_FALSE
+ gives the clock back (time step 0).
+*>
+fn void test_set_deterministic(bool enabled) @inline => c::r_test_set_deterministic((CInt)enabled);
+
+alias test_is_deterministic = c::r_test_is_deterministic;
+
+<*
+ Returns What the goldens of this run are made with, "OS-backend":
+ "macos-metal", "linux-vulkan", "windows-vulkan", "web-webgl"... and
+ "null" with the null backend.
+*>
+fn ZString test_get_platform_tag() @inline => (ZString)c::r_test_get_platform_tag();
+
+<*
+ Finds a widget by name (Rwidget_set_name, Name="" in XML). The
+ path may have several names separated by '/': "settings/ok" is the
+ widget named "ok" inside the one named "settings". In a window, the
+ open popups (menus, dialogs) are searched first, top first, then the
+ content.
+ Returns R_INVALID_ID when nothing has that name (no error is reported).
+*>
+fn Id test_find(Id scope, ZString path) @inline => (Id)c::r_test_find((c::Rid)scope, (char*)path);
+
+<* Moves the mouse to the middle of the widget, presses and releases the left button. *>
+fn CInt test_click(Id widget) @inline => c::r_test_click((c::Rid)widget);
+
+<* Two clicks in a row on the middle of the widget, seen as a double click. *>
+fn CInt test_double_click(Id widget) @inline => c::r_test_double_click((c::Rid)widget);
+
+<* A click of the right button on the middle of the widget (a context menu). *>
+fn CInt test_right_click(Id widget) @inline => c::r_test_right_click((c::Rid)widget);
+
+<* Clicks at a position of a widget or a window. *>
+fn CInt test_click_at(Id target, float x, float y, MouseButton button, CInt clicks, Modifier modifiers) @inline => c::r_test_click_at((c::Rid)target, x, y, (c::RMouseButton)button, clicks, (c::Ruint)modifiers);
+
+<* Moves the mouse over the middle of the widget, without clicking. *>
+fn CInt test_hover(Id widget) @inline => c::r_test_hover((c::Rid)widget);
+
+<* Moves the mouse to a position of a widget or a window. *>
+fn CInt test_hover_at(Id target, float x, float y) @inline => c::r_test_hover_at((c::Rid)target, x, y);
+
+<*
+ Presses the left button on the middle of the widget, moves by
+ (dx, dy) in several steps, and releases: a slider, a splitter, a
+ window dragged by a widget.
+*>
+fn CInt test_drag(Id widget, float dx, float dy) @inline => c::r_test_drag((c::Rid)widget, dx, dy);
+
+<* Drags from the middle of one widget to the middle of another (drag and drop). *>
+fn CInt test_drag_to(Id from, Id to) @inline => c::r_test_drag_to((c::Rid)from, (c::Rid)to);
+
+<*
+ Turns the mouse wheel over the middle of the widget: `wheel_y`
+ notches (positive: toward the top, as a wheel turned away from the
+ user), `wheel_x` notches sideways.
+*>
+fn CInt test_scroll(Id widget, float wheel_x, float wheel_y) @inline => c::r_test_scroll((c::Rid)widget, wheel_x, wheel_y);
+
+<*
+ Presses and releases a key, with RModifier held. A widget
+ target gets the keyboard focus first; a window sends the key to what
+ has the focus.
+*>
+fn CInt test_key(Id target, Key key, Modifier modifiers) @inline => c::r_test_key((c::Rid)target, (c::RKey)key, (c::Ruint)modifiers);
+
+<*
+ Types UTF-8 text as a keyboard would. A widget target gets the
+ keyboard focus first. '\n', '\t' and '\b' are sent as the keys Enter,
+ Tab and Backspace.
+*>
+fn CInt test_type_text(Id target, ZString text) @inline => c::r_test_type_text((c::Rid)target, (char*)text);
+
+<* A finger touches the middle of the widget and leaves at once. *>
+fn CInt test_tap(Id widget) @inline => c::r_test_tap((c::Rid)widget);
+
+<*
+ A finger put on the middle of the widget moves by (dx, dy) in
+ `seconds`, and leaves: a fast swipe flicks a list, which then coasts
+ (Rtest_settle lets it stop).
+*>
+fn CInt test_swipe(Id widget, float dx, float dy, double seconds) @inline => c::r_test_swipe((c::Rid)widget, dx, dy, seconds);
+
+<* Produces `frames` frames (Rdraw_frame). @return R_FALSE once the application quits. *>
+fn bool test_pump(CInt frames) @inline => c::r_test_pump(frames) != 0;
+
+<*
+ Returns R_TRUE when nothing waits for a frame: no posted task, no layout
+ to do, nothing to paint, no animation, no layout spring, no inertia.
+ Windows that redraw all the time (Rwindow_set_continuous_redraw, a
+ realtime viewport) and the timers are not counted.
+*>
+fn bool test_is_idle() @inline => c::r_test_is_idle() != 0;
+
+<*
+ Produces frames until Rtest_is_idle, each advancing the
+ animations by the time step (1/60 s unless Rset_animation_time_step
+ gives another), for at most `max_seconds` of that time.
+ Returns R_FALSE when it was still moving at the end.
+*>
+fn bool test_settle(double max_seconds) @inline => c::r_test_settle(max_seconds) != 0;
+
+<*
+ Returns What the user reads in the widget: the text of a field, else
+ its label (as screen readers say it: the text of a Label, a Button, a
+ Checkbox...). "" when it has none. Valid until the next call.
+*>
+fn ZString test_get_text(Id widget) @inline => (ZString)c::r_test_get_text((c::Rid)widget);
+
+<*
+ Returns R_TRUE when the widget can be seen: in a window, Visible with
+ all that holds it, on the page a Switcher or a TabView shows, and laid
+ out with a size.
+*>
+fn bool test_is_shown(Id widget) @inline => c::r_test_is_shown((c::Rid)widget) != 0;
+
+<* Returns R_TRUE for a checked Checkbox, Switch, RadioButton, toggle Button or menu item. *>
+fn bool test_is_checked(Id widget) @inline => c::r_test_is_checked((c::Rid)widget) != 0;
+
+<*
+ Captures a window, or the rectangle of one widget, and compares
+ it with the PNG file `golden_path` (see the top of this file).
+ Returns R_TRUE when the capture matches (or the golden was written
+ because RAVEN_UPDATE_GOLDENS=1).
+*>
+fn bool test_expect_golden(Id target, ZString golden_path, GoldenOptions* options, GoldenResult* result) @inline => c::r_test_expect_golden((c::Rid)target, (char*)golden_path, (c::RGoldenOptions*)options, (c::RGoldenResult*)result) != 0;
+
+<*
+ Compares two RGBA8 images of the same size as Rtest_expect_golden
+ does, without files.
+ Returns The number of pixels farther apart than `channel_tolerance`;
+ -1 when an image is missing.
+*>
+alias test_compare_pixels = c::r_test_compare_pixels;
+
+<*
+ The widgets as JSON, what a test, a script or an agent reads of
+ the interface. Each widget gives its "type" (its XML tag), "name" and
+ "path" (for Rtest_find) when it has a name, its accessibility "role",
+ its "text" (Rtest_get_text), "label" and "value" when they differ,
+ "bounds" [x, y, width, height] in logical units of its window,
+ "shown", "enabled", and when they apply "focused", "checked",
+ "selected", "expanded", "number"/"minimum"/"maximum", the rows of a
+ list ("items") and its "children", in the order of the layout.
+ Returns The JSON text, valid until the next call. "" on error.
+*>
+fn ZString test_dump_tree(Id target) @inline => (ZString)c::r_test_dump_tree((c::Rid)target);
+
+<* Rtest_dump_tree written to a file ("-": the standard output). *>
+fn CInt test_save_tree(Id target, ZString path) @inline => c::r_test_save_tree((c::Rid)target, (char*)path);
+
+<*
+ Captures a window, or the rectangle of a widget, into a PNG
+ file. The null backend draws nothing: its picture is the clear color.
+*>
+fn CInt test_save_png(Id target, ZString path) @inline => c::r_test_save_png((c::Rid)target, (char*)path);
+
+<*
+ Runs a script of steps, one per line, as RAVEN_SCRIPT does (see
+ "Driving any application headlessly" in README.md):
+
+     click form/user
+     type "ada"
+     key Enter
+     expect status text "Welcome, ada"
+     snap after-login
+
+ The frames are produced by the function (Rdraw_frame) until the script
+ ends. A widget is named by its name or path, by "text:Sign in" (the
+ first one shown that reads it), or a point of the window by "@x,y".
+ Returns R_TRUE when every step was done and every check was true;
+ R_FALSE otherwise, with the reason in Rtest_get_script_error.
+*>
+fn bool test_run_script(ZString script, ZString source_name) @inline => c::r_test_run_script((char*)script, (char*)source_name) != 0;
+
+<* Returns Why the last Rtest_run_script failed ("login.script:4: expect: ..."), "" when it passed. *>
+fn ZString test_get_script_error() @inline => (ZString)c::r_test_get_script_error();
 
 <*
  By default Raven creates its own VkInstance and VkDevice. To make Raven render
@@ -8130,8 +9930,19 @@ fn Shader web_shader_create(ZString source, ShaderFlags flags) @inline @feat(EMS
  Starts a browser animation-frame loop and returns immediately.
  The loop calls Rdraw_frame; when Raven quits it cancels itself and shuts down.
  Do not put Rshutdown after this call. Custom loops may call Rdraw_frame instead.
+ The loop asks the browser for frames only while something is to be done
+ (input, layout, redraws, animations, tasks, due timers): an idle page uses
+ no CPU. Browser events, Raven API calls (also from JavaScript), timers and
+ the completion of fetches and browser services wake it.
 *>
 fn void web_start() @inline @feat(EMSCRIPTEN) => c::r_web_start();
+
+<*
+ Rweb_start, with `shutdown` called in place of Rshutdown when the loop
+ ends (the application frees its own state, then calls Rshutdown).
+ NULL: Rshutdown.
+*>
+fn void web_start_ex(WebShutdownCallback shutdown) @inline @feat(EMSCRIPTEN) => c::r_web_start_ex((c::RWebShutdownCallback)shutdown);
 
 <*
  Opens a browser file picker. A successful result is a path in /uploads.

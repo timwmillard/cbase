@@ -431,6 +431,14 @@ export const RDropPhase = _enum({
 });
 export const { R_DROP_ENTER, R_DROP_MOVE, R_DROP_LEAVE, R_DROP_DROPPED } = RDropPhase;
 
+export const RDragOperation = _enum({
+	R_DRAG_OPERATION_NONE: 0,
+	R_DRAG_OPERATION_COPY: 1,
+	R_DRAG_OPERATION_MOVE: 2,
+	R_DRAG_OPERATION_LINK: 4,
+});
+export const { R_DRAG_OPERATION_NONE, R_DRAG_OPERATION_COPY, R_DRAG_OPERATION_MOVE, R_DRAG_OPERATION_LINK } = RDragOperation;
+
 export const RTouchMode = _enum({
 	R_TOUCH_MODE_AUTO: 1152,
 	R_TOUCH_MODE_SCROLL: 1153,
@@ -557,8 +565,15 @@ export const RColorRole = _enum({
 	R_COLOR_DANGER: 289,
 	R_COLOR_LINK: 290,
 	R_COLOR_CODE: 291,
+	R_COLOR_SEARCH_MATCH: 292,
+	R_COLOR_SEARCH_CURRENT: 293,
+	R_COLOR_SPELLING: 294,
+	R_COLOR_DIFF_ADDED: 295,
+	R_COLOR_DIFF_REMOVED: 296,
+	R_COLOR_DIFF_ADDED_WORD: 297,
+	R_COLOR_DIFF_REMOVED_WORD: 298,
 });
-export const { R_COLOR_WINDOW, R_COLOR_PANEL, R_COLOR_BORDER, R_COLOR_TEXT, R_COLOR_TEXT_DISABLED, R_COLOR_TEXT_PLACEHOLDER, R_COLOR_ACCENT, R_COLOR_ACCENT_HOVERED, R_COLOR_ACCENT_PRESSED, R_COLOR_ACCENT_TEXT, R_COLOR_CONTROL, R_COLOR_CONTROL_HOVERED, R_COLOR_CONTROL_PRESSED, R_COLOR_CONTROL_BORDER, R_COLOR_INPUT, R_COLOR_FOCUS, R_COLOR_SELECTION, R_COLOR_ROW_HOVERED, R_COLOR_TRACK, R_COLOR_HANDLE, R_COLOR_HANDLE_HOVERED, R_COLOR_SEPARATOR, R_COLOR_HEADER, R_COLOR_HEADER_HOVERED, R_COLOR_TAB_ACTIVE, R_COLOR_POPUP, R_COLOR_POPUP_BORDER, R_COLOR_SHADOW, R_COLOR_TOOLTIP, R_COLOR_TOOLTIP_TEXT, R_COLOR_SWITCH, R_COLOR_SUCCESS, R_COLOR_WARNING, R_COLOR_DANGER, R_COLOR_LINK, R_COLOR_CODE } = RColorRole;
+export const { R_COLOR_WINDOW, R_COLOR_PANEL, R_COLOR_BORDER, R_COLOR_TEXT, R_COLOR_TEXT_DISABLED, R_COLOR_TEXT_PLACEHOLDER, R_COLOR_ACCENT, R_COLOR_ACCENT_HOVERED, R_COLOR_ACCENT_PRESSED, R_COLOR_ACCENT_TEXT, R_COLOR_CONTROL, R_COLOR_CONTROL_HOVERED, R_COLOR_CONTROL_PRESSED, R_COLOR_CONTROL_BORDER, R_COLOR_INPUT, R_COLOR_FOCUS, R_COLOR_SELECTION, R_COLOR_ROW_HOVERED, R_COLOR_TRACK, R_COLOR_HANDLE, R_COLOR_HANDLE_HOVERED, R_COLOR_SEPARATOR, R_COLOR_HEADER, R_COLOR_HEADER_HOVERED, R_COLOR_TAB_ACTIVE, R_COLOR_POPUP, R_COLOR_POPUP_BORDER, R_COLOR_SHADOW, R_COLOR_TOOLTIP, R_COLOR_TOOLTIP_TEXT, R_COLOR_SWITCH, R_COLOR_SUCCESS, R_COLOR_WARNING, R_COLOR_DANGER, R_COLOR_LINK, R_COLOR_CODE, R_COLOR_SEARCH_MATCH, R_COLOR_SEARCH_CURRENT, R_COLOR_SPELLING, R_COLOR_DIFF_ADDED, R_COLOR_DIFF_REMOVED, R_COLOR_DIFF_ADDED_WORD, R_COLOR_DIFF_REMOVED_WORD } = RColorRole;
 
 export const RMetric = _enum({
 	R_METRIC_FONT_SIZE: 320,
@@ -655,8 +670,10 @@ export const RWidgetType = _enum({
 	R_WIDGET_CHART: 564,
 	R_WIDGET_MAP_VIEW: 565,
 	R_WIDGET_CAROUSEL: 566,
+	R_WIDGET_SYSTEM_WEB_VIEW: 567,
+	R_WIDGET_DIFF_VIEW: 568,
 });
-export const { R_WIDGET_VBOX, R_WIDGET_HBOX, R_WIDGET_GRID, R_WIDGET_UNIFORM_GRID, R_WIDGET_OVERLAY, R_WIDGET_BORDER, R_WIDGET_SIZE_BOX, R_WIDGET_SPACER, R_WIDGET_SCROLL_BOX, R_WIDGET_SPLITTER, R_WIDGET_WRAP_BOX, R_WIDGET_CANVAS, R_WIDGET_SWITCHER, R_WIDGET_TAB_VIEW, R_WIDGET_EXPANDER, R_WIDGET_LABEL, R_WIDGET_BUTTON, R_WIDGET_CHECKBOX, R_WIDGET_SLIDER, R_WIDGET_PROGRESSBAR, R_WIDGET_IMAGE, R_WIDGET_TEXT_INPUT, R_WIDGET_SPIN_BOX, R_WIDGET_COMBO_BOX, R_WIDGET_SEPARATOR, R_WIDGET_LIST_VIEW, R_WIDGET_TREE_VIEW, R_WIDGET_MENU_BAR, R_WIDGET_MENU, R_WIDGET_MENU_ITEM, R_WIDGET_VIEWPORT, R_WIDGET_CUSTOM, R_WIDGET_TEXT_EDITOR, R_WIDGET_HEADER_BAR, R_WIDGET_DOCK_AREA, R_WIDGET_ISLAND, R_WIDGET_FILE_BROWSER, R_WIDGET_BACKGROUND_BLUR, R_WIDGET_COLOR_PICKER, R_WIDGET_TIMELINE, R_WIDGET_NODE_GRAPH, R_WIDGET_TILE_VIEW, R_WIDGET_BLOCK_EDITOR, R_WIDGET_TABLE, R_WIDGET_DATE_PICKER, R_WIDGET_TIME_PICKER, R_WIDGET_TOAST, R_WIDGET_BREADCRUMB, R_WIDGET_RATING, R_WIDGET_PAGINATION, R_WIDGET_PLOT, R_WIDGET_PDF_VIEW, R_WIDGET_CHART, R_WIDGET_MAP_VIEW, R_WIDGET_CAROUSEL } = RWidgetType;
+export const { R_WIDGET_VBOX, R_WIDGET_HBOX, R_WIDGET_GRID, R_WIDGET_UNIFORM_GRID, R_WIDGET_OVERLAY, R_WIDGET_BORDER, R_WIDGET_SIZE_BOX, R_WIDGET_SPACER, R_WIDGET_SCROLL_BOX, R_WIDGET_SPLITTER, R_WIDGET_WRAP_BOX, R_WIDGET_CANVAS, R_WIDGET_SWITCHER, R_WIDGET_TAB_VIEW, R_WIDGET_EXPANDER, R_WIDGET_LABEL, R_WIDGET_BUTTON, R_WIDGET_CHECKBOX, R_WIDGET_SLIDER, R_WIDGET_PROGRESSBAR, R_WIDGET_IMAGE, R_WIDGET_TEXT_INPUT, R_WIDGET_SPIN_BOX, R_WIDGET_COMBO_BOX, R_WIDGET_SEPARATOR, R_WIDGET_LIST_VIEW, R_WIDGET_TREE_VIEW, R_WIDGET_MENU_BAR, R_WIDGET_MENU, R_WIDGET_MENU_ITEM, R_WIDGET_VIEWPORT, R_WIDGET_CUSTOM, R_WIDGET_TEXT_EDITOR, R_WIDGET_HEADER_BAR, R_WIDGET_DOCK_AREA, R_WIDGET_ISLAND, R_WIDGET_FILE_BROWSER, R_WIDGET_BACKGROUND_BLUR, R_WIDGET_COLOR_PICKER, R_WIDGET_TIMELINE, R_WIDGET_NODE_GRAPH, R_WIDGET_TILE_VIEW, R_WIDGET_BLOCK_EDITOR, R_WIDGET_TABLE, R_WIDGET_DATE_PICKER, R_WIDGET_TIME_PICKER, R_WIDGET_TOAST, R_WIDGET_BREADCRUMB, R_WIDGET_RATING, R_WIDGET_PAGINATION, R_WIDGET_PLOT, R_WIDGET_PDF_VIEW, R_WIDGET_CHART, R_WIDGET_MAP_VIEW, R_WIDGET_CAROUSEL, R_WIDGET_SYSTEM_WEB_VIEW, R_WIDGET_DIFF_VIEW } = RWidgetType;
 
 export const RHAlign = _enum({
 	R_HALIGN_FILL: 576,
@@ -870,6 +887,29 @@ export const RChartKind = _enum({
 });
 export const { R_CHART_PIE, R_CHART_DONUT, R_CHART_GAUGE, R_CHART_HEATMAP, R_CHART_SPARKLINE } = RChartKind;
 
+export const RSystemWebViewEvent = _enum({
+	R_SYSTEM_WEB_VIEW_NAVIGATED: 2960,
+	R_SYSTEM_WEB_VIEW_TITLE: 2961,
+	R_SYSTEM_WEB_VIEW_LOADING: 2962,
+	R_SYSTEM_WEB_VIEW_LOADED: 2963,
+	R_SYSTEM_WEB_VIEW_FAILED: 2964,
+});
+export const { R_SYSTEM_WEB_VIEW_NAVIGATED, R_SYSTEM_WEB_VIEW_TITLE, R_SYSTEM_WEB_VIEW_LOADING, R_SYSTEM_WEB_VIEW_LOADED, R_SYSTEM_WEB_VIEW_FAILED } = RSystemWebViewEvent;
+
+export const RTableSelectionMode = _enum({
+	R_TABLE_SELECTION_SINGLE: 3008,
+	R_TABLE_SELECTION_MULTIPLE: 3009,
+	R_TABLE_SELECTION_NONE: 3010,
+});
+export const { R_TABLE_SELECTION_SINGLE, R_TABLE_SELECTION_MULTIPLE, R_TABLE_SELECTION_NONE } = RTableSelectionMode;
+
+export const RTableColumnKind = _enum({
+	R_TABLE_COLUMN_TEXT: 3024,
+	R_TABLE_COLUMN_CHECK: 3025,
+	R_TABLE_COLUMN_PROGRESS: 3026,
+});
+export const { R_TABLE_COLUMN_TEXT, R_TABLE_COLUMN_CHECK, R_TABLE_COLUMN_PROGRESS } = RTableColumnKind;
+
 export const RSyntax = _enum({
 	R_SYNTAX_NONE: 832,
 	R_SYNTAX_XML: 833,
@@ -907,6 +947,12 @@ export const RToken = _enum({
 	R_TOKEN_LINK: 942,
 });
 export const { R_TOKEN_TEXT, R_TOKEN_COMMENT, R_TOKEN_STRING, R_TOKEN_NUMBER, R_TOKEN_KEYWORD, R_TOKEN_TYPE, R_TOKEN_FUNCTION, R_TOKEN_TAG, R_TOKEN_ATTRIBUTE, R_TOKEN_PUNCTUATION, R_TOKEN_DIRECTIVE, R_TOKEN_HEADING, R_TOKEN_STRONG, R_TOKEN_EMPHASIS, R_TOKEN_LINK } = RToken;
+
+export const RSearchFlags = _enum({
+	R_SEARCH_MATCH_CASE: 1,
+	R_SEARCH_WHOLE_WORD: 2,
+});
+export const { R_SEARCH_MATCH_CASE, R_SEARCH_WHOLE_WORD } = RSearchFlags;
 
 export const RMarkerKind = _enum({
 	R_MARKER_ERROR: 848,
@@ -982,12 +1028,60 @@ export const RBlockPlace = _enum({
 });
 export const { R_BLOCK_NEXT, R_BLOCK_BODY, R_BLOCK_INPUT } = RBlockPlace;
 
+export const RDiffViewMode = _enum({
+	R_DIFF_VIEW_UNIFIED: 3152,
+	R_DIFF_VIEW_SPLIT: 3153,
+});
+export const { R_DIFF_VIEW_UNIFIED, R_DIFF_VIEW_SPLIT } = RDiffViewMode;
+
+export const RDiffSide = _enum({
+	R_DIFF_LEFT: 3156,
+	R_DIFF_RIGHT: 3157,
+});
+export const { R_DIFF_LEFT, R_DIFF_RIGHT } = RDiffSide;
+
+export const RDiffRowKind = _enum({
+	R_DIFF_ROW_SAME: 3160,
+	R_DIFF_ROW_REMOVED: 3161,
+	R_DIFF_ROW_ADDED: 3162,
+	R_DIFF_ROW_CHANGED: 3163,
+	R_DIFF_ROW_FOLD: 3164,
+	R_DIFF_ROW_HUNK: 3165,
+	R_DIFF_ROW_FILE: 3166,
+	R_DIFF_ROW_NOTE: 3167,
+});
+export const { R_DIFF_ROW_SAME, R_DIFF_ROW_REMOVED, R_DIFF_ROW_ADDED, R_DIFF_ROW_CHANGED, R_DIFF_ROW_FOLD, R_DIFF_ROW_HUNK, R_DIFF_ROW_FILE, R_DIFF_ROW_NOTE } = RDiffRowKind;
+
+export const RDiffFlags = _enum({
+	R_DIFF_IGNORE_TRAILING_SPACE: 1,
+	R_DIFF_IGNORE_SPACE: 2,
+	R_DIFF_IGNORE_CASE: 4,
+});
+export const { R_DIFF_IGNORE_TRAILING_SPACE, R_DIFF_IGNORE_SPACE, R_DIFF_IGNORE_CASE } = RDiffFlags;
+
 export const RNotificationUrgency = _enum({
 	R_NOTIFICATION_LOW: 1264,
 	R_NOTIFICATION_NORMAL: 1265,
 	R_NOTIFICATION_CRITICAL: 1266,
 });
 export const { R_NOTIFICATION_LOW, R_NOTIFICATION_NORMAL, R_NOTIFICATION_CRITICAL } = RNotificationUrgency;
+
+export const RNotificationEvent = _enum({
+	R_NOTIFICATION_ACTIVATED: 3104,
+	R_NOTIFICATION_ACTION_INVOKED: 3105,
+	R_NOTIFICATION_DISMISSED: 3106,
+});
+export const { R_NOTIFICATION_ACTIVATED, R_NOTIFICATION_ACTION_INVOKED, R_NOTIFICATION_DISMISSED } = RNotificationEvent;
+
+export const RNotificationFeature = _enum({
+	R_NOTIFICATION_FEATURE_ACTIONS: 1,
+	R_NOTIFICATION_FEATURE_REPLACE: 2,
+	R_NOTIFICATION_FEATURE_CLOSE: 4,
+	R_NOTIFICATION_FEATURE_ICON: 8,
+	R_NOTIFICATION_FEATURE_ACTIVATED: 16,
+	R_NOTIFICATION_FEATURE_DISMISSED: 32,
+});
+export const { R_NOTIFICATION_FEATURE_ACTIONS, R_NOTIFICATION_FEATURE_REPLACE, R_NOTIFICATION_FEATURE_CLOSE, R_NOTIFICATION_FEATURE_ICON, R_NOTIFICATION_FEATURE_ACTIVATED, R_NOTIFICATION_FEATURE_DISMISSED } = RNotificationFeature;
 
 export const RFileDialogFlags = _enum({
 	R_FILE_DIALOG_MULTIPLE: 1,
@@ -1018,6 +1112,46 @@ export const RMessageResult = _enum({
 	R_MESSAGE_RESULT_NO: 3,
 });
 export const { R_MESSAGE_RESULT_CANCEL, R_MESSAGE_RESULT_OK, R_MESSAGE_RESULT_YES, R_MESSAGE_RESULT_NO } = RMessageResult;
+
+export const RPermission = _enum({
+	R_PERMISSION_CAMERA: 3072,
+	R_PERMISSION_NOTIFICATIONS: 3073,
+	R_PERMISSION_PHOTOS: 3074,
+	R_PERMISSION_MICROPHONE: 3075,
+	R_PERMISSION_LOCATION: 3076,
+});
+export const { R_PERMISSION_CAMERA, R_PERMISSION_NOTIFICATIONS, R_PERMISSION_PHOTOS, R_PERMISSION_MICROPHONE, R_PERMISSION_LOCATION } = RPermission;
+
+export const RPermissionStatus = _enum({
+	R_PERMISSION_UNSUPPORTED: 3088,
+	R_PERMISSION_NOT_ASKED: 3089,
+	R_PERMISSION_GRANTED: 3090,
+	R_PERMISSION_LIMITED: 3091,
+	R_PERMISSION_DENIED: 3092,
+	R_PERMISSION_BLOCKED: 3093,
+});
+export const { R_PERMISSION_UNSUPPORTED, R_PERMISSION_NOT_ASKED, R_PERMISSION_GRANTED, R_PERMISSION_LIMITED, R_PERMISSION_DENIED, R_PERMISSION_BLOCKED } = RPermissionStatus;
+
+export const RDeviceResult = _enum({
+	R_DEVICE_DONE: 3104,
+	R_DEVICE_CANCELLED: 3105,
+	R_DEVICE_DENIED: 3106,
+	R_DEVICE_UNSUPPORTED: 3107,
+	R_DEVICE_BUSY: 3108,
+	R_DEVICE_FAILED: 3109,
+});
+export const { R_DEVICE_DONE, R_DEVICE_CANCELLED, R_DEVICE_DENIED, R_DEVICE_UNSUPPORTED, R_DEVICE_BUSY, R_DEVICE_FAILED } = RDeviceResult;
+
+export const RHaptic = _enum({
+	R_HAPTIC_LIGHT: 3120,
+	R_HAPTIC_MEDIUM: 3121,
+	R_HAPTIC_HEAVY: 3122,
+	R_HAPTIC_SELECTION: 3123,
+	R_HAPTIC_SUCCESS: 3124,
+	R_HAPTIC_WARNING: 3125,
+	R_HAPTIC_ERROR: 3126,
+});
+export const { R_HAPTIC_LIGHT, R_HAPTIC_MEDIUM, R_HAPTIC_HEAVY, R_HAPTIC_SELECTION, R_HAPTIC_SUCCESS, R_HAPTIC_WARNING, R_HAPTIC_ERROR } = RHaptic;
 
 export const RMotion = _enum({
 	R_MOTION_SNAPPY: 800,
@@ -1057,6 +1191,13 @@ export const RXmlValueType = _enum({
 	R_XML_LIST: 968,
 });
 export const { R_XML_TEXT, R_XML_BOOL, R_XML_NUMBER, R_XML_CHOICE, R_XML_COLOR, R_XML_ACTION, R_XML_FILE, R_XML_NUMBERS, R_XML_LIST } = RXmlValueType;
+
+export const RClock = _enum({
+	R_CLOCK_AUTO: 3120,
+	R_CLOCK_12_HOUR: 3121,
+	R_CLOCK_24_HOUR: 3122,
+});
+export const { R_CLOCK_AUTO, R_CLOCK_12_HOUR, R_CLOCK_24_HOUR } = RClock;
 
 export const RColorFilter = _enum({
 	R_COLOR_FILTER_NONE: 1856,
@@ -1112,6 +1253,26 @@ export const RAccessibleRole = _enum({
 	R_ROLE_PANE: 1923,
 });
 export const { R_ROLE_AUTO, R_ROLE_NONE, R_ROLE_WINDOW, R_ROLE_GROUP, R_ROLE_TEXT, R_ROLE_HEADING, R_ROLE_LINK, R_ROLE_BUTTON, R_ROLE_TOGGLE_BUTTON, R_ROLE_CHECKBOX, R_ROLE_RADIO_BUTTON, R_ROLE_SLIDER, R_ROLE_PROGRESS_BAR, R_ROLE_SPIN_BUTTON, R_ROLE_TEXT_FIELD, R_ROLE_DOCUMENT, R_ROLE_COMBO_BOX, R_ROLE_LIST, R_ROLE_LIST_ITEM, R_ROLE_TREE, R_ROLE_TREE_ITEM, R_ROLE_TABLE, R_ROLE_MENU_BAR, R_ROLE_MENU, R_ROLE_MENU_ITEM, R_ROLE_TAB_LIST, R_ROLE_TAB, R_ROLE_TAB_PANEL, R_ROLE_TOOLBAR, R_ROLE_STATUS_BAR, R_ROLE_DIALOG, R_ROLE_ALERT, R_ROLE_IMAGE, R_ROLE_CANVAS, R_ROLE_SEPARATOR, R_ROLE_SCROLL_BAR, R_ROLE_PANE } = RAccessibleRole;
+
+export const RHostService = _enum({
+	R_HOST_SERVICE_OPEN_FILES: 3136,
+	R_HOST_SERVICE_SAVE_FILE: 3137,
+	R_HOST_SERVICE_SELECT_FOLDER: 3138,
+	R_HOST_SERVICE_TAKE_PHOTO: 3139,
+	R_HOST_SERVICE_PICK_PHOTOS: 3140,
+	R_HOST_SERVICE_SHARE: 3141,
+});
+export const { R_HOST_SERVICE_OPEN_FILES, R_HOST_SERVICE_SAVE_FILE, R_HOST_SERVICE_SELECT_FOLDER, R_HOST_SERVICE_TAKE_PHOTO, R_HOST_SERVICE_PICK_PHOTOS, R_HOST_SERVICE_SHARE } = RHostService;
+
+export const RGoldenStatus = _enum({
+	R_GOLDEN_MATCH: 2976,
+	R_GOLDEN_UPDATED: 2977,
+	R_GOLDEN_MISMATCH: 2978,
+	R_GOLDEN_SIZE_MISMATCH: 2979,
+	R_GOLDEN_MISSING: 2980,
+	R_GOLDEN_FAILED: 2981,
+});
+export const { R_GOLDEN_MATCH, R_GOLDEN_UPDATED, R_GOLDEN_MISMATCH, R_GOLDEN_SIZE_MISMATCH, R_GOLDEN_MISSING, R_GOLDEN_FAILED } = RGoldenStatus;
 
 export class RInitDesc extends RStruct {
 	static SIZE = 40;
@@ -1347,6 +1508,40 @@ export class RFrameStats extends RStruct {
 	}
 	set frame_index(value) {
 		this._view.setBigUint64(48, value, true);
+	}
+}
+
+export class RDataItem extends RStruct {
+	static SIZE = 24;
+
+	constructor(pointer) {
+		super(RDataItem.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer) {
+		return pointer ? new RDataItem(pointer) : null;
+	}
+
+	get mime() {
+		return _text(_address(this._view.getBigUint64(0, true)));
+	}
+	set mime(value) {
+		this._point("mime", 0, _s(value));
+	}
+
+	get data() {
+		return _address(this._view.getBigUint64(8, true));
+	}
+	set data(value) {
+		this._view.setBigUint64(8, BigInt(value ?? 0), true);
+	}
+
+	get size() {
+		return Number(this._view.getBigUint64(16, true));
+	}
+	set size(value) {
+		this._view.setBigUint64(16, BigInt(value), true);
 	}
 }
 
@@ -2516,6 +2711,115 @@ export class RJumpTask extends RStruct {
 	}
 }
 
+export class RNotificationAction extends RStruct {
+	static SIZE = 16;
+
+	constructor(pointer) {
+		super(RNotificationAction.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer) {
+		return pointer ? new RNotificationAction(pointer) : null;
+	}
+
+	get id() {
+		return _text(_address(this._view.getBigUint64(0, true)));
+	}
+	set id(value) {
+		this._point("id", 0, _s(value));
+	}
+
+	get label() {
+		return _text(_address(this._view.getBigUint64(8, true)));
+	}
+	set label(value) {
+		this._point("label", 8, _s(value));
+	}
+}
+
+export class RNotificationDesc extends RStruct {
+	static SIZE = 64;
+
+	constructor(pointer) {
+		super(RNotificationDesc.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer) {
+		return pointer ? new RNotificationDesc(pointer) : null;
+	}
+
+	get size() {
+		return this._view.getUint32(0, true);
+	}
+	set size(value) {
+		this._view.setUint32(0, value, true);
+	}
+
+	get tag() {
+		return _text(_address(this._view.getBigUint64(8, true)));
+	}
+	set tag(value) {
+		this._point("tag", 8, _s(value));
+	}
+
+	get title() {
+		return _text(_address(this._view.getBigUint64(16, true)));
+	}
+	set title(value) {
+		this._point("title", 16, _s(value));
+	}
+
+	get body() {
+		return _text(_address(this._view.getBigUint64(24, true)));
+	}
+	set body(value) {
+		this._point("body", 24, _s(value));
+	}
+
+	get urgency() {
+		return this._view.getInt32(32, true);
+	}
+	set urgency(value) {
+		this._view.setInt32(32, value, true);
+	}
+
+	get icon() {
+		return _text(_address(this._view.getBigUint64(40, true)));
+	}
+	set icon(value) {
+		this._point("icon", 40, _s(value));
+	}
+
+	get actions() {
+		return _address(this._view.getBigUint64(48, true));
+	}
+	set actions(value) {
+		if (typeof value === "number") {
+			this._view.setBigUint64(48, BigInt(value), true);
+			return;
+		}
+		this._point("actions", 48, _structs(value, RNotificationAction.SIZE));
+		(this._kept ??= new Map()).set("actions.items", value ?? this._bytes);
+		this.action_count = value?.length ?? 0;
+	}
+
+	get action_count() {
+		return this._view.getInt32(56, true);
+	}
+	set action_count(value) {
+		this._view.setInt32(56, value, true);
+	}
+
+	get window() {
+		return this._view.getUint32(60, true);
+	}
+	set window(value) {
+		this._view.setUint32(60, value, true);
+	}
+}
+
 export class RFileFilter extends RStruct {
 	static SIZE = 16;
 
@@ -2615,6 +2919,109 @@ export class RFileDialogDesc extends RStruct {
 	}
 	set flags(value) {
 		this._view.setUint32(56, value, true);
+	}
+}
+
+export class RPickedFile extends RStruct {
+	static SIZE = 40;
+
+	constructor(pointer) {
+		super(RPickedFile.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer) {
+		return pointer ? new RPickedFile(pointer) : null;
+	}
+
+	get path() {
+		return _text(_address(this._view.getBigUint64(0, true)));
+	}
+	set path(value) {
+		this._point("path", 0, _s(value));
+	}
+
+	get name() {
+		return _text(_address(this._view.getBigUint64(8, true)));
+	}
+	set name(value) {
+		this._point("name", 8, _s(value));
+	}
+
+	get mime_type() {
+		return _text(_address(this._view.getBigUint64(16, true)));
+	}
+	set mime_type(value) {
+		this._point("mime_type", 16, _s(value));
+	}
+
+	get size() {
+		return this._view.getBigUint64(24, true);
+	}
+	set size(value) {
+		this._view.setBigUint64(24, value, true);
+	}
+
+	get width() {
+		return this._view.getInt32(32, true);
+	}
+	set width(value) {
+		this._view.setInt32(32, value, true);
+	}
+
+	get height() {
+		return this._view.getInt32(36, true);
+	}
+	set height(value) {
+		this._view.setInt32(36, value, true);
+	}
+}
+
+export class RShareDesc extends RStruct {
+	static SIZE = 40;
+
+	constructor(pointer) {
+		super(RShareDesc.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer) {
+		return pointer ? new RShareDesc(pointer) : null;
+	}
+
+	get text() {
+		return _text(_address(this._view.getBigUint64(0, true)));
+	}
+	set text(value) {
+		this._point("text", 0, _s(value));
+	}
+
+	get path() {
+		return _text(_address(this._view.getBigUint64(8, true)));
+	}
+	set path(value) {
+		this._point("path", 8, _s(value));
+	}
+
+	get mime_type() {
+		return _text(_address(this._view.getBigUint64(16, true)));
+	}
+	set mime_type(value) {
+		this._point("mime_type", 16, _s(value));
+	}
+
+	get title() {
+		return _text(_address(this._view.getBigUint64(24, true)));
+	}
+	set title(value) {
+		this._point("title", 24, _s(value));
+	}
+
+	get anchor() {
+		return this._view.getUint32(32, true);
+	}
+	set anchor(value) {
+		this._view.setUint32(32, value, true);
 	}
 }
 
@@ -3003,8 +3410,167 @@ export class RAccessibilitySettings extends RStruct {
 	}
 }
 
+export class RHostServiceRequest extends RStruct {
+	static SIZE = 128;
+
+	constructor(pointer) {
+		super(RHostServiceRequest.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer) {
+		return pointer ? new RHostServiceRequest(pointer) : null;
+	}
+
+	get id() {
+		return this._view.getUint32(0, true);
+	}
+	set id(value) {
+		this._view.setUint32(0, value, true);
+	}
+
+	get service() {
+		return this._view.getInt32(4, true);
+	}
+	set service(value) {
+		this._view.setInt32(4, value, true);
+	}
+
+	get window() {
+		return this._view.getUint32(8, true);
+	}
+	set window(value) {
+		this._view.setUint32(8, value, true);
+	}
+
+	get anchor_x() {
+		return this._view.getFloat32(12, true);
+	}
+	set anchor_x(value) {
+		this._view.setFloat32(12, value, true);
+	}
+
+	get anchor_y() {
+		return this._view.getFloat32(16, true);
+	}
+	set anchor_y(value) {
+		this._view.setFloat32(16, value, true);
+	}
+
+	get anchor_width() {
+		return this._view.getFloat32(20, true);
+	}
+	set anchor_width(value) {
+		this._view.setFloat32(20, value, true);
+	}
+
+	get anchor_height() {
+		return this._view.getFloat32(24, true);
+	}
+	set anchor_height(value) {
+		this._view.setFloat32(24, value, true);
+	}
+
+	get title() {
+		return _text(_address(this._view.getBigUint64(32, true)));
+	}
+	set title(value) {
+		this._point("title", 32, _s(value));
+	}
+
+	get filters() {
+		return _address(this._view.getBigUint64(40, true));
+	}
+	set filters(value) {
+		if (typeof value === "number") {
+			this._view.setBigUint64(40, BigInt(value), true);
+			return;
+		}
+		this._point("filters", 40, _structs(value, RFileFilter.SIZE));
+		(this._kept ??= new Map()).set("filters.items", value ?? this._bytes);
+		this.filter_count = value?.length ?? 0;
+	}
+
+	get filter_count() {
+		return this._view.getInt32(48, true);
+	}
+	set filter_count(value) {
+		this._view.setInt32(48, value, true);
+	}
+
+	get flags() {
+		return this._view.getUint32(52, true);
+	}
+	set flags(value) {
+		this._view.setUint32(52, value, true);
+	}
+
+	get file_name() {
+		return _text(_address(this._view.getBigUint64(56, true)));
+	}
+	set file_name(value) {
+		this._point("file_name", 56, _s(value));
+	}
+
+	get default_extension() {
+		return _text(_address(this._view.getBigUint64(64, true)));
+	}
+	set default_extension(value) {
+		this._point("default_extension", 64, _s(value));
+	}
+
+	get data() {
+		return _address(this._view.getBigUint64(72, true));
+	}
+	set data(value) {
+		this._view.setBigUint64(72, BigInt(value ?? 0), true);
+	}
+
+	get size() {
+		return Number(this._view.getBigUint64(80, true));
+	}
+	set size(value) {
+		this._view.setBigUint64(80, BigInt(value), true);
+	}
+
+	get path() {
+		return _text(_address(this._view.getBigUint64(88, true)));
+	}
+	set path(value) {
+		this._point("path", 88, _s(value));
+	}
+
+	get max_count() {
+		return this._view.getInt32(96, true);
+	}
+	set max_count(value) {
+		this._view.setInt32(96, value, true);
+	}
+
+	get text() {
+		return _text(_address(this._view.getBigUint64(104, true)));
+	}
+	set text(value) {
+		this._point("text", 104, _s(value));
+	}
+
+	get mime_type() {
+		return _text(_address(this._view.getBigUint64(112, true)));
+	}
+	set mime_type(value) {
+		this._point("mime_type", 112, _s(value));
+	}
+
+	get share_title() {
+		return _text(_address(this._view.getBigUint64(120, true)));
+	}
+	set share_title(value) {
+		this._point("share_title", 120, _s(value));
+	}
+}
+
 export class RHostPlatformDesc extends RStruct {
-	static SIZE = 40;
+	static SIZE = 96;
 
 	constructor(pointer) {
 		super(RHostPlatformDesc.SIZE, pointer);
@@ -3048,6 +3614,158 @@ export class RHostPlatformDesc extends RStruct {
 	}
 	set user_data(value) {
 		this._view.setBigUint64(32, BigInt(value ?? 0), true);
+	}
+
+	get permission_status() {
+		return _address(this._view.getBigUint64(40, true));
+	}
+	set permission_status(value) {
+		this._view.setBigUint64(40, BigInt(value ?? 0), true);
+	}
+
+	get permission_request() {
+		return _address(this._view.getBigUint64(48, true));
+	}
+	set permission_request(value) {
+		this._view.setBigUint64(48, BigInt(value ?? 0), true);
+	}
+
+	get service_request() {
+		return _address(this._view.getBigUint64(56, true));
+	}
+	set service_request(value) {
+		this._view.setBigUint64(56, BigInt(value ?? 0), true);
+	}
+
+	get has_camera() {
+		return this._view.getInt32(64, true);
+	}
+	set has_camera(value) {
+		this._view.setInt32(64, value, true);
+	}
+
+	get open_url() {
+		return _address(this._view.getBigUint64(72, true));
+	}
+	set open_url(value) {
+		this._view.setBigUint64(72, BigInt(value ?? 0), true);
+	}
+
+	get haptic() {
+		return _address(this._view.getBigUint64(80, true));
+	}
+	set haptic(value) {
+		this._view.setBigUint64(80, BigInt(value ?? 0), true);
+	}
+
+	get download() {
+		return _address(this._view.getBigUint64(88, true));
+	}
+	set download(value) {
+		this._view.setBigUint64(88, BigInt(value ?? 0), true);
+	}
+}
+
+export class RGoldenOptions extends RStruct {
+	static SIZE = 24;
+
+	constructor(pointer) {
+		super(RGoldenOptions.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer) {
+		return pointer ? new RGoldenOptions(pointer) : null;
+	}
+
+	get channel_tolerance() {
+		return this._view.getInt32(0, true);
+	}
+	set channel_tolerance(value) {
+		this._view.setInt32(0, value, true);
+	}
+
+	get max_diff_ratio() {
+		return this._view.getFloat32(4, true);
+	}
+	set max_diff_ratio(value) {
+		this._view.setFloat32(4, value, true);
+	}
+
+	get per_platform() {
+		return this._view.getInt32(8, true);
+	}
+	set per_platform(value) {
+		this._view.setInt32(8, value, true);
+	}
+
+	get output_directory() {
+		return _text(_address(this._view.getBigUint64(16, true)));
+	}
+	set output_directory(value) {
+		this._point("output_directory", 16, _s(value));
+	}
+}
+
+export class RGoldenResult extends RStruct {
+	static SIZE = 40;
+
+	constructor(pointer) {
+		super(RGoldenResult.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer) {
+		return pointer ? new RGoldenResult(pointer) : null;
+	}
+
+	get status() {
+		return this._view.getInt32(0, true);
+	}
+	set status(value) {
+		this._view.setInt32(0, value, true);
+	}
+
+	get width() {
+		return this._view.getInt32(4, true);
+	}
+	set width(value) {
+		this._view.setInt32(4, value, true);
+	}
+
+	get height() {
+		return this._view.getInt32(8, true);
+	}
+	set height(value) {
+		this._view.setInt32(8, value, true);
+	}
+
+	get differing_pixels() {
+		return this._view.getInt32(12, true);
+	}
+	set differing_pixels(value) {
+		this._view.setInt32(12, value, true);
+	}
+
+	get max_channel_difference() {
+		return this._view.getInt32(16, true);
+	}
+	set max_channel_difference(value) {
+		this._view.setInt32(16, value, true);
+	}
+
+	get golden_path() {
+		return _text(_address(this._view.getBigUint64(24, true)));
+	}
+	set golden_path(value) {
+		this._point("golden_path", 24, _s(value));
+	}
+
+	get message() {
+		return _text(_address(this._view.getBigUint64(32, true)));
+	}
+	set message(value) {
+		this._point("message", 32, _s(value));
 	}
 }
 
@@ -3171,6 +3889,16 @@ function _adapt_RTableCellColorCallback(function_) {
 	};
 }
 
+function _adapt_RDeviceCallback(function_) {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return (result, files, count, user_data) => {
+		const files_ = RPickedFile.from(files);
+		return function_(result, files_, count, user_data);
+	};
+}
+
 function _adapt_RMeasureCallback(function_) {
 	if (typeof function_ !== "function") {
 		return function_;
@@ -3266,6 +3994,15 @@ export const Ropen_url = _lib.Ropen_url;
 export const Rclipboard_set_text = _lib.Rclipboard_set_text;
 export const Rclipboard_set_html = _lib.Rclipboard_set_html;
 export const Rclipboard_get_text = _lib.Rclipboard_get_text;
+export const Rclipboard_has_text = _lib.Rclipboard_has_text;
+export function Rclipboard_set_data(items) {
+	return _lib.Rclipboard_set_data(_structs(items, RDataItem.SIZE), items?.length ?? 0);
+}
+export const Rclipboard_has_data = _lib.Rclipboard_has_data;
+export const Rclipboard_get_data = _lib.Rclipboard_get_data;
+export const Rclipboard_set_image = _lib.Rclipboard_set_image;
+export const Rclipboard_has_image = _lib.Rclipboard_has_image;
+export const Rclipboard_get_image = _lib.Rclipboard_get_image;
 export const Rerror_get_last = _lib.Rerror_get_last;
 export const Rerror_to_string = _lib.Rerror_to_string;
 export const Rseverity_to_string = _lib.Rseverity_to_string;
@@ -3354,8 +4091,10 @@ export const Rwindow_inject_mouse_button = _lib.Rwindow_inject_mouse_button;
 export const Rwindow_inject_mouse_wheel = _lib.Rwindow_inject_mouse_wheel;
 export const Rwindow_inject_key = _lib.Rwindow_inject_key;
 export const Rwindow_inject_text = _lib.Rwindow_inject_text;
+export const Rwindow_inject_composition = _lib.Rwindow_inject_composition;
 export const Rwindow_inject_drag = _lib.Rwindow_inject_drag;
 export const Rwindow_inject_drop = _lib.Rwindow_inject_drop;
+export const Rwindow_inject_drag_end = _lib.Rwindow_inject_drag_end;
 export const Rwindow_inject_back = _lib.Rwindow_inject_back;
 export const Rwindow_is_key_down = _lib.Rwindow_is_key_down;
 export const Rwindow_is_mouse_button_down = _lib.Rwindow_is_mouse_button_down;
@@ -3369,6 +4108,7 @@ export const Rwindow_get_text_input_text = _lib.Rwindow_get_text_input_text;
 export const Rwindow_get_text_input_selection = _lib.Rwindow_get_text_input_selection;
 export const Rwindow_set_text_input_selection = _lib.Rwindow_set_text_input_selection;
 export const Rwindow_replace_text_input = _lib.Rwindow_replace_text_input;
+export const Rwindow_get_text_composition = _lib.Rwindow_get_text_composition;
 export const Rwindow_has_popup = _lib.Rwindow_has_popup;
 export const Rwindow_get_text_input_rect = _lib.Rwindow_get_text_input_rect;
 export const Rwindow_get_popup_count = _lib.Rwindow_get_popup_count;
@@ -3382,6 +4122,12 @@ export const Rdrag_is_active = _lib.Rdrag_is_active;
 export const Rdrag_get_type = _lib.Rdrag_get_type;
 export const Rdrag_get_data = _lib.Rdrag_get_data;
 export const Rdrag_cancel = _lib.Rdrag_cancel;
+export function Rdrag_begin_external(source, items, operations, callback, user_data = null) {
+	return _lib.Rdrag_begin_external(source, _structs(items, RDataItem.SIZE), items?.length ?? 0, operations, callback, user_data);
+}
+export const Rdrag_set_image = _lib.Rdrag_set_image;
+export const Rdrag_external_supported = _lib.Rdrag_external_supported;
+export const Rdrag_external_is_active = _lib.Rdrag_external_is_active;
 export const Rwindow_register_shortcut = _lib.Rwindow_register_shortcut;
 export const Rwindow_unregister_shortcut = _lib.Rwindow_unregister_shortcut;
 export function Rtouch_get_settings(settings) {
@@ -3465,19 +4211,28 @@ export const Rfont_measure_text = _lib.Rfont_measure_text;
 export const Rtexture_create = _lib.Rtexture_create;
 export const Rtexture_create_async = _lib.Rtexture_create_async;
 export const Rtexture_create_from_svg = _lib.Rtexture_create_from_svg;
+export const Rtexture_uses_current_color = _lib.Rtexture_uses_current_color;
 export const Rtexture_get_density = _lib.Rtexture_get_density;
 export const Rtexture_create_from_file = _lib.Rtexture_create_from_file;
 export const Rtexture_create_from_file_async = _lib.Rtexture_create_from_file_async;
+export const Rtexture_create_from_url_async = _lib.Rtexture_create_from_url_async;
 export const Rtexture_create_from_pixels = _lib.Rtexture_create_from_pixels;
 export const Rtexture_update = _lib.Rtexture_update;
 export const Rimage_decode = _lib.Rimage_decode;
+export const Rimage_decode_info = _lib.Rimage_decode_info;
+export const Rimage_decode_frame = _lib.Rimage_decode_frame;
 export const Rpixels_free = _lib.Rpixels_free;
+export const Rimage_encode_png = _lib.Rimage_encode_png;
+export const Rimage_save_png = _lib.Rimage_save_png;
 export const Rtexture_is_ready = _lib.Rtexture_is_ready;
 export const Rtexture_wait = _lib.Rtexture_wait;
 export const Rtexture_destroy = _lib.Rtexture_destroy;
 export const Rtexture_is_valid = _lib.Rtexture_is_valid;
 export const Rtexture_get_size = _lib.Rtexture_get_size;
 export const Rtexture_set_filter = _lib.Rtexture_set_filter;
+export const Ricon_get = _lib.Ricon_get;
+export const Ricon_get_count = _lib.Ricon_get_count;
+export const Ricon_get_name = _lib.Ricon_get_name;
 export const Rwidget_create = _lib.Rwidget_create;
 export const Rwidget_destroy = _lib.Rwidget_destroy;
 export const Rwidget_is_valid = _lib.Rwidget_is_valid;
@@ -3661,6 +4416,19 @@ export const Rimage_set_tint_text = _lib.Rimage_set_tint_text;
 export const Rimage_set_stretch = _lib.Rimage_set_stretch;
 export const Rimage_set_region = _lib.Rimage_set_region;
 export const Rimage_set_corner_radius = _lib.Rimage_set_corner_radius;
+export const Rimage_is_animated = _lib.Rimage_is_animated;
+export const Rimage_get_frame_count = _lib.Rimage_get_frame_count;
+export const Rimage_get_duration = _lib.Rimage_get_duration;
+export const Rimage_get_frame_delay = _lib.Rimage_get_frame_delay;
+export const Rimage_play = _lib.Rimage_play;
+export const Rimage_pause = _lib.Rimage_pause;
+export const Rimage_stop = _lib.Rimage_stop;
+export const Rimage_is_playing = _lib.Rimage_is_playing;
+export const Rimage_set_frame = _lib.Rimage_set_frame;
+export const Rimage_get_frame = _lib.Rimage_get_frame;
+export const Rimage_set_loop_count = _lib.Rimage_set_loop_count;
+export const Rimage_get_loop_count = _lib.Rimage_get_loop_count;
+export const Rimage_set_finished_callback = _lib.Rimage_set_finished_callback;
 export const Rtext_input_set_text = _lib.Rtext_input_set_text;
 export const Rtext_input_get_text = _lib.Rtext_input_get_text;
 export const Rtext_input_set_placeholder = _lib.Rtext_input_set_placeholder;
@@ -3676,6 +4444,20 @@ export const Rtext_input_set_return_key = _lib.Rtext_input_set_return_key;
 export const Rtext_input_get_return_key = _lib.Rtext_input_get_return_key;
 export const Rtext_input_set_changed_callback = _lib.Rtext_input_set_changed_callback;
 export const Rtext_input_set_committed_callback = _lib.Rtext_input_set_committed_callback;
+export const Rtext_input_set_spell_check = _lib.Rtext_input_set_spell_check;
+export const Rtext_input_get_spell_check = _lib.Rtext_input_get_spell_check;
+export const Rtext_input_set_spell_language = _lib.Rtext_input_set_spell_language;
+export const Rspell_is_supported = _lib.Rspell_is_supported;
+export const Rspell_get_language_count = _lib.Rspell_get_language_count;
+export const Rspell_get_language_at = _lib.Rspell_get_language_at;
+export const Rspell_set_language = _lib.Rspell_set_language;
+export const Rspell_get_language = _lib.Rspell_get_language;
+export const Rspell_check = _lib.Rspell_check;
+export const Rspell_get_misspelling = _lib.Rspell_get_misspelling;
+export const Rspell_suggest = _lib.Rspell_suggest;
+export const Rspell_get_suggestion = _lib.Rspell_get_suggestion;
+export const Rspell_learn = _lib.Rspell_learn;
+export const Rspell_ignore = _lib.Rspell_ignore;
 export const Rspin_box_set_range = _lib.Rspin_box_set_range;
 export const Rspin_box_set_value = _lib.Rspin_box_set_value;
 export const Rspin_box_get_value = _lib.Rspin_box_get_value;
@@ -3692,6 +4474,15 @@ export const Rcombo_box_get_item_text = _lib.Rcombo_box_get_item_text;
 export const Rcombo_box_set_selected = _lib.Rcombo_box_set_selected;
 export const Rcombo_box_get_selected = _lib.Rcombo_box_get_selected;
 export const Rcombo_box_set_changed_callback = _lib.Rcombo_box_set_changed_callback;
+export const Rcombo_box_set_editable = _lib.Rcombo_box_set_editable;
+export const Rcombo_box_is_editable = _lib.Rcombo_box_is_editable;
+export const Rcombo_box_set_searchable = _lib.Rcombo_box_set_searchable;
+export const Rcombo_box_is_searchable = _lib.Rcombo_box_is_searchable;
+export const Rcombo_box_get_text = _lib.Rcombo_box_get_text;
+export const Rcombo_box_set_text = _lib.Rcombo_box_set_text;
+export const Rcombo_box_set_text_changed_callback = _lib.Rcombo_box_set_text_changed_callback;
+export const Rcombo_box_set_open = _lib.Rcombo_box_set_open;
+export const Rcombo_box_is_open = _lib.Rcombo_box_is_open;
 export const Rseparator_set_orientation = _lib.Rseparator_set_orientation;
 export const Rlist_view_add_item = _lib.Rlist_view_add_item;
 export const Rlist_view_set_item_text = _lib.Rlist_view_set_item_text;
@@ -3789,6 +4580,7 @@ export const Rtile_view_get_item_at = _lib.Rtile_view_get_item_at;
 export const Rtile_view_set_drop_highlight = _lib.Rtile_view_set_drop_highlight;
 export const Rtile_view_set_drag_type = _lib.Rtile_view_set_drag_type;
 export const Rtile_view_set_drag_data_callback = _lib.Rtile_view_set_drag_data_callback;
+export const Rtile_view_set_drag_out_callback = _lib.Rtile_view_set_drag_out_callback;
 export const Rtile_view_set_selection_changed_callback = _lib.Rtile_view_set_selection_changed_callback;
 export const Rtile_view_set_activated_callback = _lib.Rtile_view_set_activated_callback;
 export const Rtile_view_set_context_callback = _lib.Rtile_view_set_context_callback;
@@ -3814,13 +4606,20 @@ export function Rtable_set_cell_color_callback(table, callback, user_data = null
 }
 export const Rtable_set_cell_text_color = _lib.Rtable_set_cell_text_color;
 export const Rtable_set_multi_select = _lib.Rtable_set_multi_select;
+export const Rtable_set_selection_mode = _lib.Rtable_set_selection_mode;
+export const Rtable_get_selection_mode = _lib.Rtable_get_selection_mode;
 export const Rtable_set_row_selected = _lib.Rtable_set_row_selected;
 export const Rtable_is_row_selected = _lib.Rtable_is_row_selected;
+export const Rtable_select_range = _lib.Rtable_select_range;
+export const Rtable_select_all = _lib.Rtable_select_all;
 export const Rtable_clear_selection = _lib.Rtable_clear_selection;
 export const Rtable_get_selection_count = _lib.Rtable_get_selection_count;
 export const Rtable_get_selection = _lib.Rtable_get_selection;
+export const Rtable_get_selection_range_count = _lib.Rtable_get_selection_range_count;
+export const Rtable_get_selection_range = _lib.Rtable_get_selection_range;
 export const Rtable_set_selected = _lib.Rtable_set_selected;
 export const Rtable_get_selected = _lib.Rtable_get_selected;
+export const Rtable_get_current_row = _lib.Rtable_get_current_row;
 export const Rtable_scroll_to_row = _lib.Rtable_scroll_to_row;
 export const Rtable_sort = _lib.Rtable_sort;
 export const Rtable_get_sort_column = _lib.Rtable_get_sort_column;
@@ -3831,6 +4630,18 @@ export const Rtable_set_striped = _lib.Rtable_set_striped;
 export const Rtable_set_selection_changed_callback = _lib.Rtable_set_selection_changed_callback;
 export const Rtable_set_activated_callback = _lib.Rtable_set_activated_callback;
 export const Rtable_set_sort_callback = _lib.Rtable_set_sort_callback;
+export const Rtable_set_column_editable = _lib.Rtable_set_column_editable;
+export const Rtable_is_column_editable = _lib.Rtable_is_column_editable;
+export const Rtable_set_cell_edited_callback = _lib.Rtable_set_cell_edited_callback;
+export const Rtable_edit_cell = _lib.Rtable_edit_cell;
+export const Rtable_is_editing = _lib.Rtable_is_editing;
+export const Rtable_end_edit = _lib.Rtable_end_edit;
+export const Rtable_set_frozen_columns = _lib.Rtable_set_frozen_columns;
+export const Rtable_get_frozen_columns = _lib.Rtable_get_frozen_columns;
+export const Rtable_set_column_kind = _lib.Rtable_set_column_kind;
+export const Rtable_get_column_kind = _lib.Rtable_get_column_kind;
+export const Rtable_is_cell_checked = _lib.Rtable_is_cell_checked;
+export const Rtable_set_cell_checked = _lib.Rtable_set_cell_checked;
 export const Rdate_picker_set_date = _lib.Rdate_picker_set_date;
 export const Rdate_picker_get_date = _lib.Rdate_picker_get_date;
 export const Rdate_picker_set_range = _lib.Rdate_picker_set_range;
@@ -3840,11 +4651,25 @@ export const Rdate_picker_get_text = _lib.Rdate_picker_get_text;
 export const Rdate_picker_set_open = _lib.Rdate_picker_set_open;
 export const Rdate_picker_is_open = _lib.Rdate_picker_is_open;
 export const Rdate_picker_set_changed_callback = _lib.Rdate_picker_set_changed_callback;
+export const Rdate_picker_set_time_zone = _lib.Rdate_picker_set_time_zone;
+export const Rdate_picker_get_time_zone = _lib.Rdate_picker_get_time_zone;
+export const Rdate_picker_set_instant = _lib.Rdate_picker_set_instant;
+export const Rdate_picker_get_instant = _lib.Rdate_picker_get_instant;
 export const Rtime_picker_set_time = _lib.Rtime_picker_set_time;
 export const Rtime_picker_get_time = _lib.Rtime_picker_get_time;
 export const Rtime_picker_set_seconds_visible = _lib.Rtime_picker_set_seconds_visible;
 export const Rtime_picker_set_minute_step = _lib.Rtime_picker_set_minute_step;
 export const Rtime_picker_set_changed_callback = _lib.Rtime_picker_set_changed_callback;
+export const Rtime_picker_set_clock = _lib.Rtime_picker_set_clock;
+export const Rtime_picker_get_clock = _lib.Rtime_picker_get_clock;
+export const Rtime_picker_get_text = _lib.Rtime_picker_get_text;
+export const Rtime_picker_set_time_zone = _lib.Rtime_picker_set_time_zone;
+export const Rtime_picker_get_time_zone = _lib.Rtime_picker_get_time_zone;
+export const Rtime_picker_set_time_zone_visible = _lib.Rtime_picker_set_time_zone_visible;
+export const Rtime_picker_set_date = _lib.Rtime_picker_set_date;
+export const Rtime_picker_get_date = _lib.Rtime_picker_get_date;
+export const Rtime_picker_set_instant = _lib.Rtime_picker_set_instant;
+export const Rtime_picker_get_instant = _lib.Rtime_picker_get_instant;
 export const Rtoast_show = _lib.Rtoast_show;
 export const Rtoast_show_kind = _lib.Rtoast_show_kind;
 export const Rtoast_hide = _lib.Rtoast_hide;
@@ -4051,6 +4876,25 @@ export const Rmap_view_set_marker_clicked_callback = _lib.Rmap_view_set_marker_c
 export const Rmap_view_set_view_changed_callback = _lib.Rmap_view_set_view_changed_callback;
 export const Rmap_view_set_attribution = _lib.Rmap_view_set_attribution;
 export const Rmap_view_get_attribution = _lib.Rmap_view_get_attribution;
+export const Rsystem_web_view_is_supported = _lib.Rsystem_web_view_is_supported;
+export const Rsystem_web_view_create = _lib.Rsystem_web_view_create;
+export const Rsystem_web_view_load_url = _lib.Rsystem_web_view_load_url;
+export const Rsystem_web_view_load_file = _lib.Rsystem_web_view_load_file;
+export const Rsystem_web_view_load_html = _lib.Rsystem_web_view_load_html;
+export const Rsystem_web_view_reload = _lib.Rsystem_web_view_reload;
+export const Rsystem_web_view_stop = _lib.Rsystem_web_view_stop;
+export const Rsystem_web_view_go_back = _lib.Rsystem_web_view_go_back;
+export const Rsystem_web_view_go_forward = _lib.Rsystem_web_view_go_forward;
+export const Rsystem_web_view_can_go_back = _lib.Rsystem_web_view_can_go_back;
+export const Rsystem_web_view_can_go_forward = _lib.Rsystem_web_view_can_go_forward;
+export const Rsystem_web_view_get_url = _lib.Rsystem_web_view_get_url;
+export const Rsystem_web_view_get_title = _lib.Rsystem_web_view_get_title;
+export const Rsystem_web_view_is_loading = _lib.Rsystem_web_view_is_loading;
+export const Rsystem_web_view_get_error = _lib.Rsystem_web_view_get_error;
+export const Rsystem_web_view_run_javascript = _lib.Rsystem_web_view_run_javascript;
+export const Rsystem_web_view_set_message_callback = _lib.Rsystem_web_view_set_message_callback;
+export const Rsystem_web_view_set_event_callback = _lib.Rsystem_web_view_set_event_callback;
+export const Rsystem_web_view_get_native_handle = _lib.Rsystem_web_view_get_native_handle;
 export const Rpdf_document_create = _lib.Rpdf_document_create;
 export const Rpdf_document_delete = _lib.Rpdf_document_delete;
 export const Rpdf_document_set_title = _lib.Rpdf_document_set_title;
@@ -4098,6 +4942,23 @@ export const Rtext_editor_select_all = _lib.Rtext_editor_select_all;
 export const Rtext_editor_get_selection = _lib.Rtext_editor_get_selection;
 export const Rtext_editor_get_selected_text = _lib.Rtext_editor_get_selected_text;
 export const Rtext_editor_scroll_to_line = _lib.Rtext_editor_scroll_to_line;
+export const Rtext_editor_add_cursor = _lib.Rtext_editor_add_cursor;
+export const Rtext_editor_add_selection = _lib.Rtext_editor_add_selection;
+export const Rtext_editor_get_cursor_count = _lib.Rtext_editor_get_cursor_count;
+export const Rtext_editor_get_cursor_at = _lib.Rtext_editor_get_cursor_at;
+export const Rtext_editor_get_main_cursor = _lib.Rtext_editor_get_main_cursor;
+export const Rtext_editor_clear_cursors = _lib.Rtext_editor_clear_cursors;
+export const Rtext_editor_add_next_occurrence = _lib.Rtext_editor_add_next_occurrence;
+export const Rtext_editor_select_all_occurrences = _lib.Rtext_editor_select_all_occurrences;
+export const Rtext_editor_fold = _lib.Rtext_editor_fold;
+export const Rtext_editor_unfold = _lib.Rtext_editor_unfold;
+export const Rtext_editor_fold_all = _lib.Rtext_editor_fold_all;
+export const Rtext_editor_unfold_all = _lib.Rtext_editor_unfold_all;
+export const Rtext_editor_is_folded = _lib.Rtext_editor_is_folded;
+export const Rtext_editor_is_line_hidden = _lib.Rtext_editor_is_line_hidden;
+export const Rtext_editor_get_fold_end = _lib.Rtext_editor_get_fold_end;
+export const Rtext_editor_set_folding = _lib.Rtext_editor_set_folding;
+export const Rtext_editor_get_folding = _lib.Rtext_editor_get_folding;
 export const Rtext_editor_undo = _lib.Rtext_editor_undo;
 export const Rtext_editor_redo = _lib.Rtext_editor_redo;
 export const Rtext_editor_can_undo = _lib.Rtext_editor_can_undo;
@@ -4127,6 +4988,9 @@ export const Rtext_editor_set_language = _lib.Rtext_editor_set_language;
 export const Rtext_editor_get_language = _lib.Rtext_editor_get_language;
 export const Rtext_editor_set_markdown = _lib.Rtext_editor_set_markdown;
 export const Rtext_editor_get_markdown = _lib.Rtext_editor_get_markdown;
+export const Rtext_editor_set_spell_check = _lib.Rtext_editor_set_spell_check;
+export const Rtext_editor_get_spell_check = _lib.Rtext_editor_get_spell_check;
+export const Rtext_editor_set_spell_language = _lib.Rtext_editor_set_spell_language;
 export const Rtext_editor_get_token = _lib.Rtext_editor_get_token;
 export const Rtext_editor_set_completion = _lib.Rtext_editor_set_completion;
 export const Rtext_editor_show_completions = _lib.Rtext_editor_show_completions;
@@ -4140,6 +5004,21 @@ export const Rtext_editor_add_marker = _lib.Rtext_editor_add_marker;
 export const Rtext_editor_clear_markers = _lib.Rtext_editor_clear_markers;
 export const Rtext_editor_get_marker_count = _lib.Rtext_editor_get_marker_count;
 export const Rtext_editor_set_hover_callback = _lib.Rtext_editor_set_hover_callback;
+export const Rtext_editor_set_search = _lib.Rtext_editor_set_search;
+export const Rtext_editor_get_search = _lib.Rtext_editor_get_search;
+export const Rtext_editor_get_search_flags = _lib.Rtext_editor_get_search_flags;
+export const Rtext_editor_find_next = _lib.Rtext_editor_find_next;
+export const Rtext_editor_find_previous = _lib.Rtext_editor_find_previous;
+export const Rtext_editor_get_match_count = _lib.Rtext_editor_get_match_count;
+export const Rtext_editor_get_match_index = _lib.Rtext_editor_get_match_index;
+export const Rtext_editor_get_match = _lib.Rtext_editor_get_match;
+export const Rtext_editor_select_match = _lib.Rtext_editor_select_match;
+export const Rtext_editor_replace = _lib.Rtext_editor_replace;
+export const Rtext_editor_replace_all = _lib.Rtext_editor_replace_all;
+export const Rtext_editor_show_find = _lib.Rtext_editor_show_find;
+export const Rtext_editor_hide_find = _lib.Rtext_editor_hide_find;
+export const Rtext_editor_is_find_shown = _lib.Rtext_editor_is_find_shown;
+export const Rtext_editor_set_find_bar = _lib.Rtext_editor_set_find_bar;
 export const Rtheme_set_token_color = _lib.Rtheme_set_token_color;
 export const Rtheme_get_token_color = _lib.Rtheme_get_token_color;
 export const Rtheme_clear_token_colors = _lib.Rtheme_clear_token_colors;
@@ -4405,6 +5284,38 @@ export const Rblock_editor_get_selected = _lib.Rblock_editor_get_selected;
 export const Rblock_editor_select = _lib.Rblock_editor_select;
 export const Rblock_editor_get_view = _lib.Rblock_editor_get_view;
 export const Rblock_editor_set_view = _lib.Rblock_editor_set_view;
+export const Rdiff_unified = _lib.Rdiff_unified;
+export const Rdiff_count_changes = _lib.Rdiff_count_changes;
+export const Rdiff_view_create = _lib.Rdiff_view_create;
+export const Rdiff_view_set_texts = _lib.Rdiff_view_set_texts;
+export const Rdiff_view_set_names = _lib.Rdiff_view_set_names;
+export const Rdiff_view_load_files = _lib.Rdiff_view_load_files;
+export const Rdiff_view_set_patch = _lib.Rdiff_view_set_patch;
+export const Rdiff_view_set_mode = _lib.Rdiff_view_set_mode;
+export const Rdiff_view_get_mode = _lib.Rdiff_view_get_mode;
+export const Rdiff_view_set_context = _lib.Rdiff_view_set_context;
+export const Rdiff_view_get_context = _lib.Rdiff_view_get_context;
+export const Rdiff_view_set_flags = _lib.Rdiff_view_set_flags;
+export const Rdiff_view_get_flags = _lib.Rdiff_view_get_flags;
+export const Rdiff_view_set_word_diff = _lib.Rdiff_view_set_word_diff;
+export const Rdiff_view_set_line_numbers = _lib.Rdiff_view_set_line_numbers;
+export const Rdiff_view_set_language = _lib.Rdiff_view_set_language;
+export const Rdiff_view_get_change_count = _lib.Rdiff_view_get_change_count;
+export const Rdiff_view_get_change = _lib.Rdiff_view_get_change;
+export const Rdiff_view_go_to_change = _lib.Rdiff_view_go_to_change;
+export const Rdiff_view_get_current_change = _lib.Rdiff_view_get_current_change;
+export const Rdiff_view_next_change = _lib.Rdiff_view_next_change;
+export const Rdiff_view_prev_change = _lib.Rdiff_view_prev_change;
+export const Rdiff_view_get_row_count = _lib.Rdiff_view_get_row_count;
+export const Rdiff_view_get_row = _lib.Rdiff_view_get_row;
+export const Rdiff_view_get_row_text = _lib.Rdiff_view_get_row_text;
+export const Rdiff_view_expand = _lib.Rdiff_view_expand;
+export const Rdiff_view_get_first_visible_row = _lib.Rdiff_view_get_first_visible_row;
+export const Rdiff_view_scroll_to_row = _lib.Rdiff_view_scroll_to_row;
+export const Rdiff_view_add_annotation = _lib.Rdiff_view_add_annotation;
+export const Rdiff_view_clear_annotations = _lib.Rdiff_view_clear_annotations;
+export const Rdiff_view_get_selected_text = _lib.Rdiff_view_get_selected_text;
+export const Rdiff_view_set_line_clicked_callback = _lib.Rdiff_view_set_line_clicked_callback;
 export const Rdialog_open = _lib.Rdialog_open;
 export const Rdialog_close = _lib.Rdialog_close;
 export const Rdialog_run = _lib.Rdialog_run;
@@ -4453,6 +5364,43 @@ export const Rnotification_show = _lib.Rnotification_show;
 export const Rnotification_is_supported = _lib.Rnotification_is_supported;
 export const Rnotification_set_fallback = _lib.Rnotification_set_fallback;
 export const Rnotification_set_clicked_callback = _lib.Rnotification_set_clicked_callback;
+export function Rnotification_show_desc(desc) {
+	return _lib.Rnotification_show_desc(_p(desc));
+}
+export const Rnotification_close = _lib.Rnotification_close;
+export const Rnotification_set_callback = _lib.Rnotification_set_callback;
+export const Rnotification_set_bring_to_front = _lib.Rnotification_set_bring_to_front;
+export const Rnotification_set_fallback_toast = _lib.Rnotification_set_fallback_toast;
+export const Rnotification_supports = _lib.Rnotification_supports;
+export const Rpermission_get_status = _lib.Rpermission_get_status;
+export const Rpermission_request = _lib.Rpermission_request;
+export const Rpermission_open_settings = _lib.Rpermission_open_settings;
+export const Rpermission_to_string = _lib.Rpermission_to_string;
+export const Rpermission_status_to_string = _lib.Rpermission_status_to_string;
+export function Rfile_open_async(desc, callback, user_data = null) {
+	return _lib.Rfile_open_async(_p(desc), _adapt_RDeviceCallback(callback), user_data);
+}
+export function Rfile_save_async(desc, data, callback, user_data = null) {
+	return _lib.Rfile_save_async(_p(desc), data, _adapt_RDeviceCallback(callback), user_data);
+}
+export function Rfile_export_async(desc, path, callback, user_data = null) {
+	return _lib.Rfile_export_async(_p(desc), path, _adapt_RDeviceCallback(callback), user_data);
+}
+export function Rfile_select_folder_async(desc, callback, user_data = null) {
+	return _lib.Rfile_select_folder_async(_p(desc), _adapt_RDeviceCallback(callback), user_data);
+}
+export const Rcamera_is_available = _lib.Rcamera_is_available;
+export function Rcamera_take_photo(callback, user_data = null) {
+	return _lib.Rcamera_take_photo(_adapt_RDeviceCallback(callback), user_data);
+}
+export function Rphoto_pick(max_count, callback, user_data = null) {
+	return _lib.Rphoto_pick(max_count, _adapt_RDeviceCallback(callback), user_data);
+}
+export const Rhaptic_is_supported = _lib.Rhaptic_is_supported;
+export const Rhaptic_play = _lib.Rhaptic_play;
+export function Rshare_show(desc, callback, user_data = null) {
+	return _lib.Rshare_show(_p(desc), _adapt_RDeviceCallback(callback), user_data);
+}
 export const Rviewport_set_texture = _lib.Rviewport_set_texture;
 export const Rviewport_set_stretch = _lib.Rviewport_set_stretch;
 export const Rviewport_set_flip_y = _lib.Rviewport_set_flip_y;
@@ -4611,6 +5559,21 @@ export const Rtr_format = _lib.Rtr_format;
 export const Rtr_plural = _lib.Rtr_plural;
 export const Rwidget_set_text_key = _lib.Rwidget_set_text_key;
 export const Rlocale_format_number = _lib.Rlocale_format_number;
+export const Rlocale_set_clock = _lib.Rlocale_set_clock;
+export const Rlocale_get_clock = _lib.Rlocale_get_clock;
+export const Rlocale_uses_12_hour_clock = _lib.Rlocale_uses_12_hour_clock;
+export const Rlocale_get_day_period = _lib.Rlocale_get_day_period;
+export const Rlocale_format_time = _lib.Rlocale_format_time;
+export const Rtimezone_get_system = _lib.Rtimezone_get_system;
+export const Rtimezone_set_directory = _lib.Rtimezone_set_directory;
+export const Rtimezone_is_valid = _lib.Rtimezone_is_valid;
+export const Rtimezone_to_local = _lib.Rtimezone_to_local;
+export const Rtimezone_from_local = _lib.Rtimezone_from_local;
+export const Rtimezone_count_local = _lib.Rtimezone_count_local;
+export const Rtimezone_get_offset = _lib.Rtimezone_get_offset;
+export const Rtimezone_is_daylight_saving = _lib.Rtimezone_is_daylight_saving;
+export const Rtimezone_get_abbreviation = _lib.Rtimezone_get_abbreviation;
+export const Rtimezone_get_label = _lib.Rtimezone_get_label;
 export const Raccessibility_set_text_scale = _lib.Raccessibility_set_text_scale;
 export const Raccessibility_get_text_scale = _lib.Raccessibility_get_text_scale;
 export const Raccessibility_set_high_contrast = _lib.Raccessibility_set_high_contrast;
@@ -4651,8 +5614,45 @@ export const Rhost_inject_mouse_wheel = _lib.Rhost_inject_mouse_wheel;
 export const Rhost_inject_mouse_leave = _lib.Rhost_inject_mouse_leave;
 export const Rhost_inject_key = _lib.Rhost_inject_key;
 export const Rhost_inject_text = _lib.Rhost_inject_text;
+export const Rhost_inject_composition = _lib.Rhost_inject_composition;
 export const Rhost_inject_focus = _lib.Rhost_inject_focus;
 export const Rhost_inject_close = _lib.Rhost_inject_close;
+export const Rhost_permission_answer = _lib.Rhost_permission_answer;
+export function Rhost_service_complete(request, result, files) {
+	return _lib.Rhost_service_complete(request, result, _structs(files, RPickedFile.SIZE), files?.length ?? 0);
+}
+export const Rtest_set_deterministic = _lib.Rtest_set_deterministic;
+export const Rtest_is_deterministic = _lib.Rtest_is_deterministic;
+export const Rtest_get_platform_tag = _lib.Rtest_get_platform_tag;
+export const Rtest_find = _lib.Rtest_find;
+export const Rtest_click = _lib.Rtest_click;
+export const Rtest_double_click = _lib.Rtest_double_click;
+export const Rtest_right_click = _lib.Rtest_right_click;
+export const Rtest_click_at = _lib.Rtest_click_at;
+export const Rtest_hover = _lib.Rtest_hover;
+export const Rtest_hover_at = _lib.Rtest_hover_at;
+export const Rtest_drag = _lib.Rtest_drag;
+export const Rtest_drag_to = _lib.Rtest_drag_to;
+export const Rtest_scroll = _lib.Rtest_scroll;
+export const Rtest_key = _lib.Rtest_key;
+export const Rtest_type_text = _lib.Rtest_type_text;
+export const Rtest_tap = _lib.Rtest_tap;
+export const Rtest_swipe = _lib.Rtest_swipe;
+export const Rtest_pump = _lib.Rtest_pump;
+export const Rtest_is_idle = _lib.Rtest_is_idle;
+export const Rtest_settle = _lib.Rtest_settle;
+export const Rtest_get_text = _lib.Rtest_get_text;
+export const Rtest_is_shown = _lib.Rtest_is_shown;
+export const Rtest_is_checked = _lib.Rtest_is_checked;
+export function Rtest_expect_golden(target, golden_path, options, result) {
+	return _lib.Rtest_expect_golden(target, golden_path, _p(options), _p(result));
+}
+export const Rtest_compare_pixels = _lib.Rtest_compare_pixels;
+export const Rtest_dump_tree = _lib.Rtest_dump_tree;
+export const Rtest_save_tree = _lib.Rtest_save_tree;
+export const Rtest_save_png = _lib.Rtest_save_png;
+export const Rtest_run_script = _lib.Rtest_run_script;
+export const Rtest_get_script_error = _lib.Rtest_get_script_error;
 
 /**
  * Runs the interface until the last window closes or Rquit is called, leaving
