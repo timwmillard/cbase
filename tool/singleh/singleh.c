@@ -64,8 +64,11 @@
  * The #include scanner is line-based but tracks block comments and skips
  * line comments, so an #include inside a comment (e.g. shader source that
  * a code generator quotes in a comment) is copied through untouched. It
- * doesn't evaluate #if, so a conditional #include is still inlined or
- * hoisted unconditionally.
+ * doesn't evaluate #if, but it does track #if nesting: a system #include
+ * under a conditional (include guards aside, and counting the conditionals
+ * around the site that inlined its file) is left in place instead of
+ * hoisted. A local #include is inlined at most once, at its first site, so
+ * if that site is inside a conditional, list the file earlier at top level.
  */
 
 #include <ctype.h>
@@ -437,11 +440,48 @@ static char *next_line(char **cursor)
     return start;
 }
 
+typedef enum { DIR_NONE, DIR_IF, DIR_IFNDEF, DIR_ENDIF, DIR_DEFINE, DIR_OTHER } Directive;
+
+/* Classifies a preprocessor line for conditional-depth tracking. For
+ * #ifndef/#define, copies the macro name into name. */
+static Directive match_directive(const char *line, char *name, size_t cap)
+{
+    const char *p = line;
+    while (isspace((unsigned char)*p)) p++;
+    if (*p != '#') return DIR_NONE;
+    p++;
+    while (isspace((unsigned char)*p)) p++;
+    const char *word = p;
+    while (isalpha((unsigned char)*p)) p++;
+    size_t n = (size_t)(p - word);
+    Directive d = DIR_OTHER;
+    if ((n == 2 && !strncmp(word, "if", 2)) ||
+        (n == 5 && !strncmp(word, "ifdef", 5)))
+        d = DIR_IF;
+    else if (n == 6 && !strncmp(word, "ifndef", 6)) d = DIR_IFNDEF;
+    else if (n == 5 && !strncmp(word, "endif", 5)) d = DIR_ENDIF;
+    else if (n == 6 && !strncmp(word, "define", 6)) d = DIR_DEFINE;
+    name[0] = 0;
+    if (d == DIR_IFNDEF || d == DIR_DEFINE) {
+        while (isspace((unsigned char)*p)) p++;
+        size_t i = 0;
+        while ((isalnum((unsigned char)p[i]) || p[i] == '_') && i + 1 < cap) {
+            name[i] = p[i];
+            i++;
+        }
+        name[i] = 0;
+    }
+    return d;
+}
+
 /* from_path/from_line are only for error messages (the include site that
- * pulled this file in); pass NULL/0 for a manifest-level root. */
+ * pulled this file in); pass NULL/0 for a manifest-level root. base_depth is
+ * how many #if levels (include guards aside) enclose the include site: a
+ * system #include under any conditional stays in place rather than being
+ * hoisted, so platform-specific headers stay behind their #if. */
 static void inline_file(Arena *a, StrBuf *body, StrList *seen_local,
                          StrList *sys_includes, const char *path,
-                         const char *from_path, int from_line)
+                         const char *from_path, int from_line, int base_depth)
 {
     char resolved[PATH_MAX];
     if (!realpath(path, resolved)) {
@@ -463,13 +503,39 @@ static void inline_file(Arena *a, StrBuf *body, StrList *seen_local,
     char *cursor = text;
     int lineno = 0;
     int in_comment = 0;
+    /* Conditional depth within this file. An include guard (the file's
+     * first directive is #ifndef X, its second #define X) doesn't count
+     * while it's open. */
+    int depth = 0;
+    int ndirectives = 0;
+    int guard_open = 0;
+    char guard_name[128] = "";
     for (char *line = next_line(&cursor); line; line = next_line(&cursor)) {
         lineno++;
         IncludeMatch m;
         int starts_in_comment = in_comment;
         in_comment = scan_comments(line, in_comment);
+        char name[128];
+        Directive d = starts_in_comment
+                          ? DIR_NONE
+                          : match_directive(line, name, sizeof name);
+        if (d != DIR_NONE) {
+            ndirectives++;
+            if (d == DIR_IF || d == DIR_IFNDEF) depth++;
+            if (d == DIR_ENDIF && depth > 0) depth--;
+            if (ndirectives == 1 && d == DIR_IFNDEF)
+                snprintf(guard_name, sizeof guard_name, "%s", name);
+            if (ndirectives == 2 && d == DIR_DEFINE && guard_name[0] &&
+                !strcmp(guard_name, name))
+                guard_open = 1;
+            if (guard_open && depth == 0) guard_open = 0;
+        }
+        int cond_depth = base_depth + depth - guard_open;
         if (!starts_in_comment && match_include(line, &m)) {
-            if (m.is_system) {
+            if (m.is_system && cond_depth > 0) {
+                sb_puts(body, line);
+                sb_puts(body, "\n");
+            } else if (m.is_system) {
                 char *t = str_trim(line); /* dedupe indented copies too */
                 if (!strlist_has(sys_includes, t))
                     strlist_add(sys_includes, arena_strdup(a, t));
@@ -486,7 +552,8 @@ static void inline_file(Arena *a, StrBuf *body, StrList *seen_local,
                              m.inner);
                 if (!file_exists(child)) /* report the include-relative path */
                     snprintf(child, sizeof child, "%s/%s", dir, m.inner);
-                inline_file(a, body, seen_local, sys_includes, child, path, lineno);
+                inline_file(a, body, seen_local, sys_includes, child, path, lineno,
+                            cond_depth);
             }
             continue; /* don't copy the #include line itself into body */
         }
@@ -672,7 +739,8 @@ int main(int argc, char **argv)
         if (e->section == SECTION_IMPL) have_impl_entries = 1;
 
         if (e->kind == ENTRY_INCLUDE) {
-            inline_file(&arena, body, &seen_local, &sys_includes, e->path, NULL, 0);
+            inline_file(&arena, body, &seen_local, &sys_includes, e->path, NULL, 0,
+                        0);
             continue;
         }
 
