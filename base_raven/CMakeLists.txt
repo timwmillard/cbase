@@ -5,8 +5,10 @@ set(CMAKE_C_STANDARD 11)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set(RAVEN_BACKEND_SOKOL ON CACHE BOOL "" FORCE)
-set(RAVEN_BACKEND_VULKAN OFF CACHE BOOL "" FORCE)
+# macOS draws with Metal; Vulkan is only needed on Linux / Windows
+if(APPLE)
+    set(RAVEN_BACKEND_VULKAN OFF CACHE BOOL "" FORCE)
+endif()
 
 add_subdirectory(deps/Raven)
 
