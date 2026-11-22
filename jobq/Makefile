@@ -1,7 +1,9 @@
 .PHONY: all run clean
 
+NPROC ?= $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
+
 all: build
-	@cmake --build build
+	@cmake --build build --parallel $(NPROC)
 
 build:
 	@cmake -B build
