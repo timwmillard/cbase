@@ -1,0 +1,14 @@
+<Window Title="People" Width="420" Height="480">
+  <VBox Spacing="8" Slot.Padding="12">
+    <HBox Spacing="8">
+      <TextInput Name="name" Placeholder="Name" Slot.Fill="1"/>
+      <SpinBox Name="age" Min="0" Max="150" Value="30" Decimals="0" Width="90"/>
+      <Button Text="Add" Style="Primary" OnClicked="person.add"/>
+    </HBox>
+    <ListView Name="people" Slot.Fill="1"/>
+    <HBox Spacing="8">
+      <Label Name="status" Opacity="0.6" Slot.Fill="1" Slot.VAlign="Center"/>
+      <Button Text="Delete" OnClicked="person.delete"/>
+    </HBox>
+  </VBox>
+</Window>

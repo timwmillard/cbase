@@ -1,0 +1,8 @@
+# sql2c configuration
+schema       = schema.sql
+queries      = queries.sql
+output       = ../src/queries.h
+mode         = single
+struct-style = pascal
+field-style  = snake
+func-style   = camel

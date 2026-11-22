@@ -10,6 +10,7 @@ all:
 	$(MAKE) -C base_sokol
 	$(MAKE) -C base_sqlite
 	$(MAKE) -C base_raven
+	$(MAKE) -C base_raven_sqlite
 
 clean:
 	$(MAKE) -C lib clean
@@ -21,4 +22,5 @@ clean:
 	$(MAKE) -C base_raylib clean
 	$(MAKE) -C base_sqlite clean
 	$(MAKE) -C base_raven clean
+	$(MAKE) -C base_raven_sqlite clean
 
