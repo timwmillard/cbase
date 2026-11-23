@@ -238,21 +238,80 @@ string string_trim_right(string s);
 string string_trim_prefix(string s, string prefix);
 string string_trim_suffix(string s, string suffix);
 
+// First / last n bytes of s, clamped to s.len (clearer than string_slice
+// with negative indices).
+string string_prefix(string s, usize n);
+string string_suffix(string s, usize n);
+
+// Comparison. string_cmp orders bytewise (memcmp), and a string sorts before
+// any longer string it is a prefix of; returns <0, 0 or >0, so it suits
+// qsort and sorted containers. The _nocase variants fold ASCII letters only;
+// for Unicode-aware caseless comparison see utf8.h.
 bool string_eq(string a, string b);
+int string_cmp(string a, string b);
+bool string_eq_nocase(string a, string b);
 bool string_starts_with(string s, string prefix);
+bool string_starts_with_nocase(string s, string prefix);
 bool string_ends_with(string s, string suffix);
 bool string_contains(string s, string needle);
-isize string_index_of(string s, string needle); // -1 if not found
-isize string_index_of_char(string s, char c);   // -1 if not found
+
+// Searching. All return a byte offset, or -1 if not found. An empty needle
+// matches at 0 (index_of) or at s.len (last_index_of).
+isize string_index_of(string s, string needle);
+isize string_index_of_char(string s, char c);
+isize string_last_index_of(string s, string needle);
+isize string_last_index_of_char(string s, char c);
+// First byte of s that is any of the bytes in `chars` (a strtok-style
+// delimiter set): string_index_of_any(s, S(" \t,")).
+isize string_index_of_any(string s, string chars);
 
 // ---------------------------------------------------------------------------
 // Transforms (allocate a new string in the arena)
 // ---------------------------------------------------------------------------
+// Results are NUL-terminated in the arena (not counted in len), though the
+// `string` type itself makes no such promise.
 
 string string_upper(arena *a, string s);
 string string_lower(arena *a, string s);
 string string_concat(arena *a, string a1, string a2);
 string string_replace(arena *a, string s, string from, string to);
+// Replace at most `count` occurrences, left to right; count < 0 means all.
+string string_replace_n(arena *a, string s, string from, string to,
+                        isize count);
+
+// ---------------------------------------------------------------------------
+// Splitting (no allocation; tokens are slices INTO the input)
+// ---------------------------------------------------------------------------
+
+// Go-style cut around the first sep. Returns true if sep was found; then
+// *before and *after are the parts either side of it. Otherwise *before is
+// s and *after is empty. Either out pointer may be NULL.
+//   string key, val;
+//   if (string_cut(line, S("="), &key, &val)) ...
+bool string_cut(string s, string sep, string *before, string *after);
+
+// Consuming split iterator: stores the next token in *token, advances *s
+// past it and its separator, and returns true; returns false once the
+// input is exhausted. Like string_split, n separators give n + 1 tokens,
+// so "a,b," yields "a", "b", "" and "" yields one empty token. An empty sep
+// yields s whole. Exhaustion is marked by setting s->data to NULL, so a
+// string whose data is NULL yields nothing (string_each_split treats it as
+// "" instead).
+bool string_split_next(string *s, string sep, string *token);
+
+// Loop over the tokens of a string without allocating:
+//   string_each_split(line, S("\n"), contents) { ... line ... }
+// input and sep are evaluated once / per token respectively; loops nest as
+// long as the token names differ.
+#define string_each_split(tok, sep, input)                                     \
+   for (string tok##_rest_ = string_split_init(input), tok;                    \
+        string_split_next(&tok##_rest_, (sep), &tok);)
+
+static inline string string_split_init(string s) {
+   if (s.data == NULL)
+      s.data = "";
+   return s;
+}
 
 // ---------------------------------------------------------------------------
 // Arrays / split / join
@@ -266,8 +325,24 @@ typedef struct {
 // Growable list of strings (see the `list` section: list_init/append/reserve).
 typedef LIST(string) string_list;
 
+// Split into an arena-allocated array (built on string_split_next; prefer
+// string_each_split when you only need to loop over the tokens).
 string_array string_split(arena *a, string s, string delim);
-string string_join(arena *a, string_array parts, string sep);
+
+// Join n strings with sep between them.
+string string_join_n(arena *a, const string *items, usize n, string sep);
+// Join any slice with .items/.len: a string_array, a string_list, ...
+// (xs is evaluated twice).
+#define string_join(a, xs, sep) string_join_n((a), (xs).items, (xs).len, (sep))
+
+// ---------------------------------------------------------------------------
+// Files
+// ---------------------------------------------------------------------------
+
+// Read a whole file into the arena (NUL-terminated, not counted in len).
+// On failure returns a string with data == NULL; an empty file gives a
+// non-NULL empty string. Lines: string_each_split(line, S("\n"), contents).
+string string_read_file(arena *a, const char *path);
 
 // ---------------------------------------------------------------------------
 // UTF8
@@ -308,6 +383,12 @@ usize string_utf8_len_overrun(string s, usize *bytes_overrun);
 
 // True if s is entirely well-formed UTF-8.
 bool string_utf8_valid(string s);
+
+// The first n codepoints of s (each ill-formed sequence counts as one), or
+// all of s if it has fewer. Never splits a codepoint. This is the one
+// rune-counted helper: everything else uses byte offsets, since a rune
+// index is an O(n) scan.
+string string_utf8_prefix(string s, usize n);
 
 // Encode r as UTF-8 into out. Returns the number of bytes written (1-4), or
 // 0 (writing nothing) if r is a surrogate or above RUNE_MAX.
@@ -561,7 +642,8 @@ string string_from(arena *a, const char *cstr) {
 
 string string_from_bytes(arena *a, const char *bytes, usize len) {
    char *buf = (char *)arena_alloc(a, len + 1);
-   memcpy(buf, bytes, len);
+   if (len)
+      memcpy(buf, bytes, len);
    buf[len] = '\0';
    return (string){
        .data = buf,
@@ -575,7 +657,8 @@ string string_dup(arena *a, string s) {
 
 const char *string_cstr(arena *a, string s) {
    char *buf = (char *)arena_alloc(a, s.len + 1);
-   memcpy(buf, s.data, s.len);
+   if (s.len)
+      memcpy(buf, s.data, s.len);
    buf[s.len] = '\0';
    return buf;
 }
@@ -630,11 +713,43 @@ string string_trim_suffix(string s, string suffix) {
    return (string){.data = s.data, .len = s.len - suffix.len};
 }
 
+string string_prefix(string s, usize n) {
+   if (n >= s.len)
+      return s;
+   return (string){.data = s.data, .len = n};
+}
+
+string string_suffix(string s, usize n) {
+   if (n >= s.len)
+      return s;
+   return (string){.data = s.data + (s.len - n), .len = n};
+}
+
+// memcmp/memchr with a NULL pointer are undefined even for length 0 (before
+// C2y), and a zero-initialised string has data == NULL, so every call below
+// is guarded by a non-zero length.
+
 bool string_eq(string a, string b) {
+   return a.len == b.len && (a.len == 0 || memcmp(a.data, b.data, a.len) == 0);
+}
+
+int string_cmp(string a, string b) {
+   usize n = a.len < b.len ? a.len : b.len;
+   int c = n ? memcmp(a.data, b.data, n) : 0;
+   if (c != 0)
+      return c;
+   return (a.len > b.len) - (a.len < b.len);
+}
+
+static inline u8 ascii_lower(u8 c) {
+   return (c >= 'A' && c <= 'Z') ? (u8)(c + ('a' - 'A')) : c;
+}
+
+bool string_eq_nocase(string a, string b) {
    if (a.len != b.len)
       return false;
    for (usize i = 0; i < a.len; i++)
-      if (a.data[i] != b.data[i])
+      if (ascii_lower((u8)a.data[i]) != ascii_lower((u8)b.data[i]))
          return false;
    return true;
 }
@@ -642,34 +757,84 @@ bool string_eq(string a, string b) {
 bool string_starts_with(string s, string prefix) {
    if (prefix.len > s.len)
       return false;
-   return memcmp(s.data, prefix.data, prefix.len) == 0;
+   return prefix.len == 0 || memcmp(s.data, prefix.data, prefix.len) == 0;
+}
+
+bool string_starts_with_nocase(string s, string prefix) {
+   return prefix.len <= s.len &&
+          string_eq_nocase(string_prefix(s, prefix.len), prefix);
 }
 
 bool string_ends_with(string s, string suffix) {
    if (suffix.len > s.len)
       return false;
-   return memcmp(s.data + (s.len - suffix.len), suffix.data, suffix.len) == 0;
+   return suffix.len == 0 ||
+          memcmp(s.data + (s.len - suffix.len), suffix.data, suffix.len) == 0;
 }
 
 bool string_contains(string s, string needle) {
    return string_index_of(s, needle) >= 0;
 }
 
+// memchr for the needle's first byte, then memcmp only at those candidates.
 isize string_index_of(string s, string needle) {
    if (needle.len == 0)
       return 0; // empty needle matches at the start
    if (needle.len > s.len)
       return -1;
-   for (usize i = 0; i + needle.len <= s.len; i++)
-      if (memcmp(s.data + i, needle.data, needle.len) == 0)
-         return (isize)i;
+   const char *p = s.data;
+   const char *last = s.data + (s.len - needle.len); // last possible start
+   char first = needle.data[0];
+   while (p <= last) {
+      p = (const char *)memchr(p, first, (usize)(last - p) + 1);
+      if (p == NULL)
+         return -1;
+      if (memcmp(p + 1, needle.data + 1, needle.len - 1) == 0)
+         return (isize)(p - s.data);
+      p++;
+   }
    return -1;
 }
 
 isize string_index_of_char(string s, char c) {
-   for (usize i = 0; i < s.len; i++)
+   if (s.len == 0)
+      return -1;
+   const char *p = (const char *)memchr(s.data, c, s.len);
+   return p ? (isize)(p - s.data) : -1;
+}
+
+isize string_last_index_of(string s, string needle) {
+   if (needle.len == 0)
+      return (isize)s.len; // empty needle matches at the end
+   if (needle.len > s.len)
+      return -1;
+   for (usize i = s.len - needle.len + 1; i-- > 0;)
+      if (s.data[i] == needle.data[0] &&
+          memcmp(s.data + i + 1, needle.data + 1, needle.len - 1) == 0)
+         return (isize)i;
+   return -1;
+}
+
+isize string_last_index_of_char(string s, char c) {
+   for (usize i = s.len; i-- > 0;)
       if (s.data[i] == c)
          return (isize)i;
+   return -1;
+}
+
+isize string_index_of_any(string s, string chars) {
+   if (chars.len == 1)
+      return string_index_of_char(s, chars.data[0]);
+   u8 set[32] = {0}; // 256-bit membership set
+   for (usize i = 0; i < chars.len; i++) {
+      u8 c = (u8)chars.data[i];
+      set[c >> 3] |= (u8)(1u << (c & 7));
+   }
+   for (usize i = 0; i < s.len; i++) {
+      u8 c = (u8)s.data[i];
+      if (set[c >> 3] & (1u << (c & 7)))
+         return (isize)i;
+   }
    return -1;
 }
 
@@ -693,77 +858,153 @@ string string_lower(arena *a, string s) {
 string string_concat(arena *a, string a1, string a2) {
    usize len = a1.len + a2.len;
    char *buf = (char *)arena_alloc(a, len + 1);
-   memcpy(buf, a1.data, a1.len);
-   memcpy(buf + a1.len, a2.data, a2.len);
+   if (a1.len)
+      memcpy(buf, a1.data, a1.len);
+   if (a2.len)
+      memcpy(buf + a1.len, a2.data, a2.len);
    buf[len] = '\0';
    return (string){.data = buf, .len = len};
 }
 
 string string_replace(arena *a, string s, string from, string to) {
-   if (from.len == 0)
+   return string_replace_n(a, s, from, to, -1);
+}
+
+// Copies the whole run before each match in one append, rather than a byte
+// at a time.
+string string_replace_n(arena *a, string s, string from, string to,
+                        isize count) {
+   if (from.len == 0 || count == 0)
       return string_dup(a, s); // nothing to match; avoid looping
-   string_builder sb = sb_init(a);
-   usize i = 0;
-   while (i < s.len) {
-      if (i + from.len <= s.len &&
-          memcmp(s.data + i, from.data, from.len) == 0) {
-         sb_append(&sb, to);
-         i += from.len;
-      } else {
-         sb_push(&sb, s.data[i]);
-         i++;
-      }
+   string_builder sb = sb_init_cap(a, s.len + 1);
+   string rest = s;
+   for (; count != 0; count = count > 0 ? count - 1 : count) {
+      isize i = string_index_of(rest, from);
+      if (i < 0)
+         break;
+      sb_append(&sb, string_prefix(rest, (usize)i));
+      sb_append(&sb, to);
+      usize skip = (usize)i + from.len;
+      rest = (string){.data = rest.data + skip, .len = rest.len - skip};
    }
-   return sb_string(&sb);
+   sb_append(&sb, rest);
+   const char *data = sb_cstr(&sb);
+   return (string){.data = data, .len = sb.len};
 }
 
 // Split / join
+
+bool string_cut(string s, string sep, string *before, string *after) {
+   isize i = string_index_of(s, sep);
+   if (i < 0) {
+      if (before)
+         *before = s;
+      if (after)
+         *after = S("");
+      return false;
+   }
+   if (before)
+      *before = (string){.data = s.data, .len = (usize)i};
+   if (after)
+      *after = (string){.data = s.data + i + sep.len,
+                        .len = s.len - (usize)i - sep.len};
+   return true;
+}
+
+bool string_split_next(string *s, string sep, string *token) {
+   if (s->data == NULL)
+      return false; // exhausted
+   isize i = sep.len ? string_index_of(*s, sep) : -1;
+   if (i < 0) { // last token: the rest of the input
+      *token = *s;
+      *s = (string){.data = NULL, .len = 0};
+      return true;
+   }
+   *token = (string){.data = s->data, .len = (usize)i};
+   usize skip = (usize)i + sep.len;
+   *s = (string){.data = s->data + skip, .len = s->len - skip};
+   return true;
+}
+
 string_array string_split(arena *a, string s, string delim) {
-   string_array arr = {.items = NULL, .len = 0};
+   s = string_split_init(s);
+   string rest, tok;
 
-   if (delim.len == 0) { // no delimiter => whole string
-      arr.items = (string *)arena_alloc(a, sizeof(string));
-      arr.items[0] = s;
-      arr.len = 1;
-      return arr;
-   }
+   // First pass: count tokens. Second pass: fill in slices INTO s.
+   usize count = 0;
+   for (rest = s; string_split_next(&rest, delim, &tok);)
+      count++;
 
-   // First pass: count segments (delimiters + 1).
-   usize count = 1;
-   for (usize i = 0; i + delim.len <= s.len;) {
-      if (memcmp(s.data + i, delim.data, delim.len) == 0) {
-         count++;
-         i += delim.len;
-      } else {
-         i++;
-      }
-   }
-
-   // Second pass: fill in slices that point INTO s (no copy).
-   arr.items = (string *)arena_alloc(a, sizeof(string) * count);
-   arr.len = count;
-   usize idx = 0, start = 0, i = 0;
-   while (i + delim.len <= s.len) {
-      if (memcmp(s.data + i, delim.data, delim.len) == 0) {
-         arr.items[idx++] = (string){.data = s.data + start, .len = i - start};
-         i += delim.len;
-         start = i;
-      } else {
-         i++;
-      }
-   }
-   arr.items[idx] = (string){.data = s.data + start, .len = s.len - start};
+   string_array arr = {
+       .items = (string *)arena_alloc(a, sizeof(string) * count),
+       .len = count,
+   };
+   usize i = 0;
+   for (rest = s; string_split_next(&rest, delim, &tok);)
+      arr.items[i++] = tok;
    return arr;
 }
 
-string string_join(arena *a, string_array parts, string sep) {
-   string_builder sb = sb_init(a);
-   for (usize i = 0; i < parts.len; i++) {
-      if (i > 0)
-         sb_append(&sb, sep);
-      sb_append(&sb, parts.items[i]);
+string string_join_n(arena *a, const string *items, usize n, string sep) {
+   usize len = 0;
+   for (usize i = 0; i < n; i++)
+      len += items[i].len;
+   if (n > 1)
+      len += sep.len * (n - 1);
+
+   char *buf = (char *)arena_alloc(a, len + 1);
+   char *p = buf;
+   for (usize i = 0; i < n; i++) {
+      if (i > 0 && sep.len) {
+         memcpy(p, sep.data, sep.len);
+         p += sep.len;
+      }
+      if (items[i].len) {
+         memcpy(p, items[i].data, items[i].len);
+         p += items[i].len;
+      }
    }
-   return sb_string(&sb);
+   *p = '\0';
+   return (string){.data = buf, .len = len};
+}
+
+// Files
+
+string string_read_file(arena *a, const char *path) {
+   FILE *f = fopen(path, "rb");
+   if (f == NULL)
+      return (string){0};
+
+   // Size the buffer from the file length when the stream is seekable (+1
+   // so the first read hits EOF and there is room for the NUL); otherwise
+   // (pipes, character devices) grow as we go.
+   usize cap = 4096;
+   if (fseek(f, 0, SEEK_END) == 0) {
+      long n = ftell(f);
+      if (n >= 0)
+         cap = (usize)n + 1;
+      if (fseek(f, 0, SEEK_SET) != 0) {
+         fclose(f);
+         return (string){0};
+      }
+   }
+
+   string_builder sb = sb_init_cap(a, cap);
+   for (;;) {
+      if (sb.len == sb.cap)
+         sb_reserve(&sb, sb.cap * 2);
+      usize want = sb.cap - sb.len;
+      usize got = fread(sb.data + sb.len, 1, want, f);
+      sb.len += got;
+      if (got < want)
+         break; // EOF or error
+   }
+   bool failed = ferror(f) != 0;
+   fclose(f);
+   if (failed)
+      return (string){0};
+   const char *data = sb_cstr(&sb);
+   return (string){.data = data, .len = sb.len};
 }
 
 // One strict decode step over p[0..len), len >= 1. Returns bytes consumed.
@@ -775,7 +1016,7 @@ string string_join(arena *a, string_array parts, string sep) {
 // second byte's range is narrowed after E0, ED, F0 and F4 to exclude
 // overlongs, surrogates and codepoints above U+10FFFF; C0, C1 and F5..FF
 // never appear.
-static usize base__utf8_step(const u8 *p, usize len, rune *out, bool *ok,
+static usize utf8_step(const u8 *p, usize len, rune *out, bool *ok,
                              usize *missing) {
    u8 b0 = p[0];
    *missing = 0;
@@ -840,7 +1081,7 @@ usize string_utf8_decode(string s, rune *codepoint) {
    if (s.len > 0) {
       bool ok;
       usize missing;
-      n = base__utf8_step((const u8 *)s.data, s.len, &r, &ok, &missing);
+      n = utf8_step((const u8 *)s.data, s.len, &r, &ok, &missing);
    }
    if (codepoint)
       *codepoint = r;
@@ -853,7 +1094,7 @@ usize string_utf8_len_overrun(string s, usize *bytes_overrun) {
    while (i < s.len) {
       rune r;
       bool ok;
-      i += base__utf8_step(p + i, s.len - i, &r, &ok, &missing);
+      i += utf8_step(p + i, s.len - i, &r, &ok, &missing);
       count++;
    }
    // Only the final step can run out of input, so `missing` is its verdict.
@@ -864,6 +1105,18 @@ usize string_utf8_len_overrun(string s, usize *bytes_overrun) {
 
 usize string_utf8_len(string s) {
    return string_utf8_len_overrun(s, NULL);
+}
+
+string string_utf8_prefix(string s, usize n) {
+   const u8 *p = (const u8 *)s.data;
+   usize i = 0;
+   for (; n > 0 && i < s.len; n--) {
+      rune r;
+      bool ok;
+      usize missing;
+      i += utf8_step(p + i, s.len - i, &r, &ok, &missing);
+   }
+   return (string){.data = s.data, .len = i};
 }
 
 bool string_utf8_valid(string s) {
@@ -878,7 +1131,7 @@ bool string_utf8_valid(string s) {
       rune r;
       bool ok;
       usize missing;
-      i += base__utf8_step(p + i, s.len - i, &r, &ok, &missing);
+      i += utf8_step(p + i, s.len - i, &r, &ok, &missing);
       if (!ok)
          return false;
    }
@@ -921,7 +1174,7 @@ bool rune_iter_next(rune_iter *it) {
    }
    bool ok;
    usize missing;
-   it->size = base__utf8_step((const u8 *)it->s.data + it->pos,
+   it->size = utf8_step((const u8 *)it->s.data + it->pos,
                               it->s.len - it->pos, &it->r, &ok, &missing);
    return true;
 }

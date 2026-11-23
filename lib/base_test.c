@@ -622,6 +622,188 @@ void test_string_join(void) {
    PASS(test_name);
 }
 
+
+void test_string_join_list(void) {
+   const char *test_name = "string_join (list / n)";
+   arena a = {0};
+   string_list xs = list_init(&a);
+   list_append(&xs, S("a"));
+   list_append(&xs, S(""));
+   list_append(&xs, S("c"));
+   ASSERT_STR(string_join(&a, xs, S("-")), "a--c");
+   ASSERT_STR(string_join_n(&a, NULL, 0, S(",")), "");
+   string one = string_join_n(&a, xs.items, 1, S(","));
+   ASSERT_STR(one, "a");
+   ASSERT(one.data[one.len] == '\0', "join result is NUL-terminated");
+   arena_release(&a);
+   PASS(test_name);
+}
+
+void test_string_cut(void) {
+   const char *test_name = "string_cut";
+   string k, v;
+   ASSERT(string_cut(S("key=val=x"), S("="), &k, &v), "found");
+   ASSERT_STR(k, "key");
+   ASSERT_STR(v, "val=x");
+   ASSERT(!string_cut(S("novalue"), S("="), &k, &v), "not found");
+   ASSERT_STR(k, "novalue");
+   ASSERT_STR(v, "");
+   ASSERT(string_cut(S("host:"), S(":"), &k, NULL), "NULL out ok");
+   ASSERT_STR(k, "host");
+   ASSERT(!string_cut((string){0}, S(":"), &k, &v), "zero string");
+   ASSERT(k.len == 0 && v.len == 0, "zero string gives empty parts");
+   PASS(test_name);
+}
+
+void test_string_split_next(void) {
+   const char *test_name = "string_split_next / each_split";
+   const char *want[] = {"a", "bb", "", "c", ""};
+   usize n = 0;
+   string_each_split(tok, S(", "), S("a, bb, , c, ")) {
+      ASSERT(n < 5, "not too many tokens");
+      if (n < 5)
+         ASSERT_STR(tok, want[n]);
+      n++;
+   }
+   ASSERT(n == 5, "5 tokens, got %zu", n);
+
+   n = 0;
+   string_each_split(tok, S(","), S("")) {
+      ASSERT_STR(tok, "");
+      n++;
+   }
+   ASSERT(n == 1, "empty input yields one empty token");
+
+   n = 0;
+   string_each_split(tok, S(","), (string){0}) n++;
+   ASSERT(n == 1, "zero string treated as \"\"");
+
+   n = 0;
+   string_each_split(tok, S(""), S("abc")) {
+      ASSERT_STR(tok, "abc");
+      n++;
+   }
+   ASSERT(n == 1, "empty sep yields whole string");
+
+   /* nested loops */
+   usize cells = 0;
+   string_each_split(row, S(";"), S("1,2;3,4,5")) {
+      string_each_split(cell, S(","), row) {
+         (void)cell;
+         cells++;
+      }
+   }
+   ASSERT(cells == 5, "nested split counts 5 cells");
+
+   /* manual use: rest is exhausted after the last token */
+   string rest = S("x|y"), tok;
+   ASSERT(string_split_next(&rest, S("|"), &tok), "first");
+   ASSERT_STR(rest, "y");
+   ASSERT(string_split_next(&rest, S("|"), &tok), "second");
+   ASSERT(!string_split_next(&rest, S("|"), &tok), "exhausted");
+   PASS(test_name);
+}
+
+void test_string_cmp(void) {
+   const char *test_name = "string_cmp / nocase";
+   ASSERT(string_cmp(S("abc"), S("abc")) == 0, "equal");
+   ASSERT(string_cmp(S("abc"), S("abd")) < 0, "abc < abd");
+   ASSERT(string_cmp(S("abd"), S("abc")) > 0, "abd > abc");
+   ASSERT(string_cmp(S("ab"), S("abc")) < 0, "prefix sorts first");
+   ASSERT(string_cmp(S("abc"), S("ab")) > 0, "longer sorts after");
+   ASSERT(string_cmp((string){0}, S("")) == 0, "zero string == empty");
+   ASSERT(string_cmp(S("\xff"), S("a")) > 0, "bytes compare unsigned");
+   ASSERT(string_eq_nocase(S("HeLLo"), S("hello")), "eq_nocase");
+   ASSERT(!string_eq_nocase(S("hello"), S("hellp")), "eq_nocase differs");
+   ASSERT(!string_eq_nocase(S("hello"), S("hell")), "eq_nocase len");
+   ASSERT(string_starts_with_nocase(S("Content-Type: x"), S("content-type")),
+          "starts_with_nocase");
+   ASSERT(!string_starts_with_nocase(S("Con"), S("content")),
+          "starts_with_nocase too short");
+   ASSERT(string_eq((string){0}, S("")), "eq zero string");
+   ASSERT(string_starts_with((string){0}, (string){0}), "starts_with zero");
+   ASSERT(string_ends_with((string){0}, (string){0}), "ends_with zero");
+   PASS(test_name);
+}
+
+void test_string_search_more(void) {
+   const char *test_name = "string last_index_of / index_of_any";
+   string s = S("a.b.c");
+   ASSERT(string_last_index_of(s, S(".")) == 3, "last '.'");
+   ASSERT(string_last_index_of(s, S("a.b")) == 0, "last at start");
+   ASSERT(string_last_index_of(s, S("x")) == -1, "last missing");
+   ASSERT(string_last_index_of(s, S("")) == 5, "last empty = len");
+   ASSERT(string_last_index_of_char(s, '.') == 3, "last char");
+   ASSERT(string_last_index_of_char(s, 'z') == -1, "last char missing");
+   ASSERT(string_index_of_any(S("ab, c"), S(" \t,")) == 2, "any");
+   ASSERT(string_index_of_any(S("abc"), S(" ,")) == -1, "any missing");
+   ASSERT(string_index_of_any(S("abc"), S("c")) == 2, "any single");
+   ASSERT(string_index_of(S("aaab"), S("ab")) == 2, "index_of overlap");
+   ASSERT(string_index_of(S("abc"), S("c")) == 2, "index_of last byte");
+   ASSERT(string_index_of(S("abc"), S("bcd")) == -1, "index_of past end");
+   ASSERT(string_index_of_char((string){0}, 'a') == -1, "char in zero");
+   ASSERT(string_index_of((string){0}, S("a")) == -1, "needle in zero");
+   PASS(test_name);
+}
+
+void test_string_prefix_suffix(void) {
+   const char *test_name = "string_prefix / suffix / utf8_prefix";
+   ASSERT_STR(string_prefix(S("hello"), 2), "he");
+   ASSERT_STR(string_prefix(S("hello"), 99), "hello");
+   ASSERT_STR(string_suffix(S("hello"), 3), "llo");
+   ASSERT_STR(string_suffix(S("hello"), 99), "hello");
+   ASSERT_STR(string_suffix(S("hello"), 0), "");
+   string u = S("h\xc3\xa9llo \xe4\xb8\x96"); /* héllo 世 */
+   ASSERT_STR(string_utf8_prefix(u, 2), "h\xc3\xa9");
+   ASSERT_STR(string_utf8_prefix(u, 0), "");
+   ASSERT_STR(string_utf8_prefix(u, 100), "h\xc3\xa9llo \xe4\xb8\x96");
+   PASS(test_name);
+}
+
+void test_string_replace_n(void) {
+   const char *test_name = "string_replace_n";
+   arena a = {0};
+   ASSERT_STR(string_replace_n(&a, S("a-b-c-d"), S("-"), S("+"), 2),
+              "a+b+c-d");
+   ASSERT_STR(string_replace_n(&a, S("a-b-c-d"), S("-"), S(""), -1), "abcd");
+   ASSERT_STR(string_replace_n(&a, S("a-b"), S("-"), S("+"), 0), "a-b");
+   ASSERT_STR(string_replace(&a, S("xxxx"), S("xx"), S("y")), "yy");
+   ASSERT_STR(string_replace(&a, S("abc"), S("abc"), S("long one")),
+              "long one");
+   string r = string_replace(&a, (string){0}, S("x"), S("y"));
+   ASSERT(r.len == 0, "replace in zero string");
+   arena_release(&a);
+   PASS(test_name);
+}
+
+void test_string_read_file(void) {
+   const char *test_name = "string_read_file";
+   arena a = {0};
+   const char *path = "base_test_read_file.tmp";
+   FILE *f = fopen(path, "wb");
+   ASSERT(f != NULL, "open temp file");
+   if (f) {
+      fputs("line1\nline2\n", f);
+      fclose(f);
+   }
+   string s = string_read_file(&a, path);
+   ASSERT_STR(s, "line1\nline2\n");
+   ASSERT(s.data && s.data[s.len] == '\0', "NUL-terminated");
+   usize lines = 0;
+   string_each_split(line, S("\n"), string_trim_suffix(s, S("\n"))) lines++;
+   ASSERT(lines == 2, "2 lines");
+   f = fopen(path, "wb");
+   if (f)
+      fclose(f);
+   string e = string_read_file(&a, path);
+   ASSERT(e.data != NULL && e.len == 0, "empty file is non-NULL empty");
+   remove(path);
+   string m = string_read_file(&a, "does/not/exist");
+   ASSERT(m.data == NULL, "missing file gives NULL data");
+   arena_release(&a);
+   PASS(test_name);
+}
+
 /* ================================================================== */
 /* string_builder                                                     */
 /* ================================================================== */
@@ -1061,6 +1243,14 @@ int main(void) {
    test_string_replace();
    test_string_split();
    test_string_join();
+   test_string_join_list();
+   test_string_cut();
+   test_string_split_next();
+   test_string_cmp();
+   test_string_search_more();
+   test_string_prefix_suffix();
+   test_string_replace_n();
+   test_string_read_file();
    test_sb_empty_snapshot();
    test_sb_append();
    test_sb_append_from_bytes();
