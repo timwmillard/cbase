@@ -273,28 +273,65 @@ string string_join(arena *a, string_array parts, string sep);
 // UTF8
 // ---------------------------------------------------------------------------
 
+// Encoding-level UTF-8 only. For Unicode case mapping, character classes
+// and caseless comparison, include utf8.h (built on these primitives).
+
 typedef u32 rune; // a decoded Unicode codepoint
 
-usize string_utf8_len(string s);
-usize string_utf8_len_overrun(string s, usize *bytes_overrun);
+#define RUNE_INVALID 0xFFFD // U+FFFD REPLACEMENT CHARACTER
+#define RUNE_MAX     0x10FFFF
+
+// Decoding is strict (RFC 3629): overlong encodings, surrogates
+// (U+D800..U+DFFF), codepoints above U+10FFFF, stray continuation bytes and
+// truncated sequences are all rejected. Each ill-formed sequence decodes to
+// RUNE_INVALID and consumes its "maximal subpart" — the longest prefix that
+// could have started a valid sequence, minimum 1 byte — so decoding resyncs
+// on the next byte that can start a codepoint (the Unicode/WHATWG practice).
 
 // Decode the codepoint at the start of s, writing it to *codepoint
 // (optional — pass NULL to just skip a codepoint without decoding it).
-// Returns the number of bytes consumed. To iterate a whole string:
-//   usize i = 0;
-//   while (i < s.len) {
-//      rune r;
-//      usize n = string_utf8_decode(string_slice(s, i, s.len), &r);
-//      ... use r ...
-//      i += n;
-//   }
-// If the leading byte declares a sequence longer than s.len (a truncated
-// trailing codepoint — see string_utf8_len_overrun), the decode consumes
-// only the bytes actually present, so the return value never overruns s.len.
+// Returns the number of bytes consumed, never more than s.len.
 // Empty input returns 0 with *codepoint 0, distinct from a real NUL byte
 // (which returns 1 with *codepoint 0) — check the return value, not just
-// the codepoint, to tell them apart.
+// the codepoint, to tell them apart. A literal U+FFFD in the input also
+// decodes to RUNE_INVALID; use string_utf8_valid to tell them apart.
 usize string_utf8_decode(string s, rune *codepoint);
+
+// Number of codepoints (each ill-formed sequence counts as one).
+usize string_utf8_len(string s);
+
+// As string_utf8_len, and if s ends in a truncated-but-so-far-valid sequence
+// (e.g. a read buffer cut mid-codepoint), *bytes_overrun is how many more
+// bytes it needs; otherwise 0. The partial sequence is counted as one
+// codepoint. bytes_overrun may be NULL.
+usize string_utf8_len_overrun(string s, usize *bytes_overrun);
+
+// True if s is entirely well-formed UTF-8.
+bool string_utf8_valid(string s);
+
+// Encode r as UTF-8 into out. Returns the number of bytes written (1-4), or
+// 0 (writing nothing) if r is a surrogate or above RUNE_MAX.
+usize utf8_encode(char out[4], rune r);
+
+// Iterate the codepoints of a string:
+//   string_each_rune(it, s) {
+//      it.r     — the codepoint (RUNE_INVALID for ill-formed bytes)
+//      it.pos   — byte offset of this codepoint in s
+//      it.size  — its length in bytes, so string_slice(s, it.pos,
+//                 it.pos + it.size) is the codepoint's own bytes
+//   }
+// s is evaluated once; loops nest as long as the iterator names differ.
+typedef struct {
+   string s;
+   usize pos;
+   usize size;
+   rune r;
+} rune_iter;
+
+bool rune_iter_next(rune_iter *it);
+
+#define string_each_rune(it, str)                                              \
+   for (rune_iter it = {.s = (str)}; rune_iter_next(&it);)
 
 // ---------------------------------------------------------------------------
 // string_builder — the only mutable type. Grows in an arena (or a fixed
@@ -321,7 +358,8 @@ void sb_append_from_bytes(string_builder *sb, const char *bytes, usize len);
 void sb_appendf(string_builder *sb, const char *fmt, ...) PRINTF_LIKE(2, 3);
 void sb_vappendf(string_builder *sb, const char *fmt, va_list args)
     PRINTF_LIKE(2, 0);
-void sb_reset(string_builder *sb); // len = 0, keep capacity
+void sb_push_rune(string_builder *sb, rune r); // invalid r => U+FFFD
+void sb_reset(string_builder *sb);             // len = 0, keep capacity
 
 // Snapshot the builder's current contents.
 string sb_string(string_builder *sb);    // slice over sb's buffer
@@ -728,57 +766,164 @@ string string_join(arena *a, string_array parts, string sep) {
    return sb_string(&sb);
 }
 
-// clang-format off
-// Stolen from Tsoding who stole from Jai's Unicode module
-static const u8 bytes_for_utf8[] = {
-    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-    2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2, 2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
-    3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3, 4,4,4,4,4,4,4,4,5,5,5,5,6,6,6,6,
-};
-// clang-format on
+// One strict decode step over p[0..len), len >= 1. Returns bytes consumed.
+// *ok is false for an ill-formed sequence (and *out is RUNE_INVALID);
+// *missing is nonzero only when the input ran out partway through a
+// sequence that was valid so far, and says how many bytes it still needs.
+//
+// The legal byte ranges are those of RFC 3629 / Unicode Table 3-7: the
+// second byte's range is narrowed after E0, ED, F0 and F4 to exclude
+// overlongs, surrogates and codepoints above U+10FFFF; C0, C1 and F5..FF
+// never appear.
+static usize base__utf8_step(const u8 *p, usize len, rune *out, bool *ok,
+                             usize *missing) {
+   u8 b0 = p[0];
+   *missing = 0;
+   if (b0 < 0x80) {
+      *out = b0;
+      *ok = true;
+      return 1;
+   }
+
+   usize need;
+   rune r;
+   u8 lo = 0x80, hi = 0xBF; // legal range for the next continuation byte
+   if (b0 >= 0xC2 && b0 <= 0xDF) {
+      need = 2;
+      r = b0 & 0x1F;
+   } else if (b0 >= 0xE0 && b0 <= 0xEF) {
+      need = 3;
+      r = b0 & 0x0F;
+      if (b0 == 0xE0)
+         lo = 0xA0; // overlong
+      else if (b0 == 0xED)
+         hi = 0x9F; // surrogates
+   } else if (b0 >= 0xF0 && b0 <= 0xF4) {
+      need = 4;
+      r = b0 & 0x07;
+      if (b0 == 0xF0)
+         lo = 0x90; // overlong
+      else if (b0 == 0xF4)
+         hi = 0x8F; // > U+10FFFF
+   } else {
+      // continuation byte, C0/C1 (always overlong) or F5..FF
+      *out = RUNE_INVALID;
+      *ok = false;
+      return 1;
+   }
+
+   for (usize i = 1; i < need; i++) {
+      if (i >= len) { // truncated: valid so far, input ran out
+         *out = RUNE_INVALID;
+         *ok = false;
+         *missing = need - i;
+         return i;
+      }
+      u8 b = p[i];
+      if (b < lo || b > hi) { // maximal subpart ends before the bad byte
+         *out = RUNE_INVALID;
+         *ok = false;
+         return i;
+      }
+      lo = 0x80;
+      hi = 0xBF;
+      r = (r << 6) | (b & 0x3F);
+   }
+   *out = r;
+   *ok = true;
+   return need;
+}
+
+usize string_utf8_decode(string s, rune *codepoint) {
+   rune r = 0;
+   usize n = 0;
+   if (s.len > 0) {
+      bool ok;
+      usize missing;
+      n = base__utf8_step((const u8 *)s.data, s.len, &r, &ok, &missing);
+   }
+   if (codepoint)
+      *codepoint = r;
+   return n;
+}
 
 usize string_utf8_len_overrun(string s, usize *bytes_overrun) {
-   usize i = 0;
-   usize n = 0;
-   while (true) {
-      if (i >= s.len) {
-         if (bytes_overrun)
-            *bytes_overrun = i - s.len;
-         return n;
-      }
-      i += bytes_for_utf8[(u8)s.data[i]];
-      n += 1;
+   const u8 *p = (const u8 *)s.data;
+   usize i = 0, count = 0, missing = 0;
+   while (i < s.len) {
+      rune r;
+      bool ok;
+      i += base__utf8_step(p + i, s.len - i, &r, &ok, &missing);
+      count++;
    }
-   UNREACHABLE();
+   // Only the final step can run out of input, so `missing` is its verdict.
+   if (bytes_overrun)
+      *bytes_overrun = missing;
+   return count;
 }
 
 usize string_utf8_len(string s) {
    return string_utf8_len_overrun(s, NULL);
 }
 
-usize string_utf8_decode(string s, rune *codepoint) {
-   if (s.len == 0) {
-      if (codepoint)
-         *codepoint = 0;
-      return 0;
+bool string_utf8_valid(string s) {
+   const u8 *p = (const u8 *)s.data;
+   usize i = 0;
+   while (i < s.len) {
+      // ASCII fast path
+      if (p[i] < 0x80) {
+         i++;
+         continue;
+      }
+      rune r;
+      bool ok;
+      usize missing;
+      i += base__utf8_step(p + i, s.len - i, &r, &ok, &missing);
+      if (!ok)
+         return false;
    }
-   u8 lead = (u8)s.data[0];
-   usize declared = bytes_for_utf8[lead];
-   usize n = declared > s.len ? s.len : declared;
+   return true;
+}
 
-   if (codepoint) {
-      rune r =
-          (declared == 1) ? lead : (lead & (u8)((1 << (7 - declared)) - 1));
-      for (usize i = 1; i < n; i++)
-         r = (r << 6) | ((u8)s.data[i] & 0x3F);
-      *codepoint = r;
+usize utf8_encode(char out[4], rune r) {
+   if (r < 0x80) {
+      out[0] = (char)r;
+      return 1;
    }
-   return n;
+   if (r < 0x800) {
+      out[0] = (char)(0xC0 | (r >> 6));
+      out[1] = (char)(0x80 | (r & 0x3F));
+      return 2;
+   }
+   if (r < 0x10000) {
+      if (r >= 0xD800 && r <= 0xDFFF)
+         return 0; // surrogates are not encodable
+      out[0] = (char)(0xE0 | (r >> 12));
+      out[1] = (char)(0x80 | ((r >> 6) & 0x3F));
+      out[2] = (char)(0x80 | (r & 0x3F));
+      return 3;
+   }
+   if (r <= RUNE_MAX) {
+      out[0] = (char)(0xF0 | (r >> 18));
+      out[1] = (char)(0x80 | ((r >> 12) & 0x3F));
+      out[2] = (char)(0x80 | ((r >> 6) & 0x3F));
+      out[3] = (char)(0x80 | (r & 0x3F));
+      return 4;
+   }
+   return 0;
+}
+
+bool rune_iter_next(rune_iter *it) {
+   it->pos += it->size;
+   if (it->pos >= it->s.len) {
+      it->size = 0;
+      return false;
+   }
+   bool ok;
+   usize missing;
+   it->size = base__utf8_step((const u8 *)it->s.data + it->pos,
+                              it->s.len - it->pos, &it->r, &ok, &missing);
+   return true;
 }
 
 // -----------------------------------------------------------------------------
@@ -850,6 +995,14 @@ void sb_vappendf(string_builder *sb, const char *fmt, va_list args) {
    sb_reserve(sb, sb->len + (usize)n + 1);
    vsnprintf(sb->data + sb->len, (usize)n + 1, fmt, args);
    sb->len += (usize)n;
+}
+
+void sb_push_rune(string_builder *sb, rune r) {
+   char buf[4];
+   usize n = utf8_encode(buf, r);
+   if (n == 0)
+      n = utf8_encode(buf, RUNE_INVALID);
+   sb_append_from_bytes(sb, buf, n);
 }
 
 void sb_reset(string_builder *sb) {

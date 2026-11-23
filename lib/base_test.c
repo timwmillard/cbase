@@ -830,8 +830,165 @@ void test_string_utf8_decode_truncated(void) {
    rune r = 999;
    usize n = string_utf8_decode(s, &r);
    ASSERT(n == 1, "consumes only the 1 byte actually present");
-   ASSERT(r == (0xC3 & 0x1F),
-          "masks the lead byte's data bits with no continuation");
+   ASSERT(r == RUNE_INVALID, "truncated sequence decodes to U+FFFD");
+   PASS(test_name);
+}
+
+/* 4-byte sequences (outside the BMP) decode correctly */
+void test_string_utf8_decode_4byte(void) {
+   const char *test_name = "string_utf8_decode_4byte";
+   rune r;
+   usize n = string_utf8_decode(S("\xF0\x9F\x98\x80"), &r); /* U+1F600 */
+   ASSERT(n == 4 && r == 0x1F600, "decodes U+1F600 (got %zu, U+%X)", n, r);
+   n = string_utf8_decode(S("\xF4\x8F\xBF\xBF"), &r); /* U+10FFFF */
+   ASSERT(n == 4 && r == RUNE_MAX, "decodes U+10FFFF");
+   PASS(test_name);
+}
+
+/* ill-formed input: each case decodes to U+FFFD and consumes the maximal
+ * subpart (the bytes that could still have started a valid sequence) */
+void test_string_utf8_decode_invalid(void) {
+   const char *test_name = "string_utf8_decode_invalid";
+   struct {
+      string s;
+      usize consumed;
+      const char *what;
+   } cases[] = {
+       {S("\xC0\x80"), 1, "overlong NUL (C0 never valid)"},
+       {S("\xC1\xBF"), 1, "C1 never valid"},
+       {S("\xE0\x80\xAF"), 1, "3-byte overlong"},
+       {S("\xF0\x80\x80\xAF"), 1, "4-byte overlong"},
+       {S("\xED\xA0\x80"), 1, "high surrogate U+D800"},
+       {S("\xED\xBF\xBF"), 1, "low surrogate U+DFFF"},
+       {S("\xF4\x90\x80\x80"), 1, "above U+10FFFF"},
+       {S("\xF5\x80\x80\x80"), 1, "F5 never valid"},
+       {S("\xFF"), 1, "FF never valid"},
+       {S("\x80"), 1, "stray continuation byte"},
+       {S("\xE6\x97" "A"), 2, "3-byte seq cut short by ASCII"},
+       {S("\xF0\x9F\x98" "A"), 3, "4-byte seq cut short by ASCII"},
+       {S("\xE6\x97"), 2, "truncated at end of input"},
+   };
+   for (usize i = 0; i < ARRAY_SIZE(cases); i++) {
+      rune r = 0;
+      usize n = string_utf8_decode(cases[i].s, &r);
+      ASSERT(r == RUNE_INVALID, "%s: decodes to U+FFFD (got U+%X)",
+             cases[i].what, r);
+      ASSERT(n == cases[i].consumed, "%s: consumes %zu (got %zu)",
+             cases[i].what, cases[i].consumed, n);
+   }
+   PASS(test_name);
+}
+
+/* after an ill-formed sequence, decoding resyncs on the next valid byte */
+void test_string_utf8_decode_resync(void) {
+   const char *test_name = "string_utf8_decode_resync";
+   /* "a", stray 0x80, truncated 日 (2 of 3 bytes), "b" */
+   string s = S("a\x80\xE6\x97" "b");
+   rune expected[] = {'a', RUNE_INVALID, RUNE_INVALID, 'b'};
+   usize idx = 0;
+   string_each_rune(it, s) {
+      ASSERT(idx < ARRAY_SIZE(expected), "not too many runes");
+      if (idx < ARRAY_SIZE(expected))
+         ASSERT(it.r == expected[idx], "rune %zu is U+%X (got U+%X)", idx,
+                expected[idx], it.r);
+      idx++;
+   }
+   ASSERT(idx == 4, "4 runes (got %zu)", idx);
+   ASSERT(string_utf8_len(s) == 4, "len agrees with iteration");
+   PASS(test_name);
+}
+
+void test_string_utf8_valid(void) {
+   const char *test_name = "string_utf8_valid";
+   ASSERT(string_utf8_valid(S("")), "empty is valid");
+   ASSERT(string_utf8_valid(S("hello")), "ascii is valid");
+   ASSERT(string_utf8_valid(S("caf\xC3\xA9 \xE6\x97\xA5 \xF0\x9F\x98\x80")),
+          "mixed 2/3/4-byte is valid");
+   ASSERT(string_utf8_valid(S("\xEF\xBF\xBD")), "literal U+FFFD is valid");
+   ASSERT(!string_utf8_valid(S("caf\xC3")), "truncated is invalid");
+   ASSERT(!string_utf8_valid(S("\xC0\x80")), "overlong is invalid");
+   ASSERT(!string_utf8_valid(S("\xED\xA0\x80")), "surrogate is invalid");
+   ASSERT(!string_utf8_valid(S("ok\x80")), "trailing stray byte is invalid");
+   PASS(test_name);
+}
+
+void test_utf8_encode(void) {
+   const char *test_name = "utf8_encode";
+   char buf[4];
+   ASSERT(utf8_encode(buf, 'A') == 1 && buf[0] == 'A', "ascii is 1 byte");
+   ASSERT(utf8_encode(buf, 0xE9) == 2 && memcmp(buf, "\xC3\xA9", 2) == 0,
+          "U+00E9 is C3 A9");
+   ASSERT(utf8_encode(buf, 0x65E5) == 3 &&
+              memcmp(buf, "\xE6\x97\xA5", 3) == 0,
+          "U+65E5 is E6 97 A5");
+   ASSERT(utf8_encode(buf, 0x1F600) == 4 &&
+              memcmp(buf, "\xF0\x9F\x98\x80", 4) == 0,
+          "U+1F600 is F0 9F 98 80");
+   ASSERT(utf8_encode(buf, 0xD800) == 0, "surrogate is not encodable");
+   ASSERT(utf8_encode(buf, 0x110000) == 0, "above U+10FFFF not encodable");
+   PASS(test_name);
+}
+
+/* every encodable codepoint survives encode -> decode */
+void test_utf8_roundtrip(void) {
+   const char *test_name = "utf8_roundtrip";
+   usize bad = 0;
+   for (rune c = 0; c <= RUNE_MAX; c++) {
+      char buf[4];
+      usize n = utf8_encode(buf, c);
+      if (c >= 0xD800 && c <= 0xDFFF) {
+         if (n != 0)
+            bad++;
+         continue;
+      }
+      rune back;
+      string enc = string_view_bytes(buf, n);
+      if (n == 0 || string_utf8_decode(enc, &back) != n || back != c ||
+          !string_utf8_valid(enc))
+         bad++;
+   }
+   ASSERT(bad == 0, "%zu codepoints failed to round-trip", bad);
+   PASS(test_name);
+}
+
+void test_string_each_rune(void) {
+   const char *test_name = "string_each_rune";
+   string s = S("a\xC3\xA9\xE6\x97\xA5\xF0\x9F\x98\x80"); /* a é 日 😀 */
+   rune want_r[] = {'a', 0xE9, 0x65E5, 0x1F600};
+   usize want_pos[] = {0, 1, 3, 6};
+   usize want_size[] = {1, 2, 3, 4};
+   usize idx = 0;
+   string_each_rune(it, s) {
+      if (idx < 4) {
+         ASSERT(it.r == want_r[idx], "rune %zu value", idx);
+         ASSERT(it.pos == want_pos[idx], "rune %zu pos", idx);
+         ASSERT(it.size == want_size[idx], "rune %zu size", idx);
+      }
+      idx++;
+   }
+   ASSERT(idx == 4, "visited 4 runes (got %zu)", idx);
+
+   usize empty = 0;
+   string_each_rune(it, S("")) empty++;
+   ASSERT(empty == 0, "empty string yields no runes");
+
+   /* nesting with distinct names */
+   usize pairs = 0;
+   string_each_rune(x, S("ab")) string_each_rune(y, S("\xC3\xA9z")) pairs++;
+   ASSERT(pairs == 4, "nested loops run 2x2 (got %zu)", pairs);
+   PASS(test_name);
+}
+
+void test_sb_push_rune(void) {
+   const char *test_name = "sb_push_rune";
+   arena a = {0};
+   string_builder sb = sb_init(&a);
+   sb_push_rune(&sb, 'a');
+   sb_push_rune(&sb, 0xE9);
+   sb_push_rune(&sb, 0x1F600);
+   sb_push_rune(&sb, 0xD800); /* invalid -> U+FFFD */
+   ASSERT_STR(sb_string(&sb), "a\xC3\xA9\xF0\x9F\x98\x80\xEF\xBF\xBD");
+   arena_release(&a);
    PASS(test_name);
 }
 
@@ -926,6 +1083,14 @@ int main(void) {
    test_string_utf8_decode_truncated();
    test_string_utf8_decode_empty();
    test_string_utf8_decode_nul();
+   test_string_utf8_decode_4byte();
+   test_string_utf8_decode_invalid();
+   test_string_utf8_decode_resync();
+   test_string_utf8_valid();
+   test_utf8_encode();
+   test_utf8_roundtrip();
+   test_string_each_rune();
+   test_sb_push_rune();
 
    if (_failed == 0)
       printf("\n" COLOR_BOLD COLOR_GREEN "All tests passed." COLOR_RESET

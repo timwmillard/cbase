@@ -3,6 +3,9 @@
 
 /base_test
 /map_test
+/utf8_test
+/utf8_gen
+/ucd/
 /linalg_gen
 /linalg_test
 
