@@ -8,6 +8,16 @@ Scope stays the same throughout: client only, the OS's network stack and TLS,
 no third-party dependencies. Anything that needs zlib, a vendored TLS stack or
 a server socket is out of scope.
 
+## Principles
+
+- **Standalone, like `base.h`.** webc is a library for this ecosystem, not a
+  drop-in for arbitrary codebases. Public names stay short and unprefixed
+  (`http_*`, `ws_*`, `sse_*`, `net_*`); no `webc_` prefix.
+- **No dependency on `base.h`.** webc needs only what `net_sys.c` already
+  provides. Integration with `base.h` happens through the allocator hook and
+  plain `(ptr, len)` data; a thin adapter (e.g. `base_webc/`) can depend on
+  both if it's ever wanted.
+
 ## 0. Setup
 
 - [ ] Import the rest from `~/dev/x/chat`: `webc.manifest`,
@@ -24,54 +34,161 @@ a server socket is out of scope.
 
 ## 1. Interface (before anything depends on it)
 
-### Naming and symbol visibility
+### Naming rules
 
-- [ ] Public names `http`, `ws`, `sse_*` are generic and will collide with
-      other code. Rename to a `webc_` prefix (`webc_http`, `webc_ws`,
-      `webc_sse`), or keep short names behind a `WEBC_API` macro — decide
-      once.
+One verb per kind of object, not per protocol:
+
+| Kind                                              | Create / destroy       |
+| ------------------------------------------------- | ---------------------- |
+| Background handle (heap, runs on a network thread) | `X_start` / `X_free`   |
+| Embedded value (no I/O, caller-owned storage)      | `X_init` / `X_free`    |
+| Blocking call (done when it returns)              | plain verb: `http_fetch` |
+
+- Protocol actions stay distinct from lifetime: `ws_close` sends a close
+  frame, `ws_free` releases the handle.
+- Every callback takes the handle first and `user_data` last.
+- Every background object has exactly one terminal callback, and it carries
+  the error.
+- Structs: one that describes a *message* is named for it (`http_request`,
+  `http_response`); one that *configures* an object is a `_desc`
+  (`http_desc`, `ws_desc`, `sse_desc`).
+- Shared desc fields use the same names in http and ws: `connect_timeout_ms`,
+  `tls`, `user_data`, ...
+
+Changes this implies:
+
+- [ ] `ws_connect` → `ws_start`.
+- [ ] Split today's `http_desc` into `http_desc` (how) and `http_request`
+      (what) — see below.
+- [ ] WS: fold `on_error` into `on_close(w, code, reason, const net_error *)`
+      so there is one terminal callback.
+- [ ] SSE: `on_event` gains the parser as its first argument:
+      `on_event(sse_parser *p, const char *event, const char *data, size_t
+      len, void *user_data)`.
+
+### Symbol visibility
+
 - [ ] Internal symbols leak from the amalgamation: `net_conn_*`,
       `net_url_*`, `net_mutex_*`, `net_strv_*`, `ws_sha1`,
       `ws_base64_encode`, `ws_frame_encode`, `http_build_request`,
-      `http_parse_head`, ... Mark them with a `WEBC_INTERNAL` macro that is
+      `http_parse_head`, ... Mark them with a `NET_INTERNAL` macro that is
       `static` in the single header and plain `extern` in the multi-file
-      build (so the tests can still reach the `*_proto` code).
+      build (so the tests can still reach the `*_proto` code). Keeps the
+      public surface to what `net.h` declares.
 
 ### Error codes
 
-- [ ] Errors are strings only, so callers can't branch on them. Add an enum
-      and keep the string as detail:
-      `WEBC_ERR_DNS`, `_CONNECT`, `_TLS`, `_CERT`, `_TIMEOUT`, `_CANCELLED`,
-      `_PROTOCOL`, `_TOO_LARGE`, `_NOMEM`, ...
-- [ ] `on_done(h, const webc_error *err, ud)` and `ws on_error` likewise.
+- [ ] Errors are strings only, so callers can't branch on them. Add a shared
+      error type:
 
-### Threading model: add a poll mode
+      ```c
+      typedef struct {
+         int code;          // NET_OK (0), NET_ERR_DNS, ...
+         char message[256]; // detail, "" on success
+      } net_error;
+      ```
+
+      Codes: `NET_ERR_DNS`, `_CONNECT`, `_TLS`, `_CERT`, `_TIMEOUT`,
+      `_CANCELLED`, `_PROTOCOL`, `_TOO_LARGE`, `_NOMEM`, ... The internal
+      `net_conn` results (`NET_AGAIN`, `NET_ERR`, `NET_EOF`) get renamed
+      (`NET_CONN_*`) so they don't read as public codes.
+- [ ] `http on_done(h, const net_error *err, ud)`: `err` is NULL on success.
+
+### HTTP: desc, request, response
+
+`http_desc` is *how* to send (reusable across requests, NULL = defaults);
+`http_request` is *what* to send; `http_response` is shared by `on_response`
+and `http_fetch`.
+
+```c
+typedef struct {
+   int connect_timeout_ms; // 0 = 10 s
+   int idle_timeout_ms;    // 0 = 120 s, -1 = none
+   int timeout_ms;         // total deadline, 0 = none
+   size_t max_body_size;   // http_fetch only, 0 = 64 MiB
+   // later: tls, max_redirects, proxy, user_agent, allocator
+
+   // http_start only; http_fetch ignores them. Run on a network thread.
+   void (*on_response)(http *h, const http_response *res, void *user_data);
+   void (*on_data)(http *h, const char *data, size_t len, void *user_data);
+   void (*on_done)(http *h, const net_error *err, void *user_data);
+   void *user_data;
+} http_desc;
+
+typedef struct {
+   const char *url;            // http:// or https://
+   const char *method;         // NULL: GET, or POST when there is a body
+   const char *const *headers; // "Name: value", NULL-terminated
+   const void *body;           // sent with Content-Length when not NULL
+   size_t body_len;
+} http_request;
+
+typedef struct {
+   int status;
+   const char *headers; size_t headers_len; // "Name: value\r\n" lines
+   const char *body;    size_t body_len;    // NUL-terminated; NULL in on_response
+   net_error error;                         // set when http_fetch fails
+} http_response;
+
+// Blocking: runs on the calling thread, done when it returns. True if a
+// response arrived (any status: a 404 is not an error); false with
+// res->error set. Always call http_response_free afterwards.
+bool http_fetch(const http_desc *desc, const http_request *req,
+                http_response *res);
+void http_response_free(http_response *res);
+
+// Async: callbacks from desc run on a network thread.
+http *http_start(const http_desc *desc, const http_request *req);
+void  http_free(http *h);
+
+// Works on both an on_response head and a fetched response.
+const char *http_header(const http_response *res, const char *name,
+                        size_t *len);
+```
+
+```c
+http_response res;
+if (http_fetch(NULL, &(http_request){
+                         .url = "https://api.example.com/v1/models",
+                         .headers = (const char *[]){"Authorization: Bearer ...", NULL},
+                     }, &res))
+   printf("%d\n%.*s\n", res.status, (int)res.body_len, res.body);
+else
+   fprintf(stderr, "fetch failed: %s\n", res.error.message);
+http_response_free(&res);
+```
+
+- [ ] Implement `http_fetch` by calling `http.c`'s existing synchronous
+      `request()` directly on the caller's thread with a sink that collects
+      head and body; the streaming and blocking paths share all protocol
+      code.
+- [ ] Exceeding `max_body_size` fails with `NET_ERR_TOO_LARGE` rather than
+      truncating.
+- [ ] A blocking fetch can't be cancelled from another thread; `timeout_ms`
+      is the escape hatch (another reason for cancellable DNS, section 2).
+- [ ] Later: the `desc` argument can grow into an `http_client` object that
+      owns the keep-alive pool, proxy and default headers, with NULL still
+      meaning a default client.
+
+### Poll mode
 
 - [ ] Callbacks only run on the network thread, which forces every game/UI
       client (e.g. wobble) to write its own mutex + queue. Add an opt-in
-      queued mode, e.g. `.queued = true` then
-      `bool webc_http_poll(webc_http *, webc_http_event *)` and
-      `bool webc_ws_poll(webc_ws *, webc_ws_event *)`, drained on the
-      caller's thread each frame. Event data owned by the library until the
-      next poll.
-
-### Blocking convenience
-
-- [ ] `webc_fetch(const webc_http_desc *, webc_result *)`: blocking, returns
-      status, owned response headers and a malloc'd body (with a max body
-      size). `webc_result_free()`. Covers the most common use case in a few
-      lines on top of `http_start`.
+      queued mode, e.g. `.queued = true` on the desc, then
+      `bool http_poll(http *, http_event *)` and
+      `bool ws_poll(ws *, ws_event *)`, drained on the caller's thread each
+      frame. Event data owned by the library until the next poll.
 
 ### Smaller API fixes
 
 - [ ] Response headers are only valid during `on_response`; poll mode and
-      `webc_fetch` need an owned copy.
+      `http_fetch` need an owned copy.
 - [ ] Expose HTTP version and reason phrase in `http_response` (cheap).
 - [ ] WS `on_open` should report the negotiated `Sec-WebSocket-Protocol` and
       the handshake response headers; a refused upgrade should report its
       HTTP status rather than burying it in the error string.
 - [ ] WS backpressure: the outgoing queue grows without bound. Add
-      `webc_ws_buffered_amount()` and/or a `max_send_buffer` that makes
+      `ws_buffered_amount()` and/or a `max_send_buffer` that makes
       `ws_send_*` return false.
 - [ ] `net_url` path is fixed at 2048 bytes; long GET query strings fail as
       "bad URL". Allocate it (or raise the limit substantially).
@@ -101,7 +218,7 @@ a server socket is out of scope.
 - [ ] **Keep-alive / connection reuse**: a small pool keyed by
       (host, port, tls) instead of a new TCP + TLS handshake per request.
       Bigger change (drops `Connection: close`, needs pool lifetime and
-      idle eviction); later.
+      idle eviction); lives in the future `http_client`.
 - [ ] URL helpers: percent-encoding for query building; userinfo
       (`user:pass@`) → Basic auth, or keep rejecting it and document.
 
@@ -110,7 +227,7 @@ cookies jar, HTTP/2, HTTP/3.
 
 ## 3. TLS options
 
-A `.tls` sub-struct shared by http and ws:
+A `.tls` sub-struct shared by `http_desc` and `ws_desc`:
 
 - [ ] `insecure_skip_verify` for localhost / self-signed development. Loud
       name, off by default.
@@ -123,7 +240,7 @@ A `.tls` sub-struct shared by http and ws:
 
 ## 4. WebSocket features
 
-- [ ] `webc_ws_ping()` and an `on_pong` callback (RTT measurement for games).
+- [ ] `ws_ping()` and an `on_pong` callback (RTT measurement for games).
 - [ ] Distinguish the close code/reason we sent from the one received.
 - [ ] Follow redirects during the upgrade handshake.
 - [ ] Optionally reconnect with backoff (opt-in, off by default).
@@ -134,14 +251,15 @@ Out of scope: permessage-deflate (needs zlib).
 
 - [ ] Report `id:` in the event callback and `retry:` to the caller
       (currently dropped, `sse.c:74`).
-- [ ] Optional EventSource-style `webc_sse_connect()` on top of `http`:
-      reconnects with `Last-Event-ID` and honours `retry`.
+- [ ] Optional EventSource-style `sse_start()` on top of `http`: reconnects
+      with `Last-Event-ID` and honours `retry`. (Name follows the naming
+      rules: a background handle; the parser stays `sse_init`.)
 
 ## 6. Library-wide
 
-- [ ] Allocator hooks, sokol-style `.allocator = {alloc, free, user_data}`
-      on each desc, or `WEBC_MALLOC` / `WEBC_REALLOC` / `WEBC_FREE` macros
-      for the single header.
+- [ ] Allocator hooks: `.allocator = {alloc, free, user_data}` on each desc,
+      or `NET_MALLOC` / `NET_REALLOC` / `NET_FREE` macros for the single
+      header.
 - [ ] Optional logging hook (`.logger`) for connection and TLS diagnostics.
 - [ ] Document the thread-per-request model; set a modest thread stack size
       instead of the platform default.
@@ -151,9 +269,9 @@ Out of scope: permessage-deflate (needs zlib).
 ## Suggested order
 
 1. Setup (section 0)
-2. Naming + static internals
+2. Naming rules + static internals
 3. Error codes
-4. `webc_fetch`
+4. `http_desc` / `http_request` split and `http_fetch`
 5. Poll mode
 6. Redirects, total timeout, cancellable DNS
 7. TLS options
