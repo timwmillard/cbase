@@ -44,7 +44,7 @@ static bool line_done(sse_parser *p) {
          p->data_len--; // the last data line's "\n"
          p->data[p->data_len] = '\0';
          if (p->on_event)
-            p->on_event(p->event[0] ? p->event : "message", p->data,
+            p->on_event(p, p->event[0] ? p->event : "message", p->data,
                         p->data_len, p->user_data);
       }
       p->data_len = 0;

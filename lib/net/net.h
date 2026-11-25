@@ -10,6 +10,11 @@
  * Each object is configured sokol-style: fill a *_desc struct with
  * designated initialisers and pass it to the constructor. Zero fields take
  * their defaults, and the desc is copied, so a compound literal is fine.
+ *
+ * Naming: background handles (heap, run on a network thread) are X_start /
+ * X_free; values the caller embeds are X_init / X_free. A struct describing
+ * a message is named for it (http_request, http_response); one configuring
+ * an object is a _desc.
  */
 
 #ifndef NET_H
@@ -28,18 +33,17 @@ typedef struct {
    size_t headers_len;
 } http_response;
 
-//    http *h = http_start(&(http_desc){
-//       .url = "https://example.com/",
-//       .on_data = on_data,
-//       .on_done = on_done,
-//       .user_data = ctx,
-//    });
+// What to send.
 typedef struct {
    const char *url;            // http:// or https://
    const char *method;         // NULL: GET, or POST when there is a body
    const char *const *headers; // "Name: value", NULL-terminated
    const void *body;           // sent with Content-Length when not NULL
    size_t body_len;
+} http_request;
+
+// How to send it; one desc can serve many requests.
+typedef struct {
    int connect_timeout_ms; // 0 = default (10 s)
    int idle_timeout_ms;    // 0 = default (120 s), -1 = none
 
@@ -52,9 +56,14 @@ typedef struct {
    void *user_data;
 } http_desc;
 
-// Sends the request on a new network thread and returns at once. NULL only
-// for a missing or bad URL or out of memory.
-http *http_start(const http_desc *desc);
+//    http *h = http_start(
+//       &(http_desc){.on_data = on_data, .on_done = on_done, .user_data = ctx},
+//       &(http_request){.url = "https://example.com/"});
+//
+// Sends the request on a new network thread and returns at once. desc may be
+// NULL for the defaults (and no callbacks); both are copied. NULL only for a
+// missing or bad URL or out of memory.
+http *http_start(const http_desc *desc, const http_request *req);
 
 // Any thread, any time, including from a callback. Cancels the request if it
 // is still running. Once it returns no callback is running and none will
@@ -70,19 +79,18 @@ const char *http_header(const http_response *res, const char *name,
 
 typedef struct ws ws;
 
-//    ws *w = ws_connect(&(ws_desc){
-//       .url = "wss://example.com/socket",
-//       .on_message = on_message,
-//       .on_close = on_close,
-//       .user_data = ctx,
-//    });
+// What to connect to: the opening handshake.
 typedef struct {
    const char *url;              // ws:// or wss://
    const char *const *headers;   // "Name: value", NULL-terminated
    const char *const *protocols; // Sec-WebSocket-Protocol, NULL-terminated
-   int connect_timeout_ms;       // 0 = default (10 s)
-   int ping_interval_ms;         // 0 = default (30 s), -1 = off
-   size_t max_message_size;      // 0 = default (16 MiB)
+} ws_request;
+
+// How to run the connection; one desc can serve many connections.
+typedef struct {
+   int connect_timeout_ms;  // 0 = default (10 s)
+   int ping_interval_ms;    // 0 = default (30 s), -1 = off
+   size_t max_message_size; // 0 = default (16 MiB)
 
    // Run on a network thread; on_close is always the last. All optional.
    void (*on_open)(ws *w, void *user_data);
@@ -103,10 +111,16 @@ enum {
    WS_CLOSE_TOO_BIG = 1009,
 };
 
-// Starts connecting on a new network thread and returns at once. NULL only
-// for a missing or bad URL or out of memory; everything else is reported
-// through the callbacks.
-ws *ws_connect(const ws_desc *desc);
+//    ws *w = ws_start(
+//       &(ws_desc){.on_message = on_message, .on_close = on_close,
+//                  .user_data = ctx},
+//       &(ws_request){.url = "wss://example.com/socket"});
+//
+// Starts connecting on a new network thread and returns at once. desc may be
+// NULL for the defaults (and no callbacks); both are copied. NULL only for a
+// missing or bad URL or out of memory; everything else is reported through
+// the callbacks.
+ws *ws_start(const ws_desc *desc, const ws_request *req);
 
 // Thread-safe. False before on_open or after ws_close.
 bool ws_send_text(ws *w, const char *data, size_t len);
@@ -125,11 +139,13 @@ void ws_free(ws *w);
 // A text/event-stream parser without any I/O. Feed it the body bytes as they
 // arrive (e.g. from http's on_data); it calls back once per event.
 
+typedef struct sse_parser sse_parser;
+
 // event is the event: field, "message" when there was none. data is the
 // data: lines joined with "\n", NUL-terminated. Both are valid during the
 // call only.
-typedef void (*sse_event_fn)(const char *event, const char *data, size_t len,
-                             void *user_data);
+typedef void (*sse_event_fn)(sse_parser *p, const char *event,
+                             const char *data, size_t len, void *user_data);
 
 //    sse_init(&p, &(sse_desc){.on_event = on_event, .user_data = ctx});
 typedef struct {
@@ -140,7 +156,7 @@ typedef struct {
 
 // Public so it can live on the stack or inside another struct; treat the
 // fields as private.
-typedef struct {
+struct sse_parser {
    sse_event_fn on_event;
    void *user_data;
    size_t max; // of one line and of one event's data
@@ -150,7 +166,7 @@ typedef struct {
    size_t data_len, data_cap;
    char event[64];
    bool after_cr; // a following LF ends the same line
-} sse_parser;
+};
 
 void sse_init(sse_parser *p, const sse_desc *desc);
 // Calls on_event for each complete event. False if a line or an event is

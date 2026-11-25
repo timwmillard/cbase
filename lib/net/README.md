@@ -49,7 +49,28 @@ Callbacks run on a network thread (one per request/connection). `*_free` may
 be called from any thread at any time, including from inside a callback;
 once it returns no callback is running and none will start.
 
+### Naming
+
+Public names are short and unprefixed (`http_*`, `ws_*`, `sse_*`): like
+`base.h`, webc is standalone within this ecosystem.
+
+| Kind                                               | Functions            |
+| -------------------------------------------------- | -------------------- |
+| Background handle (heap, runs on a network thread) | `X_start` / `X_free` |
+| Embedded value (no I/O, caller-owned storage)      | `X_init` / `X_free`  |
+
+- Background handles take two structs, `X_start(how, what)`: the `_desc` is
+  how to run it (timeouts, callbacks; reusable, NULL for the defaults) and
+  the `_request` is the target (`http_request`, `ws_request`). Responses are
+  `_response`; a value's configuration is also a `_desc` (`sse_desc`).
+- Callbacks take the handle first and `user_data` last.
+- Protocol actions are separate from lifetime: `ws_close` sends a close
+  frame, `ws_free` releases the handle.
+
 ### HTTP
+
+`http_desc` is *how* to send (timeouts, callbacks; reusable, NULL for the
+defaults), `http_request` is *what* to send.
 
 ```c
 static void on_data(http *h, const char *data, size_t len, void *ud) {
@@ -62,12 +83,12 @@ static void on_done(http *h, const char *error, void *ud) {
    // signal the main thread; it calls http_free(h)
 }
 
-http *h = http_start(&(http_desc){
-   .url = "https://example.com/",
-   .headers = (const char *[]){"Accept: text/html", NULL},
-   .on_data = on_data,
-   .on_done = on_done,
-});
+http *h = http_start(
+   &(http_desc){.on_data = on_data, .on_done = on_done},
+   &(http_request){
+      .url = "https://example.com/",
+      .headers = (const char *[]){"Accept: text/html", NULL},
+   });
 ```
 
 - `method` defaults to GET, or POST when `body` is set.
@@ -79,13 +100,16 @@ http *h = http_start(&(http_desc){
 ### WebSocket
 
 ```c
-ws *w = ws_connect(&(ws_desc){
-   .url = "wss://example.com/socket",
-   .protocols = (const char *[]){"chat", NULL},
-   .on_open = on_open,
-   .on_message = on_message, // (ws *, data, len, binary, user_data)
-   .on_close = on_close,     // always the last callback
-});
+ws *w = ws_start(
+   &(ws_desc){
+      .on_open = on_open,
+      .on_message = on_message, // (ws *, data, len, binary, user_data)
+      .on_close = on_close,     // always the last callback
+   },
+   &(ws_request){
+      .url = "wss://example.com/socket",
+      .protocols = (const char *[]){"chat", NULL},
+   });
 
 ws_send_text(w, "hello", 5);   // thread-safe
 ws_close(w, WS_CLOSE_NORMAL, "bye");
@@ -103,7 +127,7 @@ A parser without I/O; feed it body bytes, e.g. from `http`'s `on_data`:
 ```c
 sse_parser p;
 sse_init(&p, &(sse_desc){.on_event = on_event, .user_data = ctx});
-sse_feed(&p, data, len); // calls on_event(event, data, len, ud) per event
+sse_feed(&p, data, len); // calls on_event(p, event, data, len, ud) per event
 sse_free(&p);
 ```
 
@@ -147,6 +171,8 @@ hoisted system headers. See [ROADMAP.md](ROADMAP.md) for the remaining setup
 
 ## Status
 
-Imported from `~/dev/x/chat/src/net` (also used by the wobble client). See
-[ROADMAP.md](ROADMAP.md) for the planned interface changes and missing
-features.
+Imported from `~/dev/x/chat/src/net` (also used by the wobble client), with
+the naming changes above applied; the API is no longer source-compatible
+with those copies (`ws_connect(desc)` → `ws_start(desc, req)`,
+`http_start(desc, req)`, the SSE callback takes the parser). See [ROADMAP.md](ROADMAP.md) for the remaining
+interface changes and missing features.

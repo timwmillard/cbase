@@ -49,20 +49,29 @@ One verb per kind of object, not per protocol:
 - Every callback takes the handle first and `user_data` last.
 - Every background object has exactly one terminal callback, and it carries
   the error.
-- Structs: one that describes a *message* is named for it (`http_request`,
-  `http_response`); one that *configures* an object is a `_desc`
-  (`http_desc`, `ws_desc`, `sse_desc`).
+- Structs: a background handle's *target* is a `_request` (`http_request`,
+  `ws_request`) and its *configuration* a `_desc` (`http_desc`, `ws_desc`),
+  so every start is `X_start(how, what)` with desc NULL for the defaults.
+  Responses are `_response`; a value's configuration is a `_desc`
+  (`sse_desc`). The desc is where shared config (TLS, proxy, default
+  headers) grows into a future `http_client` used by both http and ws.
+- WS reuses neither `http_request` nor HTTP's code path: the handshake must
+  be a bodiless GET to a `ws://`/`wss://` URL and needs `protocols`.
 - Shared desc fields use the same names in http and ws: `connect_timeout_ms`,
   `tls`, `user_data`, ...
 
 Changes this implies:
 
-- [ ] `ws_connect` → `ws_start`.
-- [ ] Split today's `http_desc` into `http_desc` (how) and `http_request`
-      (what) — see below.
+- [x] `ws_connect` → `ws_start`.
+- [x] Split `http_desc` into `http_desc` (how) and `http_request` (what):
+      `http_start(const http_desc *desc, const http_request *req)`, desc may
+      be NULL — see below.
+- [x] Same split for WS: `ws_request` (url, headers, protocols) and
+      `ws_desc` (timeouts, ping, size limit, callbacks):
+      `ws_start(const ws_desc *desc, const ws_request *req)`.
 - [ ] WS: fold `on_error` into `on_close(w, code, reason, const net_error *)`
-      so there is one terminal callback.
-- [ ] SSE: `on_event` gains the parser as its first argument:
+      so there is one terminal callback. Done together with error codes.
+- [x] SSE: `on_event` gains the parser as its first argument:
       `on_event(sse_parser *p, const char *event, const char *data, size_t
       len, void *user_data)`.
 

@@ -224,14 +224,17 @@ static void http_run(void *arg) {
       http_destroy(h);
 }
 
-http *http_start(const http_desc *desc) {
-   http_desc o = *desc;
+http *http_start(const http_desc *desc, const http_request *req) {
+   if (!req)
+      return NULL;
+   http_desc o = desc ? *desc : (http_desc){0};
+   http_request r = *req;
    http *h = calloc(1, sizeof(*h));
    if (!h)
       return NULL;
-   const char *method = o.method ? o.method : o.body ? "POST" : "GET";
+   const char *method = r.method ? r.method : r.body ? "POST" : "GET";
    size_t method_len = strlen(method);
-   if (!o.url || net_url_parse(o.url, &h->url) != 0 ||
+   if (!r.url || net_url_parse(r.url, &h->url) != 0 ||
        h->url.scheme != NET_HTTP || method_len == 0 ||
        method_len >= sizeof(h->method)) {
       free(h);
@@ -253,13 +256,13 @@ http *http_start(const http_desc *desc) {
    net_mutex_init(&h->cb_lock);
 
    bool ok = true;
-   h->headers = net_strv_copy(o.headers, &ok);
-   if (ok && o.body) {
+   h->headers = net_strv_copy(r.headers, &ok);
+   if (ok && r.body) {
       h->has_body = true;
-      h->body_len = o.body_len;
-      h->body = malloc(o.body_len ? o.body_len : 1);
+      h->body_len = r.body_len;
+      h->body = malloc(r.body_len ? r.body_len : 1);
       if (h->body)
-         memcpy(h->body, o.body, o.body_len);
+         memcpy(h->body, r.body, r.body_len);
       else
          ok = false;
    }

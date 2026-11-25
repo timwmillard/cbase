@@ -409,12 +409,15 @@ static void ws_run(void *arg) {
       ws_destroy(w);
 }
 
-ws *ws_connect(const ws_desc *desc) {
-   ws_desc o = *desc;
+ws *ws_start(const ws_desc *desc, const ws_request *req) {
+   if (!req)
+      return NULL;
+   ws_desc o = desc ? *desc : (ws_desc){0};
+   ws_request r = *req;
    ws *w = calloc(1, sizeof(*w));
    if (!w)
       return NULL;
-   if (!o.url || net_url_parse(o.url, &w->url) != 0 ||
+   if (!r.url || net_url_parse(r.url, &w->url) != 0 ||
        w->url.scheme != NET_WS) {
       free(w);
       return NULL;
@@ -439,8 +442,8 @@ ws *ws_connect(const ws_desc *desc) {
    net_mutex_init(&w->cb_lock);
 
    bool ok = true;
-   w->headers = net_strv_copy(o.headers, &ok);
-   w->protocols = net_strv_copy(o.protocols, &ok);
+   w->headers = net_strv_copy(r.headers, &ok);
+   w->protocols = net_strv_copy(r.protocols, &ok);
    w->conn = ok ? net_conn_new() : NULL;
    if (!w->conn || !net_thread_start(ws_run, w)) {
       ws_destroy(w);
