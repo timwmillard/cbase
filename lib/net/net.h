@@ -168,6 +168,7 @@ struct sse_parser {
    bool after_cr; // a following LF ends the same line
 };
 
+// desc may be NULL for the defaults (and no callback).
 void sse_init(sse_parser *p, const sse_desc *desc);
 // Calls on_event for each complete event. False if a line or an event is
 // larger than max, or out of memory; the parser must not be fed again then.

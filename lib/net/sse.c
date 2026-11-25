@@ -7,10 +7,11 @@
 #define DEFAULT_MAX (1u << 20)
 
 void sse_init(sse_parser *p, const sse_desc *desc) {
+   sse_desc o = desc ? *desc : (sse_desc){0};
    memset(p, 0, sizeof(*p));
-   p->on_event = desc->on_event;
-   p->user_data = desc->user_data;
-   p->max = desc->max ? desc->max : DEFAULT_MAX;
+   p->on_event = o.on_event;
+   p->user_data = o.user_data;
+   p->max = o.max ? o.max : DEFAULT_MAX;
 }
 
 void sse_free(sse_parser *p) {
