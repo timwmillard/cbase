@@ -11,6 +11,19 @@ return {
     {
         'oscar-soirey/Raven',
         -- tag = 'v0.3.0',
+        flatten = false,
+        files = {
+            'CMakeLists.txt',
+            'LICENSE',
+            'NOTICE',
+            'cmake/**',
+            'include/**',
+            'src/**',
+            'third_party/**',
+            'web/CMakeLists.txt',
+            'web/include/**',
+            'web/src/**',
+        },
     },
     {
         'timwmillard/cbase',
