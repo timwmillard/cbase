@@ -5,21 +5,16 @@ set(CMAKE_C_STANDARD 11)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-include_directories(.)
-include_directories(deps)
-
-# Platform-specific configuration
-if(APPLE)
-    set(PLATFORM_LIBS "-framework Cocoa" "-framework QuartzCore" "-framework OpenGL")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ObjC")
-elseif(WIN32)
-else()
-endif()
+# CUI build options (https://yappologistic.github.io/CUI/#/guide/getting-started)
+# if(APPLE)
+#     set(CUI_METAL ON CACHE BOOL "macOS: add the Metal renderer (cui_gpu_*)" FORCE)
+# endif()
+add_subdirectory(deps/CUI)
 
 add_executable(${PROJECT_NAME}
     src/main.c
     src/deps.c
 )
-
-target_link_libraries(${PROJECT_NAME} ${PLATFORM_LIBS})
-
+target_include_directories(${PROJECT_NAME} PRIVATE deps)
+target_link_libraries(${PROJECT_NAME} PRIVATE cui::cui)
+cui_app_target(${PROJECT_NAME})

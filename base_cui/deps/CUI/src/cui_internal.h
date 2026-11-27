@@ -1,0 +1,868 @@
+/* Internal declarations shared by the CUI implementation files.
+ *
+ * Every file in src/ includes this header. It holds what more than one file needs; anything
+ * one file uses stays static in that file. Sections, in order (the file that implements each
+ * is in its heading):
+ *
+ *   small math and color helpers     inline, here
+ *   memory                           cui_core.c (allocator, frame arena, CUI__GROW)
+ *   PNG and font outlines            cui_image.c, cui_text.c (used by color emoji)
+ *   utf8 and strings                 cui_core.c
+ *   hashing                          cui_core.c
+ *   animation                        cui_core.c (springs, tweens) and the motion tokens
+ *   fonts and text                   cui_text.c, cui_draw.c
+ *   draw list                        cui_draw.c (and the ordered dither primitive)
+ *   software screenshots             render/cui_render_sw.c
+ *   layout tree                      cui_layout.c (cui_node, building and laying out the tree)
+ *   per id state                     cui_core.c (cui_state, garbage collection)
+ *   interaction                      cui_core.c (hit testing, focus, cui__interact)
+ *   popups and toasts                cui_overlay.c
+ *   the context                      struct cui_ctx: everything one context owns
+ *   theme                            cui_theme.c, plus cui__fs and cui__emphasis
+ *   user-facing text                 cui_strings.c (month and weekday names, for translation)
+ *   shared widget pieces             cui_widgets.c, cui_controls.c, cui_overlay.c...
+ *   text editing primitives          cui_textedit.c (shared with the code editor)
+ *   syntax highlighting              cui_code.c (code block, code editor, diff viewer)
+ *
+ * Naming: cui__ for internal functions, CUI__ for internal constants and macros, cui_ for
+ * the public API in include/cui/. */
+#ifndef CUI_INTERNAL_H
+#define CUI_INTERNAL_H
+
+#if !defined(_WIN32) && !defined(__APPLE__) && !defined(_POSIX_C_SOURCE)
+#define _POSIX_C_SOURCE 200809L
+#endif
+
+#ifndef CUI_BUILDING
+#define CUI_BUILDING
+#endif
+
+#include "cui/cui.h"
+
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define CUI_PI 3.14159265358979323846f
+
+#define CUI_MIN(a, b) ((a) < (b) ? (a) : (b))
+#define CUI_MAX(a, b) ((a) > (b) ? (a) : (b))
+#define CUI_CLAMP(x, lo, hi) CUI_MIN(CUI_MAX((x), (lo)), (hi))
+#define CUI_COUNTOF(a) ((int)(sizeof(a) / sizeof((a)[0])))
+
+static inline float cui__clampf(float x, float lo, float hi) { return x < lo ? lo : (x > hi ? hi : x); }
+static inline float cui__lerp(float a, float b, float t) { return a + (b - a) * t; }
+static inline bool cui__rect_contains(cui_rect r, float x, float y) {
+    return x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h;
+}
+static inline cui_rect cui__rect_intersect(cui_rect a, cui_rect b) {
+    float x0 = CUI_MAX(a.x, b.x), y0 = CUI_MAX(a.y, b.y);
+    float x1 = CUI_MIN(a.x + a.w, b.x + b.w), y1 = CUI_MIN(a.y + a.h, b.y + b.h);
+    cui_rect r = { x0, y0, CUI_MAX(0, x1 - x0), CUI_MAX(0, y1 - y0) };
+    return r;
+}
+static inline cui_rect cui__rect_inset(cui_rect r, float d) {
+    cui_rect o = { r.x + d, r.y + d, CUI_MAX(0, r.w - 2 * d), CUI_MAX(0, r.h - 2 * d) };
+    return o;
+}
+static inline cui_color cui__rgba(int r, int g, int b, int a) {
+    cui_color c = { (uint8_t)r, (uint8_t)g, (uint8_t)b, (uint8_t)a };
+    return c;
+}
+static inline bool cui__is_token(cui_color c) { return c.a == 0 && c.g == 0xC5 && c.b == 0x1D && c.r != 0; }
+static inline bool cui__color_set(cui_color c) { return c.a != 0 || cui__is_token(c); }
+
+/* ---- memory ---- */
+void *cui__alloc(cui_ctx *ui, size_t size);
+size_t cui__inflate(const void *src, size_t src_len, void *dst, size_t dst_cap);  /* raw DEFLATE */
+void *cui__realloc(cui_ctx *ui, void *p, size_t size);
+void cui__free(cui_ctx *ui, void *p);
+void *cui__frame_alloc(cui_ctx *ui, size_t size);       /* freed at frame start */
+char *cui__frame_strdup(cui_ctx *ui, const char *s, int len);
+char *cui__frame_printf(cui_ctx *ui, const char *fmt, ...) CUI_PRINTF(2, 3);
+char *cui__frame_vprintf(cui_ctx *ui, const char *fmt, va_list ap);
+
+#define CUI__GROW(ui, arr, count, cap, need) do {                                 \
+    if ((count) + (need) > (cap)) {                                               \
+        int ncap__ = (cap) ? (cap) * 2 : 64;                                      \
+        while (ncap__ < (count) + (need)) ncap__ *= 2;                            \
+        (arr) = cui__realloc((ui), (arr), sizeof(*(arr)) * (size_t)ncap__);        \
+        (cap) = ncap__;                                                           \
+    }                                                                             \
+} while (0)
+
+/* ---- PNG and font outlines, for color emoji (cui_emoji.c) ---- */
+unsigned char *cui__png_decode(const unsigned char *data, int len, int *w, int *h);   /* cui_image.c */
+void cui__png_free(unsigned char *px);
+typedef struct cui__tt cui__tt;                                                        /* cui_text.c */
+cui__tt *cui__tt_open(cui_ctx *ui, const unsigned char *data, int offset);
+void cui__tt_vmetrics(cui__tt *t, int *ascent, int *descent);
+bool cui__tt_box(cui__tt *t, int gid, float scale, int *x0, int *y0, int *x1, int *y1);
+void cui__tt_render(cui__tt *t, int gid, float scale, unsigned char *out, int w, int h, int stride);
+
+/* ---- utf8 ---- */
+int cui__utf8_decode(const char *s, int len, uint32_t *cp);   /* returns bytes consumed (>=1) */
+int cui__utf8_encode(uint32_t cp, char *out);
+int cui__utf8_prev(const char *s, int pos);
+int cui__utf8_next(const char *s, int len, int pos);
+int cui__display_len(const char *label);                      /* length before "##" */
+static inline int cui__ascii_lower(int c) { return c >= 'A' && c <= 'Z' ? c + 32 : c; }
+bool cui__contains_ci(const char *hay, const char *needle);   /* ASCII case-insensitive substring; an empty needle matches */
+
+/* ---- hashing ---- */
+uint32_t cui__hash(const void *data, size_t len, uint32_t seed);
+uint32_t cui__hash_str(const char *s, uint32_t seed);
+
+/* ---- animation ---- */
+typedef struct cui_spring { float x, v; } cui_spring;
+float cui__spring(cui_ctx *ui, cui_spring *s, float target, float duration, float bounce);
+float cui__tween(cui_ctx *ui, float *x, float target, float duration);   /* exponential approach */
+#define CUI_SPRING_SMOOTH 0.40f, 0.0f
+#define CUI_SPRING_SNAPPY 0.26f, 0.12f
+#define CUI_SPRING_MORPH  0.42f, 0.16f
+
+/* Motion and state tokens. One value per job, so every component answers in
+ * the same time and the same way. Tween durations are the time to settle. */
+#define CUI__T_HIGHLIGHT 0.10f   /* list and menu rows that follow the pointer or the keys */
+#define CUI__T_HOVER     0.14f   /* hover color, edges, icon color */
+#define CUI__T_FOCUS     0.14f   /* focus rings and focused edges */
+#define CUI__T_STATE     0.18f   /* checked, selected, on: fills that report a state */
+#define CUI__SPRING_EXPAND 0.32f, 0.0f   /* disclosures, trees, accordions open and close */
+#define CUI__SPRING_ENTER  0.28f, 0.0f   /* popovers, menus, tooltips, hover cards */
+#define CUI__SPRING_DIALOG 0.34f, 0.0f   /* dialogs */
+#define CUI__SPRING_EXIT   0.16f, 0.0f   /* every floating layer leaves faster than it came */
+#define CUI__ENTER_SCALE 0.96f   /* floating layers grow from here */
+#define CUI__PRESS       0.97f   /* buttons, chips, tiles */
+#define CUI__PRESS_WIDE  0.98f   /* rows and cards: wide targets travel further at the same scale */
+#define CUI__DISABLED    0.45f   /* opacity of anything disabled */
+/* Radius steps derived from the theme, so a custom scale carries everywhere */
+#define CUI__R_ITEM(ui)    CUI_MAX(6.0f, (ui)->theme.radius_panel - 6.0f)   /* rows inside a panel */
+#define CUI__R_CONTROL(ui, h) CUI_MIN((ui)->theme.radius_control, (h) * 0.5f)
+#define CUI__FIELD_PAD 12.0f      /* fields: text side */
+#define CUI__FIELD_PAD_ICON 10.0f /* fields: the side with an icon */
+#define CUI__R_SMALL 6.0f   /* marks inside rows: attachment chips, bars, events */
+
+/* ---- fonts ---- */
+typedef struct cui_glyph {
+    uint32_t key_cp;
+    uint16_t font;
+    uint16_t size_q;     /* pixel size * 4 */
+    uint8_t subpx;
+    uint8_t pad_;
+    uint32_t stamp;      /* the frame it was last drawn in, so a full atlas can drop old sizes */
+    int16_t x0, y0;      /* offset of bitmap from pen position (pixels) */
+    uint16_t w, h;
+    uint16_t ax, ay;     /* atlas position */
+    int next;            /* hash chain */
+} cui_glyph;
+
+typedef struct cui_font_data cui_font_data;
+
+typedef struct cui_text_layout_line { int start, end; float width; } cui_text_layout_line;
+
+#ifdef CUI_TEXT_SHAPING
+bool cui__text_needs_shaping(cui_ctx *ui, const char *text, int len);
+#endif
+/* Glyph metrics for layout, in points. */
+float cui__font_line_height(cui_ctx *ui, cui_font font, float size);
+float cui__font_ascent(cui_ctx *ui, cui_font font, float size);
+float cui__text_width(cui_ctx *ui, cui_font font, float size, const char *text, int len, bool tabular);
+/* Index of the byte boundary closest to x within a single line. */
+int cui__text_hit(cui_ctx *ui, cui_font font, float size, const char *text, int len, float x);
+/* Word wrap into lines. Returns line count; writes up to max lines. */
+int cui__text_wrap(cui_ctx *ui, cui_font font, float size, const char *text, int len, float width,
+                   cui_text_layout_line *lines, int max_lines);
+float cui__text_min_width(cui_ctx *ui, cui_font font, float size, const char *text, int len);
+/* Draw single line text with top-left at pos (points). */
+void cui__draw_text_line(cui_ctx *ui, cui_font font, float size, float x, float y, cui_color color,
+                         const char *text, int len, bool tabular);
+typedef enum { CUI__AT_LEFT, CUI__AT_CENTER, CUI__AT_RIGHT } cui__text_anchor;
+/* one line of text placed by a point: x is its left edge, center or right edge, y its vertical middle */
+void cui__draw_text_at(cui_ctx *ui, cui_font font, float size, float x, float y, cui__text_anchor anchor, cui_color color, const char *s, bool tab);
+/* Draw text truncated with an ellipsis to max_w. */
+void cui__draw_text_ellipsis(cui_ctx *ui, cui_font font, float size, float x, float y, float max_w,
+                             cui_color color, const char *text, int len, bool tabular);
+void cui__fonts_init(cui_ctx *ui, bool load_defaults);
+void cui__fonts_shutdown(cui_ctx *ui);
+void cui__fonts_begin_frame(cui_ctx *ui);
+void cui__fonts_upload(cui_ctx *ui);
+cui_font cui__resolve_font(cui_ctx *ui, cui_font f);
+
+/* ---- draw list ---- */
+typedef struct cui_xform { float scale, ox, oy, alpha, tx, ty; } cui_xform;
+
+typedef struct cui_draw_list {
+    cui_vertex *vtx; int vtx_count, vtx_cap;
+    uint32_t *idx; int idx_count, idx_cap;
+    cui_draw_cmd *cmd; int cmd_count, cmd_cap;
+    cui_rect clip_stack[64]; int clip_depth;
+    cui_xform xform_stack[32]; int xform_depth;
+    cui_texture cur_tex;
+} cui_draw_list;
+
+void cui__draw_reset(cui_ctx *ui);
+void cui__push_xform(cui_ctx *ui, float scale, float ox, float oy, float alpha, float tx, float ty);
+void cui__pop_xform(cui_ctx *ui);
+void cui__draw_glyph_quad(cui_ctx *ui, float x0, float y0, float x1, float y1,
+                          float u0, float v0, float u1, float v1, cui_color c);
+void cui__draw_check(cui_ctx *ui, cui_rect r, float t, float thickness, cui_color c);
+void cui__draw_top_light(cui_ctx *ui, cui_rect r, cui_corners rad, float alpha);
+void cui__draw_sheen(cui_ctx *ui, cui_rect r, cui_corners rad, float k);
+void cui__draw_spinner(cui_ctx *ui, cui_vec2 center, float radius, float thickness, cui_color c);
+void cui__draw_focus_ring(cui_ctx *ui, cui_rect r, cui_corners radius, float alpha);
+void cui__draw_elevation(cui_ctx *ui, cui_rect r, cui_corners radius, cui_elevation e, float alpha);
+/* Raw triangles with per vertex colors (points). */
+typedef struct cui_cvert { float x, y; cui_color c; } cui_cvert;
+void cui__draw_triangles(cui_ctx *ui, const cui_cvert *v, int nv, const uint32_t *idx, int ni);
+/* Ordered dither (CUI_SHADE_DITHER): dots of one color on a grid of square cells, a cell on
+ * where floor <= its 8x8 Bayer threshold < the density there. Density is given per vertex and
+ * runs linearly between them, so a falling edge, a band or a fade is a few quads, not a dot
+ * per rectangle. The renderers do the per pixel test, so a dot is never blended: it is the
+ * color or nothing, and lower densities are always a subset of higher ones. */
+typedef struct cui__dither {
+    cui_color color;           /* the dots; theme tokens work */
+    float cell;                /* side of a dot in points, 0 = 2 (rounded to whole pixels) */
+    cui_vec2 origin;           /* points: the grid is anchored here, so dots move with their shape */
+    cui_vec2 phase;            /* whole cells: shifts the pattern (a drift or a moving noise) */
+    float floor;               /* cells with a threshold below this stay off: a dissolve from 0 to 1 */
+    cui_rect shape;            /* the dots are cut to this rounded rectangle; zero size: no cut */
+    cui_corners radius;        /* corners of `shape` */
+} cui__dither;
+typedef struct cui__dvert { float x, y, density; } cui__dvert;   /* points; density 0..1 */
+void cui__draw_dither_mesh(cui_ctx *ui, const cui__dither *d, const cui__dvert *v, int nv, const uint32_t *idx, int ni);
+/* a rectangle whose density runs from d0 to d1, left to right, or top to bottom when vertical */
+void cui__draw_dither_rect(cui_ctx *ui, const cui__dither *d, cui_rect r, float d0, float d1, bool vertical);
+/* Cells with a density each, for patterns computed per cell (a sweep, a noise, a trail): the
+ * cols x rows densities, row major, of the cells from (i0, j0) on the grid anchored at
+ * d->origin. Each cell is an exact square of the grid at any scale; a run of cells with the
+ * same density in a row is one quad, and cells at 0 draw nothing. */
+void cui__draw_dither_cells(cui_ctx *ui, const cui__dither *d, int i0, int j0, int cols, int rows, const float *density);
+
+/* ---- software screenshots ---- */
+struct cui_sw_renderer;
+void cui__sw_render_screenshot(struct cui_sw_renderer *r, const cui_draw_data *dd,
+                               void *rgba, int stride);
+
+/* ---- layout tree ---- */
+enum {
+    CUI_NF_TEXT        = 1 << 0,
+    CUI_NF_INTERACTIVE = 1 << 1,   /* records a hit rect */
+    CUI_NF_SCROLL_X    = 1 << 2,
+    CUI_NF_SCROLL_Y    = 1 << 3,
+    CUI_NF_CLIP        = 1 << 4,
+    CUI_NF_FLOATING    = 1 << 5,
+    CUI_NF_BLOCKER     = 1 << 6,   /* blocks input to everything below (modal scrim) */
+    CUI_NF_WRAP        = 1 << 7,
+    CUI_NF_TABULAR     = 1 << 8,
+    CUI_NF_FOCUSABLE   = 1 << 9,
+    CUI_NF_SCROLLBAR   = 1 << 10,
+    CUI_NF_HIT_OPAQUE  = 1 << 11,  /* catches clicks (e.g. popover background) */
+    CUI_NF_PAINT_AFTER = 1 << 12,  /* paint callback runs after children */
+    CUI_NF_ABSOLUTE    = 1 << 13,  /* positioned at (fx, fy) inside the parent, out of flow */
+    CUI_NF_ON_TOP      = 1 << 14,  /* painted after its siblings */
+    CUI_NF_ROW_WRAP    = 1 << 15,  /* row that breaks children onto new lines */
+    CUI_NF_LINE_START  = 1 << 16,  /* computed: first child of a wrapped line */
+    CUI_NF_KEEP_W      = 1 << 17,  /* never shrinks below its preferred width (its siblings give way) */
+    CUI_NF_ADAPTIVE    = 1 << 18,  /* rearranges itself when narrow: min_w is its minimum, not its content */
+    CUI_NF_OVERLAY     = 1 << 19   /* absolute: painted and hit tested after the flow children, over them */
+    /* bits 20 and up are the hit-only CUI_HIT_* flags: a hit records its node's flags in the same word */
+};
+
+struct cui_node;
+typedef void (*cui__paint_fn)(cui_ctx *ui, struct cui_node *n, void *data);
+/* Per glyph text effect: gets the byte offset in the node's text, the glyph's
+ * pen x and the line's top (points); returns the glyph color and may move it. */
+typedef cui_color (*cui__text_fx_fn)(cui_ctx *ui, void *data, int byte, float x, float line_y, float *dy, cui_color c);
+
+typedef struct cui_node {
+    cui_id id;
+    int parent, first, last, next;
+    int abs_first, abs_last;   /* absolutely positioned children */
+    int abs_anchor;            /* absolute: position relative to this node (-1 = parent) */
+    int child_count;
+    uint32_t flags;
+
+    /* layout input */
+    uint8_t direction;
+    bool rtl;
+    uint8_t dir, align, justify, self_align;   /* self_align: 0 = inherit */
+    cui_size w, h;
+    float min_w, max_w, min_h, max_h;
+    float pad[4];             /* top, right, bottom, left */
+    float gap;
+    int columns;
+    float col_min;            /* grid: minimum column width, 0 = fixed column count */
+    float pref_hint;          /* preferred width of a fit node that may shrink (0 = from content) */
+
+    /* text */
+    const char *text;
+    int text_len;
+    cui_font font;
+    float font_size;
+    float line_height;        /* multiplier */
+    uint8_t text_align;      /* text or row-cell content alignment */
+    cui_color text_color;
+
+    /* style */
+    cui_color bg, border_color;
+    float border;
+    cui_corners radius;
+    cui_elevation elevation;
+    float elevation_alpha;
+    float opacity;
+    float scale;              /* transform around center, 1 = none */
+    float tx, ty;             /* translation */
+
+    /* custom paint */
+    cui__paint_fn paint;
+    cui__text_fx_fn text_fx;
+    void *text_fx_data;
+    void *paint_data;
+
+    /* floating */
+    int z;
+    cui_id anchor;            /* 0 = viewport */
+    uint8_t placement;
+    float offset;             /* distance from anchor */
+    float fx, fy;             /* explicit position when anchor == 0 and fpos set */
+    bool fpos;
+    int root_index;           /* order among floating roots */
+
+    /* scroll */
+    float scroll_x, scroll_y;
+
+    /* computed */
+    float pref_w, pref_h, minc_w, minc_h;   /* content based sizes */
+    float cmin_w;                           /* minimum width of the content alone, before min_w */
+    cui_rect rect;
+    float content_w, content_h;
+    int text_lines;
+    cui_text_layout_line *lines;
+    int grid_cols;            /* grid: columns used by the latest layout */
+} cui_node;
+
+/* self_align value for intrinsic size components: never stretched, otherwise
+ * aligned like their siblings */
+#define CUI__ALIGN_NOSTRETCH 7
+
+/* placement values beyond cui_placement for floating roots */
+enum { CUI__PLACE_FULL = 100, CUI__PLACE_CENTER = 101, CUI__PLACE_POINT = 102 };
+
+typedef struct cui_scroll_state {
+    float x, y;                 /* current offset */
+    float tx, ty;               /* target offset */
+    float content_w, content_h; /* from last layout */
+    float view_w, view_h;
+    float bar_t;                /* scrollbar visibility 0..1 */
+    double last_activity;
+    bool drag_y, drag_x;
+    float drag_grab;
+    bool hover_bar;
+    cui_color fade;             /* edge fade color, alpha 0 for none */
+    float laid_y;               /* y when last laid out, which the rectangles of last frame show */
+} cui_scroll_state;
+
+int cui__node_new(cui_ctx *ui, cui_id id);
+/* Code, numbers, times and key combinations read left to right even in a right-to-left
+ * interface, and so do components whose grid is drawn by hand under a header made of
+ * layout boxes (a week calendar, a gantt): mirroring one without the other would put
+ * events under the wrong day. The component's first node (its root) keeps LTR unless
+ * the app gave it a direction itself. */
+#define cui__keep_ltr(ui, first) do { int f_ = (first); \
+    if (f_ < (ui)->node_count && !(ui)->nodes[f_].direction) (ui)->nodes[f_].direction = CUI_DIRECTION_LTR; } while (0)
+cui_node *cui__node(cui_ctx *ui, int index);
+int cui__open(cui_ctx *ui, int node);            /* push node as current parent */
+void cui__close(cui_ctx *ui);
+int cui__current(cui_ctx *ui);
+void cui__apply_box(cui_ctx *ui, cui_node *n, const cui_box *b);
+int cui__leaf(cui_ctx *ui, cui_id id, cui_size w, cui_size h);
+/* Width for a component with a default size: `requested` when the caller set
+ * one, otherwise `def` points while there is room, shrinking toward the
+ * content minimum in a narrower container (never stretched). */
+void cui__soft_width(cui_node *n, cui_size requested, float def);
+int cui__text_node(cui_ctx *ui, const char *text, int len, cui_font font, float size, cui_color color, bool wrap);
+void cui__layout(cui_ctx *ui);
+void cui__paint(cui_ctx *ui);
+int cui__float_begin(cui_ctx *ui, cui_id id, int z, cui_id anchor, int placement, float offset);
+void cui__float_end(cui_ctx *ui);
+int cui__absolute(cui_ctx *ui, cui_id id, float x, float y, float w, float h);
+cui_rect cui__xform_rect(cui_ctx *ui, cui_rect r);
+void cui__paint_add_hit(cui_ctx *ui, cui_id id, cui_rect r, uint32_t flags);
+/* From a paint callback: the wheel over r (inside the current clip) goes to id, ahead of any scroll area under it. */
+void cui__paint_wheel_hit(cui_ctx *ui, cui_id id, cui_rect r);
+/* The screen pointer in the layout space of wheel area `id`, using its last paint transform. */
+cui_vec2 cui__wheel_point(cui_ctx *ui, cui_id id);
+
+/* ---- per id state ---- */
+typedef struct cui_state_entry {
+    cui_id id;
+    uint64_t last_frame;
+    cui_rect rect;             /* rect from the previous frame */
+    bool has_rect;
+    size_t size;
+    void *data;
+    void (*dtor)(cui_ctx *ui, void *data);   /* frees memory owned by data */
+    int next;
+} cui_state_entry;
+
+cui_state_entry *cui__state_entry(cui_ctx *ui, cui_id id);
+float cui__hover_fade(cui_ctx *ui, cui_id id, bool on, float duration);   /* a 0..1 fade that keeps state only while above zero */
+void *cui__state_lazy(cui_ctx *ui, cui_id id, size_t size, bool want);   /* state only once wanted: NULL while untouched */
+void cui__state_set_dtor(cui_ctx *ui, cui_id id, void (*dtor)(cui_ctx *ui, void *data));
+cui_rect cui__prev_rect(cui_ctx *ui, cui_id id);
+bool cui__has_prev_rect(cui_ctx *ui, cui_id id);
+
+/* ---- interaction ---- */
+typedef struct cui_hit {
+    cui_id id;
+    cui_rect rect;
+    uint32_t flags;
+    cui_id layer;
+    int order;
+} cui_hit;
+
+/* An inactive scope stays inactive through nested pushes. Outside any scope, both fields are zero. */
+typedef struct { cui_id id; bool inactive; } cui__focus_scope;
+typedef struct { cui_id id, layer; cui__focus_scope scope; bool component_input; } cui__focus_entry;   /* component_input: a canvas that routes its own keys */
+
+/* Hit-only flags for controls whose wheel range is separate from layout scroll.
+ * They share cui_hit.flags with the CUI_NF_* node flags, so they sit above all of them. */
+enum { CUI_HIT_WHEEL_UP = 1 << 20, CUI_HIT_WHEEL_DOWN = 1 << 21 };
+typedef char cui__hit_flags_above_node_flags[(unsigned)CUI_HIT_WHEEL_UP > (unsigned)CUI_NF_OVERLAY ? 1 : -1];
+
+/* A vertical delta reserved for one hit while the normal route handles X. */
+enum { CUI__VERTICAL_WHEEL_STATE = 0x57484559u };
+typedef struct { uint64_t frame; float delta; } cui__vertical_wheel;
+float cui__take_vertical_wheel(cui_ctx *ui, cui_id id);
+
+typedef struct cui_interact {
+    bool hovered, pressed, clicked, right_clicked, double_clicked, focused, active, released, keyboard_activate;
+    bool focus_visible;
+    bool keyboard_focused;    /* focused with no popup above this layer */
+} cui_interact;
+
+enum { CUI_IF_FOCUSABLE = 1, CUI_IF_DRAG = 2, CUI_IF_KEEP_FOCUS = 4, CUI_IF_TEXT = 8, CUI_IF_COMPONENT_INPUT = 16 };
+typedef struct cui_modal_layer {
+    cui_id id;
+    int z;
+} cui_modal_layer;
+cui_interact cui__interact(cui_ctx *ui, cui_id id, int flags);
+void cui__mark_interactive(cui_ctx *ui, int node, int flags);
+void cui__set_cursor(cui_ctx *ui, cui_cursor c);
+void cui__wakeup_after(cui_ctx *ui, float seconds);
+bool cui__is_layer_open(cui_ctx *ui, cui_id layer);
+
+/* ---- popups ---- */
+typedef struct cui_popup {
+    cui_id id;
+    cui_id parent_layer;       /* layer that submitted the popup */
+    cui_id anchor;
+    cui_rect anchor_rect;
+    bool open;
+    bool at_mouse;
+    cui_vec2 mouse;
+    uint64_t opened_frame;
+    int z;                     /* stacking order: later opens are on top */
+    uint64_t last_frame;
+    float t;                   /* open animation 0..1 */
+    cui_spring s;
+} cui_popup;
+
+typedef struct cui_toast_item {
+    double last_tick;
+    int handle;
+    char title[128];
+    char desc[256];
+    char action[48];
+    cui_tone tone;
+    float duration, age;
+    bool dismissed, action_clicked, hovered_pause, show_timer;
+    cui_spring enter;          /* 0..1 appear */
+    cui_spring y;              /* stacked position */
+    cui_spring sx;             /* swipe offset; right dismisses */
+    float grab_x, vel;         /* drag anchor and smoothed speed (points per second) */
+    bool swiping;
+    float height;
+} cui_toast_item;
+
+/* Scope stacks used while building one frame (kept per context). */
+typedef struct cui__popup_build { cui_id id; bool disabled_pushed; bool menu; int item_index; } cui__popup_build;
+typedef struct cui__modal_build { cui_id id; bool disabled_pushed; } cui__modal_build;
+typedef struct cui__vlist_build { int count; float row_h; int first; } cui__vlist_build;
+
+#define CUI_MAX_TOASTS 16
+#define CUI_ID_STACK 64
+#define CUI_PARENT_STACK 256
+
+struct cui__emoji;
+struct cui_ctx {
+    struct cui__emoji *emoji;   /* color emoji: font, cache and data (cui_emoji.c) */
+    /* set by cui_emoji.c when emoji are first used, so the core does not link it in:
+     * 0 a frame begins, 1 the renderer changes, 2 the context goes */
+    void (*emoji_hook)(cui_ctx *ui, int what);
+    cui_allocator alloc;
+    cui_renderer_iface renderer;
+    cui_platform_iface platform;
+
+    /* viewport */
+    float vw, vh, scale;
+    cui_direction direction;
+
+    /* time */
+    double time;
+    float dt;
+    float step;                /* the step of transitions: dt, or at most one 60 Hz frame after a rest */
+    bool wanted_frame;         /* the last frame asked for the next one: the time since is no rest */
+    uint64_t frame;
+    bool in_frame;
+    bool animating;
+    int settle_frames;
+    float wakeup;              /* seconds, <0 none */
+
+    /* frame arena */
+    char *arena; size_t arena_used, arena_cap;
+    /* the most each per-frame buffer needed lately: much bigger ones shrink (cui__trim_buffers) */
+    int peak_vtx, peak_idx, peak_cmd, peak_nodes; size_t peak_arena; uint64_t peak_since;
+    struct cui_arena_block { struct cui_arena_block *next; } *arena_overflow;
+
+    /* nodes */
+    cui_node *nodes; int node_count, node_cap;
+    int parents[CUI_PARENT_STACK]; int parent_depth;
+    int *float_roots; int float_count, float_cap;
+    int last_node;
+    cui_id last_id;
+
+    /* ids */
+    cui_id id_stack[CUI_ID_STACK]; int id_depth;
+    int auto_counter[CUI_ID_STACK];
+    int disabled_depth;
+    bool disabled_stack[32]; int disabled_n;
+
+    /* state store (open addressing over chained entries) */
+    cui_state_entry *states; int state_count, state_cap;
+    int *state_buckets; int bucket_count;
+    int state_free;
+
+    /* hit testing */
+    cui_hit *hits; int hit_count, hit_cap;           /* current frame */
+    cui_hit *prev_hits; int prev_hit_count, prev_hit_cap;
+    cui_id hot, hot_layer;          /* topmost interactive item under the mouse */
+    cui_id scroll_target;           /* topmost scroll area under the mouse */
+    cui_id active;                  /* item being pressed/dragged */
+    cui_id focus;                   /* keyboard focus */
+    bool focus_visible;             /* focus came from the keyboard */
+    cui_id focus_next_request;
+    int focus_move;                 /* +1/-1 tab navigation requested */
+    cui__focus_entry *focus_order; int focus_count, focus_cap;
+    cui__focus_entry *prev_focus_order; int prev_focus_count, prev_focus_cap;
+    cui__focus_scope *focus_scope_stack; int focus_scope_depth, focus_scope_cap;
+    cui_id active_focus_scope, prev_active_focus_scope;
+    cui_modal_layer modal, prev_modal;                  /* topmost open modal */
+    bool edit_prev;                                     /* a text field had focus last frame */
+    cui_id hover_id_for_tooltip;
+    double hover_start;
+    cui_id layer_stack[32]; int layer_depth;   /* current floating layer while building */
+    cui_id current_layer;
+    cui_cursor cursor;
+
+    /* input */
+    struct {
+        cui_input_hook_fn capture;
+        void *user;
+        cui_id focus_request, focus_owner;
+        cui_id previous_tab_owner;     /* built-in editor's Tab owner during replay */
+        bool repeated;
+        bool blocked_keys[CUI_KEY_COUNT];
+    } component_input;
+    float mx, my, pmx, pmy;
+    bool mouse_inside;
+    bool mdown[3], mpressed[3], mreleased[3];
+    float press_x, press_y, release_x, release_y;   /* where the left button was last pressed and released */
+    int click_count;
+    double last_click_time;
+    float last_click_x, last_click_y;
+    struct {
+        int count;
+        bool restarted;
+        float first_x, first_y, last_x, last_y;
+    } pending_clicks;               /* input collected before the frame clock advances */
+    float scroll_dx, scroll_dy;
+    /* multi-touch; fingers land in slot 0..CUI_TOUCH_MAX-1 as the platform
+     * reports them, and the per-frame pressed/released flags reset each frame */
+    bool tdown[CUI_TOUCH_MAX], tpressed[CUI_TOUCH_MAX], treleased[CUI_TOUCH_MAX];
+    float tx[CUI_TOUCH_MAX], ty[CUI_TOUCH_MAX];
+    uint32_t tland[CUI_TOUCH_MAX];  /* when each slot landed; selects the first active touch */
+    uint32_t tland_seq;             /* landing-order counter for tland */
+    bool kdown[CUI_KEY_COUNT];
+    uint8_t kpressed[CUI_KEY_COUNT];
+    int mods;
+    char text_in[256]; int text_in_len;
+    bool window_focused;
+    bool input_this_frame;
+
+    /* theme */
+    cui_theme theme;
+    cui_theme target_theme;
+    cui_theme_mode mode;
+    cui_accent accent;
+    bool reduced_motion;
+    float theme_t;              /* theme transition progress */
+    cui_theme from_theme;
+    const cui_strings *strings; /* the app's text for another language, or NULL (cui_strings.c) */
+
+    /* fonts */
+#ifdef CUI_TEXT_SHAPING
+    struct cui_shaped_paragraph *shape_cache;
+    int shape_cache_count;
+    const char *text_paragraph;
+    int text_paragraph_len;
+    cui_direction text_direction;
+#endif
+    bool text_unshaped;             /* editing keeps logical glyph positions */
+    cui_font_data *fonts; int font_count, font_cap;
+    cui_font roles[5];
+    cui_glyph *glyphs; int glyph_count, glyph_cap;
+    int glyph_buckets[4096];
+    uint64_t atlas_check_frame;   /* when the atlas last looked at shrinking */
+    uint8_t *atlas; int atlas_w, atlas_h;
+    int pack_x, pack_y, pack_row_h;
+    bool atlas_dirty; int dirty_x0, dirty_y0, dirty_x1, dirty_y1;
+    bool atlas_reset_pending;
+    cui_texture atlas_tex;
+    int atlas_tex_w, atlas_tex_h;
+
+    /* drawing */
+    cui_draw_list dl;
+    cui_draw_data draw_data;
+
+    /* widgets */
+    cui_popup popups[32]; int popup_count;
+    cui_id open_menu_stack[8]; int open_menu_depth;
+    cui_toast_item toasts[CUI_MAX_TOASTS]; int toast_count;
+    int toast_next_handle;
+    cui_id dialog_stack[8]; int dialog_depth;
+    cui_id nav_group_last[8];
+    int tooltip_node;
+    const char *tooltip_text;
+    cui_id tooltip_id;
+    cui_rect tooltip_rect;
+    cui_id tree_last_clicked;
+    bool tree_clicked;
+    /* text editing */
+    struct cui_edit_state *edit;   /* edit state of the focused text field */
+    cui_id tab_owner;              /* the focused control types Tab instead of moving focus (code editor); set every frame */
+    double caret_time;
+    /* scope stacks */
+    cui__popup_build pb_stack[16]; int pb_depth;
+    cui__modal_build mb_stack[8]; int mb_depth;
+    cui__vlist_build vl_stack[8]; int vl_depth;
+    bool acc_dis[32]; int acc_depth;
+    int tree_depth;
+    int button_group_depth;
+    int layer_seq;             /* increments whenever a popup or modal opens */
+    /* one shot font override for the next text field (inline edit) */
+    bool tf_override;
+    cui_font tf_font;
+    float tf_size;
+    cui_id tf_select_all;      /* this field selects all of its text when it next has focus */
+    /* files dropped from the OS, valid for one frame */
+    char *drop_buf; size_t drop_used, drop_cap;
+    int drop_off[64]; int drop_count;
+    float drop_x, drop_y;
+    bool drop_claimed;
+    bool drag_hover; float drag_x, drag_y;
+    bool slider_no_header;     /* next range slider skips its label row */
+    /* Containers being built. A component's _begin sets its pointer (frame memory), the
+     * items between begin and end read it, and _end clears it. They do not nest unless
+     * noted, so a new begin/end component adds its pointer here and nowhere else. */
+    struct {
+        struct cui_table_build *table; int table_depth;   /* tables nest: depth counts them */
+        const cui_vec2 *screen_pointer; /* outermost saved pointer while node content remaps mouse input */
+        struct cui_split_build *split;
+        struct cui_reorder_build *reorder;
+        struct cui_swipe_build *swipe;
+        struct cui_grid_build *grid;
+        void *carousel;
+        void *status_bar;          /* its width budget */
+        void *card_stack;
+        void *kanban;
+        void *dock;
+        void *spot;                /* spotlight card */
+        void *reasoning;
+        void *veil;                /* veils nest: each keeps the one around it */
+        struct cui__skel_group *skeleton;   /* skeleton groups nest: each keeps the one around it */
+    } building;
+    cui__text_fx_fn text_fx;       /* set while a node with a text effect paints */
+    void *text_fx_data;
+    int text_fx_base;              /* byte offset of the line being drawn */
+    float text_fx_line_y;
+};
+
+/* ---- theme ---- */
+void cui__theme_init(cui_ctx *ui, cui_theme_mode mode, cui_accent accent);
+void cui__theme_update(cui_ctx *ui);
+void cui__theme_build(cui_theme *t, cui_theme_mode mode, cui_accent accent);
+cui_color cui__tone_color(cui_ctx *ui, cui_tone tone);
+#define CUI_C(ui, tok) ((ui)->theme.colors[CUI_TOKEN_##tok])
+/* a font size in points, scaled by the theme's text size setting */
+static inline float cui__fs(cui_ctx *ui, float size) { return size * ui->theme.font_scale; }
+/* the color that marks a selected or active thing: the accent, or the text color under the
+ * neutral accent (a neutral theme has no accent hue to spend) */
+static inline cui_color cui__emphasis(cui_ctx *ui) {
+    return ui->accent == CUI_ACCENT_NEUTRAL ? CUI_C(ui, FOREGROUND) : CUI_C(ui, ACCENT);
+}
+
+/* ---- user-facing text (cui_strings.c): the app's table (cui_set_strings) or English ---- */
+const char *cui__month_name(cui_ctx *ui, int m);      /* m 0..11, January first */
+const char *cui__month_short(cui_ctx *ui, int m);     /* "Jan" */
+const char *cui__weekday_name(cui_ctx *ui, int d);    /* d 0..6, Monday first */
+const char *cui__weekday_short(cui_ctx *ui, int d);   /* "Mon" */
+const char *cui__weekday_min(cui_ctx *ui, int d);     /* "Mo" */
+const char *cui__today_text(cui_ctx *ui);
+const char *cui__size_text(cui_ctx *ui, double bytes);   /* "4.2 KB" */
+const char *cui__mmss(cui_ctx *ui, float seconds);        /* a play time, "3:07"; negative reads as 0 */
+int cui__utc_offset(int64_t t);                           /* minutes east of UTC of the local zone at t */
+
+/* ---- shared widget pieces ---- */
+void cui__widgets_begin_frame(cui_ctx *ui);
+void cui__widgets_end_frame(cui_ctx *ui);   /* toasts, tooltips */
+void cui__tooltip_passive(cui_ctx *ui, cui_id anchor, const char *text);   /* hover by rect, for things that are not interactive */
+void cui__spinner_node(cui_ctx *ui, float size, cui_color c);   /* the arc spinner (cui_widgets.c), also in buttons */
+void cui__overlay_end_frame(cui_ctx *ui);
+float cui__control_height(cui_ctx *ui, cui_control_size s);
+cui_popup *cui__popup_get(cui_ctx *ui, cui_id id, bool create);
+bool cui__popup_begin(cui_ctx *ui, cui_id id, cui_id anchor, int placement, float width, float pad, float gap, bool menu);
+void cui__popup_end(cui_ctx *ui);
+void cui__popup_set(cui_ctx *ui, cui_id id, bool open);
+void cui__close_all_popups(cui_ctx *ui);
+bool cui__keys_covered(cui_ctx *ui);   /* an open popup sits above the layer being built, so the keys are its (cui_chrome.c) */
+void cui__color_picker_open(cui_ctx *ui, cui_id id, cui_color value);   /* opens cui_color_picker's popover from code */
+/* a dashed rounded rectangle, the dashes continuing round the corners (cui_pickers.c: the dropzone, gantt plans) */
+void cui__draw_dashed_rrect(cui_ctx *ui, cui_rect r, float rad, cui_color c, float th, float dash, float gap);
+typedef struct { int highlight; int item_count; int prev_item_count; bool keyboard; } cui__menu_nav;
+typedef struct { cui_color bg, bg_hover, bg_press, fg, border, border_hover; } cui__btn_colors;
+cui__btn_colors cui__button_colors(cui_ctx *ui, cui_button_variant v, bool selected);
+bool cui__icon_button_id(cui_ctx *ui, cui_id id, const char *icon, const cui_button_opts *o);
+/* Edge for controls their label already identifies (outline buttons, chips,
+ * groups). Fields, checkboxes and radios keep BORDER_STRONG (3:1): their edge
+ * is the only thing that marks them. */
+cui_color cui__quiet_edge(cui_ctx *ui, float hover);
+cui_color cui__control_edge(cui_ctx *ui, float hover);   /* the 3:1 edge of fields, checks, radios, dropzones */
+cui_color cui__edge_on(cui_ctx *ui);                     /* the edge of a focused or open field */
+void cui__focus_ring(cui_ctx *ui, int node, float alpha);   /* keyboard focus ring painted after the node */
+void cui__icon_swap(cui_ctx *ui, cui_id state_id, const char *icon, float size, cui_color c);
+cui_id cui__position_id(cui_ctx *ui, uint32_t salt);       /* stable id from the parent and child index */
+void cui__chevron_node(cui_ctx *ui, float angle, float size, cui_color color);   /* 0 points down */
+int cui__initials(const char *name, char *out);   /* up to two initials of a name, for avatars; out holds 16 bytes */
+/* Room for a custom item of width w in the toolbar being built (cui_chrome.c); false when it does not
+ * fit and the caller should leave it out. Without a toolbar there is always room. */
+bool cui__toolbar_reserve(cui_ctx *ui, float w);
+int cui__text_field(cui_ctx *ui, cui_id id, char *buf, size_t cap, const cui_input_opts *o, bool multiline, int style, const char *trailing_icon_default);
+int cui__edit_lines(cui_ctx *ui, cui_font f, float size, const char *buf, int len, float width, cui_text_layout_line **out);   /* wrapped lines of an edit buffer */
+void cui__label_text(cui_ctx *ui, const char *label, cui_font font, float size, cui_color color);
+void cui__icon_node(cui_ctx *ui, const char *icon, float size, cui_color color);
+void cui__field_label(cui_ctx *ui, const char *label);
+void cui__field_message(cui_ctx *ui, const char *hint, const char *error);
+int cui__scroll_begin_ex(cui_ctx *ui, cui_id id, const cui_box *box, bool horizontal);
+void cui__nice_range(float lo, float hi, int target_ticks, float *out_lo, float *out_hi, float *out_step);
+const char *cui__fmt_value(cui_ctx *ui, const char *fmt, float v);
+/* slider keys on a 0..1 position (cui_controls.c): arrows move by step (Shift: ten steps),
+ * Home and End go to the ends; right to left, Left moves toward the end */
+float cui__slider_keys(cui_ctx *ui, float t, float step, bool rtl);
+/* gradient pieces (cui_curves.c): a checkerboard cut to a rounded rectangle, and a ramp of
+ * stops drawn as cui_gradient_eval colors it, its ends rounded by rad */
+void cui__draw_checker(cui_ctx *ui, cui_rect r, float rad, float cell, cui_color light, cui_color dark);
+void cui__draw_gradient_ramp(cui_ctx *ui, cui_rect r, float rad, const cui_gradient_stop *stops, int n);
+/* a dashed rounded rectangle, the dashes running on round the corners (cui_pickers.c) */
+void cui__draw_dashed_rrect(cui_ctx *ui, cui_rect r, float rad, cui_color c, float th, float dash, float gap);
+/* chart annotations (cui_instrument.c): drawn by every chart that takes them */
+void cui__paint_annotations(cui_ctx *ui, const cui_chart_annotation *a, int n, cui_rect plot, double x0, double x1,
+                            double y0, double y1, float label_top, bool gutter);
+cui_chart_annotation *cui__copy_annotations(cui_ctx *ui, const cui_chart_annotation *a, int n);
+/* a dashed hairline from x0 to x1 at y: `dash` points drawn every `period` (cui_instrument.c) */
+void cui__draw_hdash(cui_ctx *ui, float x0, float x1, float y, float dash, float period, cui_color c);
+/* Time rulers (flame graph, trace view, waterfall), shared by the three views
+ * in cui_flame.c and checked by the tests: cui__fl_step gives the tick step for
+ * at least `raw` seconds, cui__fl_tick the label of a tick `step` apart
+ * ("4 min 50 s"), cui__fl_dur a duration in its unit ("12.4 ms", "1.50 min"),
+ * cui__fl_ruler_step the step a ruler `pw` points wide uses for t0..t1, wide
+ * enough for every label in view, and cui__fl_tick_x where tick q is drawn. */
+double cui__fl_step(double raw);
+double cui__fl_ruler_step(cui_ctx *ui, float pw, double t0, double t1, double origin);
+float cui__fl_tick_x(float px0, double k, double t0, double origin, double q, double step);
+const char *cui__fl_tick(cui_ctx *ui, double t, double step);
+const char *cui__fl_dur(cui_ctx *ui, double s);
+void cui__scroll_end_ex(cui_ctx *ui);
+/* moves scroll area scroll_id the least that shows row_id, both from last frame's layout;
+ * cui_scroll_reveal by id (cui_widgets.c) */
+void cui__scroll_reveal(cui_ctx *ui, cui_id scroll_id, cui_id row_id);
+/* the data grid's rows, for the tree table that drags over them (cui_grid.c): where grid `id`
+ * put its rows last frame (the area under the sticky header, and the top of row 0, which moves
+ * with the scroll), false before its first layout; a nudge of its scroll target; and whether
+ * the row cui_data_grid_row just began was pressed with button this frame */
+bool cui__grid_rows_at(cui_ctx *ui, cui_id id, cui_rect *view, float *row0_top);
+void cui__grid_scroll_by(cui_ctx *ui, cui_id id, float dy);
+bool cui__grid_row_pressed(cui_ctx *ui, cui_mouse_button button);
+cui_color cui__backdrop(cui_ctx *ui);
+
+void cui__paint_scrollbars(cui_ctx *ui, cui_node *n, cui_rect clip);
+void cui__paint_nav_highlight(cui_ctx *ui, cui_node *n, void *data);
+void cui__paint_focus_ring_node(cui_ctx *ui, cui_node *n, void *data);
+void cui__paint_sheen(cui_ctx *ui, cui_node *n, void *data);   /* data: float strength or NULL */
+
+/* paint data helpers */
+#define CUI_PAINT_DATA(ui, type) ((type *)cui__frame_alloc((ui), sizeof(type)))
+
+cui_color cui__legible(cui_color fg, cui_color bg, float ratio);
+cui_color cui__shade(cui_color c, float L, float chroma_mul);
+
+/* ---- text editing primitives (cui_textedit.c), shared with the code editor ---- */
+#define CUI__UNDO_MAX 48
+typedef struct cui_edit_state {
+    int cursor, anchor;        /* byte offsets */
+    float scroll_x, scroll_y;  /* single line horizontal scroll / textarea vertical */
+    float preferred_x;         /* for up/down in text areas */
+    bool selecting;
+    float hover, focus;
+    char *undo[CUI__UNDO_MAX];
+    int undo_cursor[CUI__UNDO_MAX];
+    int undo_count, undo_pos;
+    double last_edit;
+    int last_kind;
+    int last_cursor;
+    bool had_focus;
+    bool init;
+    bool show_password;
+} cui_edit_state;
+void cui__edit_attach(cui_ctx *ui, cui_id id, cui_edit_state *e);   /* once per state: the history is freed with it */
+/* Snapshot before an edit. kind: 1 insert, 2 delete, 3 other; edits of the
+ * same kind at the caret within a second merge into one step. */
+void cui__edit_undo_push(cui_ctx *ui, cui_edit_state *e, const char *buf, int kind);
+bool cui__edit_undo_step(cui_ctx *ui, cui_edit_state *e, char *buf, size_t cap, bool redo);
+int cui__edit_insert(char *buf, int *len, size_t cap, int pos, const char *s, int n);   /* drops '\r'; what fits, never half a code point */
+void cui__edit_delete(char *buf, int *len, int a, int b);
+bool cui__edit_is_word(unsigned char c);
+int cui__edit_word_left(const char *s, int pos);
+int cui__edit_word_right(const char *s, int len, int pos);
+
+/* ---- syntax highlighting (cui_code.c): the code block, the code editor and the diff viewer ---- */
+typedef struct {
+    const char *const *kw; const char *const *types; const char *line_comment, *line_comment2;
+    bool block_comments, hash_preproc, backtick, no_caps_types, plain;
+    bool fold_case;                    /* keywords, types and constants match in any case (SQL) */
+    const char *const *consts;         /* more words colored as constants, or NULL */
+} cui__lang;
+typedef struct { int start, len; uint8_t kind; } cui__tok;
+#define CUI__TK_COUNT 10   /* token kinds; colors from cui__syntax_colors */
+cui__lang cui__lang_for(const char *lang);
+/* Tokenize one line. *in_block carries an open block comment between lines. */
+int cui__tokenize(const cui__lang *L, bool json, const char *s, int n, bool *in_block, cui__tok *out, int cap);
+/* The same, by language name as the code block takes it ("c", "py", "json"...). */
+int cui__tokenize_lang(const char *lang, const char *s, int n, bool *in_block, cui__tok *out, int cap);
+void cui__syntax_colors(cui_ctx *ui, cui_color *c);   /* CUI__TK_COUNT colors, by token kind */
+/* One line of code in the mono font at (x, y), highlighted when lang is set, stopping past
+ * max_x; *in_block carries a block comment to the next line. Returns the x after it. */
+float cui__draw_code_line(cui_ctx *ui, const char *lang, const char *s, int n, bool *in_block, float x, float y, float size, const cui_color *colors, float max_x);
+
+#endif /* CUI_INTERNAL_H */

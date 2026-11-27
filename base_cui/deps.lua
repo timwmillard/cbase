@@ -9,12 +9,16 @@ return {
         files = { 'lib/base.h' },
     },
     {
-        'https://github.com/yappologistic/CUI/releases/download/v1.5.0/cui_single.h',
-        name = 'cui-single',
-        subdir = '',
-        flatten = true,
-    },
-    {
+        -- source tree built with its own CMake (add_subdirectory), needed for the Metal renderer
         'yappologistic/CUI',
+        tag = 'v1.5.0',
+        files = {
+            'CMakeLists.txt',
+            'LICENSE',
+            'cmake/**',
+            'include/**',
+            'src/**',
+            'third_party/**',
+        },
     },
 }

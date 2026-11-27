@@ -1,8 +1,12 @@
-#include "cui_single.h"
+#include <cui/cui.h>
+#include <cui/cui_app.h>
 
 int main(void) {
    cui_app *app = cui_app_create(
-       &(cui_app_desc){.title = "Hello", .width = 420, .height = 300});
+       &(cui_app_desc){.title = "Hello",
+                      .width = 420,
+                      .height = 300,
+                      .renderer = CUI_RENDERER_GPU});
    if (!app)
       return 1;
    bool notifications = true;
