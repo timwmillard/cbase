@@ -244,6 +244,15 @@ static void run_open(ws *w, int *code, char *reason, char *err, size_t cap) {
          err[0] = '\0';
          break; // close handshake complete
       }
+      if (o.pos == o.len) {
+         // Frames queued while this batch was going out: their wake-up may
+         // already have been used, so don't wait for another.
+         net_mutex_lock(&w->lock);
+         bool more = w->out_len > 0;
+         net_mutex_unlock(&w->lock);
+         if (more)
+            continue;
+      }
 
       int64_t deadline = ping_every > 0 ? next_ping : -1;
       if (sent_close && (deadline < 0 || close_deadline < deadline))

@@ -78,15 +78,22 @@ linalg_test: linalg_test.c linalg.h
 
 # Run tests
 
-test: base_test map_test utf8_test linalg_test
+test: base_test map_test utf8_test linalg_test net-test
 	./base_test
 	./map_test
 	./utf8_test
 	./linalg_test
 
+# net (webc): local sockets only, about 15 s; see net_test/Makefile
+net-test:
+	$(MAKE) -C net_test test
+
+.PHONY: net-test
+
 # Clean
 
 clean:
 	rm -f base_test map_test utf8_test utf8_gen linalg_gen linalg_test linalg.h linalg_test.c
+	$(MAKE) -C net_test clean
 
 

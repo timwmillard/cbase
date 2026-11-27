@@ -20,10 +20,12 @@ a server socket is out of scope.
 
 ## 0. Setup
 
+- [x] Import the tests into `lib/net_test/` (`net_proto_test.c`,
+      `http_test.c`, and `ws_echo_test.c` grown into `ws_test.c` with the
+      edge cases); `make -C lib net-test`, also `tsan` / `asan` there.
 - [ ] Import the rest from `~/dev/x/chat`: `webc.manifest`,
-      `webc_preamble.h`, `HTTP_H.md`, `WS_H.md`, and the tests
-      (`net_proto_test.c`, `http_test.c`, `ws_echo_test.c`, `webc_test.c`,
-      `http_check.c`, `ws_check.c`).
+      `webc_preamble.h`, `HTTP_H.md`, `WS_H.md`, and `webc_test.c`,
+      `http_check.c`, `ws_check.c`.
 - [ ] Update the manifest paths for `lib/net/` → output `lib/webc.h`.
 - [ ] `make webc.h` target in `lib/Makefile` using `tool/singleh`; commit the
       generated header.
