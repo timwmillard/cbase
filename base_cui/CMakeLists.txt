@@ -6,9 +6,9 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # CUI build options (https://yappologistic.github.io/CUI/#/guide/getting-started)
-# if(APPLE)
-#     set(CUI_METAL ON CACHE BOOL "macOS: add the Metal renderer (cui_gpu_*)" FORCE)
-# endif()
+if(APPLE)
+    set(CUI_METAL ON CACHE BOOL "macOS: add the Metal renderer (cui_gpu_*)" FORCE)
+endif()
 add_subdirectory(deps/CUI)
 
 add_executable(${PROJECT_NAME}
