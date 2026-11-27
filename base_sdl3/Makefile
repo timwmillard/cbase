@@ -10,7 +10,7 @@ build:
 	@cmake -B build
 
 run: all
-	@./build/base_sdl3
+	@./build/app
 
 clean:
 	@rm -rf build

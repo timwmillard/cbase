@@ -12,7 +12,7 @@ add_subdirectory(deps/ecewo-static)
 add_subdirectory(deps/ecewo-fs)
 add_subdirectory(deps/ecewo)
 
-project(ecewo_demo C)
+project(app C)
 set(CMAKE_C_STANDARD 11)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)

@@ -10,7 +10,7 @@ build:
 	@cmake -B build
 
 run: all
-	@./build/sokol_demo
+	@./build/app
 
 clean:
 	@rm -rf build
